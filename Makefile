@@ -1,6 +1,6 @@
 .DEFAULT_GOAL := help
 
-.PHONY = help config ps up stop down down-volumes restart logs
+.PHONY = help config ps up stop down down-volumes restart logs smoke
 
 COMPOSE := docker compose
 
