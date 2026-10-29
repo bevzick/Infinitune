@@ -17,6 +17,7 @@ help:
 	@echo "    -volumes  - Stop and remove containers, networks and volumes"
 	@echo "  restart     - Restart running containers"
 	@echo "  logs        - Follow logs from all containers"
+	@echo "  smoke       - Run basic service health checks"
 
 config:
 	@$(COMPOSE) config --quiet
@@ -41,3 +42,6 @@ restart:
 
 logs:
 	@$(COMPOSE) logs --follow
+
+smoke:
+	@bash scripts/smoke.sh
