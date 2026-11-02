@@ -18,5 +18,7 @@ COPY --from=build /out/auth-service /auth-service
 
 USER 65532:65532
 EXPOSE 8080
+HEALTHCHECK --interval=10s --timeout=5s --start-period=10s --retries=5 \
+    CMD ["/auth-service", "healthcheck"]
 
 ENTRYPOINT ["/auth-service"]
