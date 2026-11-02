@@ -27,7 +27,7 @@ config:
 ps:
 	@$(COMPOSE) ps
 
-up:
+up: auth-migrate-up
 	@$(COMPOSE) up --detach
 
 stop:
