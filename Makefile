@@ -1,8 +1,8 @@
 .DEFAULT_GOAL := help
 
-.PHONY = help config ps up stop down down-volumes restart logs smoke
+.PHONY: help config ps up stop down down-volumes restart logs smoke auth-migrate-up auth-migrate-version
 
-COMPOSE := docker compose
+COMPOSE := docker compose -f compose.yml -f compose.auth.yml
 
 help:
 	@echo "Usage: make <target>"
@@ -18,6 +18,8 @@ help:
 	@echo "  restart     - Restart running containers"
 	@echo "  logs        - Follow logs from all containers"
 	@echo "  smoke       - Run basic service health checks"
+	@echo "  auth-migrate-up      - Apply pending Auth database migrations"
+	@echo "  auth-migrate-version - Show the current Auth migration version"
 
 config:
 	@$(COMPOSE) config --quiet
@@ -45,3 +47,9 @@ logs:
 
 smoke:
 	@bash scripts/smoke.sh
+
+auth-migrate-up:
+	@$(COMPOSE) --profile tools run --rm auth-migrate up
+
+auth-migrate-version:
+	@$(COMPOSE) --profile tools run --rm auth-migrate version
