@@ -30,6 +30,7 @@ type RefreshSessions interface {
 	Create(context.Context, uuid.UUID) (session.IssuedRefreshToken, error)
 	Find(context.Context, string) (session.RefreshSession, error)
 	Rotate(context.Context, string) (session.IssuedRefreshToken, error)
+	Revoke(context.Context, string) (bool, error)
 }
 
 type Dependencies struct {

@@ -44,6 +44,7 @@ type Store interface {
 	Save(context.Context, TokenHash, RefreshSession, time.Duration) error
 	ByTokenHash(context.Context, TokenHash) (RefreshSession, error)
 	Rotate(context.Context, TokenHash, TokenHash) (RefreshSession, error)
+	Revoke(context.Context, TokenHash) (bool, error)
 }
 
 type Manager struct {
@@ -149,6 +150,23 @@ func (m *Manager) Rotate(ctx context.Context, rawToken string) (IssuedRefreshTok
 	}
 
 	return IssuedRefreshToken{}, errors.New("rotate refresh session: token collision retry limit reached")
+}
+
+func (m *Manager) Revoke(ctx context.Context, rawToken string) (bool, error) {
+	tokenHash, err := hashRefreshToken(rawToken)
+	if err != nil {
+		return false, ErrInvalidRefreshToken
+	}
+	if err = ctx.Err(); err != nil {
+		return false, err
+	}
+
+	revoked, err := m.store.Revoke(ctx, tokenHash)
+	if err != nil {
+		return false, fmt.Errorf("revoke refresh session: %w", err)
+	}
+
+	return revoked, nil
 }
 
 func hashRefreshToken(rawToken string) (TokenHash, error) {

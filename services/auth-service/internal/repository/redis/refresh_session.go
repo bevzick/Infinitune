@@ -10,7 +10,7 @@ import (
 
 	"github.com/bevzick/Infinitune/services/auth-service/internal/session"
 	"github.com/google/uuid"
-	redisclient "github.com/redis/go-redis/v9"
+	redis_client "github.com/redis/go-redis/v9"
 )
 
 const refreshSessionKeyPrefix = "auth:refresh:"
@@ -62,14 +62,50 @@ redis.call("SET", KEYS[3], decoded.id, "PX", remainingTTL)
 return {1, currentValue}
 `
 
+const revokeRefreshSessionScriptSource = `
+local activeValue = redis.call("GET", KEYS[1])
+if activeValue then
+    local remainingTTL = redis.call("PTTL", KEYS[1])
+    local decoded = cjson.decode(activeValue)
+    local sessionKey = ARGV[1] .. decoded.id
+    local currentTokenKey = redis.call("GET", sessionKey)
+    if currentTokenKey then
+        redis.call("DEL", currentTokenKey)
+    end
+    redis.call("DEL", sessionKey)
+    redis.call("DEL", KEYS[1])
+    if remainingTTL > 0 then
+        redis.call("SET", KEYS[2], decoded.id, "PX", remainingTTL)
+    end
+    return 1
+end
+
+local reusedSessionID = redis.call("GET", KEYS[2])
+if not reusedSessionID then
+    return 0
+end
+
+local sessionKey = ARGV[1] .. reusedSessionID
+local currentTokenKey = redis.call("GET", sessionKey)
+if currentTokenKey then
+    redis.call("DEL", currentTokenKey)
+    redis.call("DEL", sessionKey)
+    return 1
+end
+
+redis.call("DEL", sessionKey)
+return 0
+`
+
 var (
-	createRefreshSessionScript = redisclient.NewScript(createRefreshSessionScriptSource)
-	rotateRefreshSessionScript = redisclient.NewScript(rotateRefreshSessionScriptSource)
+	createRefreshSessionScript = redis_client.NewScript(createRefreshSessionScriptSource)
+	rotateRefreshSessionScript = redis_client.NewScript(rotateRefreshSessionScriptSource)
+	revokeRefreshSessionScript = redis_client.NewScript(revokeRefreshSessionScriptSource)
 )
 
 type refreshSessionCommands interface {
-	redisclient.Scripter
-	Get(context.Context, string) *redisclient.StringCmd
+	redis_client.Scripter
+	Get(context.Context, string) *redis_client.StringCmd
 }
 
 type RefreshSessionRepository struct {
@@ -125,7 +161,7 @@ func (r *RefreshSessionRepository) ByTokenHash(
 	tokenHash session.TokenHash,
 ) (session.RefreshSession, error) {
 	payload, err := r.client.Get(ctx, refreshSessionKey(tokenHash)).Bytes()
-	if errors.Is(err, redisclient.Nil) {
+	if errors.Is(err, redis_client.Nil) {
 		return session.RefreshSession{}, session.ErrRefreshSessionNotFound
 	}
 	if err != nil {
@@ -200,6 +236,29 @@ func (r *RefreshSessionRepository) Rotate(
 		return decodeRefreshSession([]byte(payload))
 	default:
 		return session.RefreshSession{}, fmt.Errorf("rotate refresh session: unknown script status %d", status)
+	}
+}
+
+func (r *RefreshSessionRepository) Revoke(
+	ctx context.Context,
+	tokenHash session.TokenHash,
+) (bool, error) {
+	revoked, err := revokeRefreshSessionScript.Run(
+		ctx,
+		r.client,
+		[]string{refreshSessionKey(tokenHash), usedRefreshTokenKey(tokenHash)},
+		refreshSessionPointerKeyPrefix(),
+	).Int()
+	if err != nil {
+		return false, fmt.Errorf("revoke refresh session: %w", err)
+	}
+	switch revoked {
+	case 0:
+		return false, nil
+	case 1:
+		return true, nil
+	default:
+		return false, fmt.Errorf("revoke refresh session: unknown script status %d", revoked)
 	}
 }
 
