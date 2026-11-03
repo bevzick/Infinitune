@@ -7,12 +7,15 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_healthy
     environment:
       AUTH_HTTP_HOST: 0.0.0.0
       AUTH_HTTP_PORT: 8080
       AUTH_PASSWORD_MEMORY_KIB: ${AUTH_PASSWORD_MEMORY_KIB:-65536}
       AUTH_PASSWORD_ITERATIONS: ${AUTH_PASSWORD_ITERATIONS:-3}
       AUTH_PASSWORD_PARALLELISM: ${AUTH_PASSWORD_PARALLELISM:-4}
+      AUTH_REFRESH_TOKEN_TTL: ${AUTH_REFRESH_TOKEN_TTL:-720h}
       AUTH_JWT_ISSUER: ${AUTH_JWT_ISSUER:-infinitune-auth}
       AUTH_JWT_AUDIENCE: ${AUTH_JWT_AUDIENCE:-infinitune-api}
       AUTH_JWT_ACCESS_TTL: ${AUTH_JWT_ACCESS_TTL:-15m}
@@ -23,6 +26,10 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER is required}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
       POSTGRES_AUTH_DB: ${POSTGRES_AUTH_DB:-auth_db}
+      REDIS_HOST: ${REDIS_HOST:-redis}
+      REDIS_PORT: ${REDIS_PORT:-6379}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+      REDIS_AUTH_DB: ${REDIS_AUTH_DB:-0}
     expose:
       - "8080"
     networks:

@@ -19,6 +19,8 @@ import (
 	"github.com/bevzick/Infinitune/services/auth-service/internal/httpapi"
 	"github.com/bevzick/Infinitune/services/auth-service/internal/password"
 	postgres_repository "github.com/bevzick/Infinitune/services/auth-service/internal/repository/postgres"
+	redis_repository "github.com/bevzick/Infinitune/services/auth-service/internal/repository/redis"
+	"github.com/bevzick/Infinitune/services/auth-service/internal/session"
 	"github.com/bevzick/Infinitune/services/auth-service/internal/token"
 )
 
@@ -48,12 +50,31 @@ func main() {
 
 	startupCtx, startupCancel := context.WithTimeout(context.Background(), startupTimeout)
 	databasePool, err := database.Open(startupCtx, cfg.Database)
-	startupCancel()
 	if err != nil {
+		startupCancel()
 		logger.Error("failed to connect to postgres", "error", err)
 		os.Exit(1)
 	}
 	defer databasePool.Close()
+	redisClient, err := database.OpenRedis(startupCtx, cfg.Redis)
+	startupCancel()
+	if err != nil {
+		logger.Error("failed to connect to redis", "error", err)
+		os.Exit(1)
+	}
+	defer func() {
+		if closeErr := redisClient.Close(); closeErr != nil {
+			logger.Error("failed to close redis client", "error", closeErr)
+		}
+	}()
+	refreshSessions, err := session.NewManager(
+		redis_repository.NewRefreshSessionRepository(redisClient),
+		cfg.RefreshTTL,
+	)
+	if err != nil {
+		logger.Error("failed to initialize refresh sessions", "error", err)
+		os.Exit(1)
+	}
 	passwordHasher, err := password.NewArgon2ID(cfg.Password)
 	if err != nil {
 		logger.Error("failed to initialize password hasher", "error", err)
@@ -82,8 +103,10 @@ func main() {
 		Addr: cfg.HTTPAddress,
 		Handler: httpapi.NewRouter(httpapi.Dependencies{
 			Database:     databasePool,
+			Redis:        redisClient,
 			Registration: registrationService,
 			Login:        loginService,
+			Sessions:     refreshSessions,
 			Logger:       logger,
 		}),
 		ReadHeaderTimeout: readHeaderTimeout,

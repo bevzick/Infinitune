@@ -7,12 +7,14 @@ import (
 	"time"
 
 	"github.com/bevzick/Infinitune/services/auth-service/internal/auth"
+	"github.com/bevzick/Infinitune/services/auth-service/internal/session"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 )
 
 const healthcheckTimeout = 2 * time.Second
 
-type DatabaseHealth interface {
+type HealthCheck interface {
 	Ping(context.Context) error
 }
 
@@ -24,10 +26,17 @@ type Login interface {
 	Login(context.Context, auth.LoginInput) (auth.AccessToken, error)
 }
 
+type RefreshSessions interface {
+	Create(context.Context, uuid.UUID) (session.IssuedRefreshToken, error)
+	Find(context.Context, string) (session.RefreshSession, error)
+}
+
 type Dependencies struct {
-	Database     DatabaseHealth
+	Database     HealthCheck
+	Redis        HealthCheck
 	Registration Registration
 	Login        Login
+	Sessions     RefreshSessions
 	Logger       *slog.Logger
 }
 
@@ -36,21 +45,23 @@ func NewRouter(dependencies Dependencies) http.Handler {
 
 	router := gin.New()
 	router.Use(gin.Logger(), gin.Recovery())
-	router.GET("/health", health(dependencies.Database))
+	router.GET("/health", health(dependencies.Database, dependencies.Redis))
 	router.POST("/v1/auth/register", register(dependencies.Registration, dependencies.Logger))
 	router.POST("/v1/auth/login", login(dependencies.Login, dependencies.Logger))
 
 	return router
 }
 
-func health(database DatabaseHealth) gin.HandlerFunc {
+func health(checks ...HealthCheck) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		ctx, cancel := context.WithTimeout(c.Request.Context(), healthcheckTimeout)
 		defer cancel()
 
-		if err := database.Ping(ctx); err != nil {
-			c.JSON(http.StatusServiceUnavailable, gin.H{"status": "unavailable"})
-			return
+		for _, check := range checks {
+			if err := check.Ping(ctx); err != nil {
+				c.JSON(http.StatusServiceUnavailable, gin.H{"status": "unavailable"})
+				return
+			}
 		}
 
 		c.JSON(http.StatusOK, gin.H{"status": "ok"})

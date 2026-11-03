@@ -17,17 +17,24 @@ const (
 	defaultHTTPPort     = "8080"
 	defaultPostgresHost = "127.0.0.1"
 	defaultPostgresPort = "5432"
+	defaultRedisHost    = "127.0.0.1"
+	defaultRedisPort    = "6379"
 	defaultJWTIssuer    = "infinitune-auth"
 	defaultJWTAudience  = "infinitune-api"
 	defaultJWTKeyID     = "auth-key-1"
 	defaultJWTAccessTTL = 15 * time.Minute
+	defaultRefreshTTL   = 30 * 24 * time.Hour
+	minimumRefreshTTL   = time.Hour
+	maximumRefreshTTL   = 90 * 24 * time.Hour
 )
 
 type Config struct {
 	HTTPAddress string
 	Database    database.Config
+	Redis       database.RedisConfig
 	Password    password.Params
 	Token       token.Config
+	RefreshTTL  time.Duration
 }
 
 func Load() (Config, error) {
@@ -42,6 +49,10 @@ func Load() (Config, error) {
 	if err != nil {
 		return Config{}, err
 	}
+	redisConfig, err := loadRedisConfig()
+	if err != nil {
+		return Config{}, err
+	}
 	passwordParams, err := loadPasswordParams()
 	if err != nil {
 		return Config{}, err
@@ -50,13 +61,54 @@ func Load() (Config, error) {
 	if err != nil {
 		return Config{}, err
 	}
+	refreshTTL, err := loadRefreshTokenTTL()
+	if err != nil {
+		return Config{}, err
+	}
 
 	return Config{
 		HTTPAddress: net.JoinHostPort(host, port),
 		Database:    databaseConfig,
+		Redis:       redisConfig,
 		Password:    passwordParams,
 		Token:       tokenConfig,
+		RefreshTTL:  refreshTTL,
 	}, nil
+}
+
+func loadRedisConfig() (database.RedisConfig, error) {
+	port, err := parsePort("REDIS_PORT", envOrDefault("REDIS_PORT", defaultRedisPort))
+	if err != nil {
+		return database.RedisConfig{}, err
+	}
+	databaseNumber, err := parseUintEnv("REDIS_AUTH_DB", 0, 31)
+	if err != nil {
+		return database.RedisConfig{}, err
+	}
+
+	return database.RedisConfig{
+		Host:     envOrDefault("REDIS_HOST", defaultRedisHost),
+		Port:     port,
+		Password: envOrDefault("REDIS_PASSWORD", ""),
+		DB:       int(databaseNumber),
+	}, nil
+}
+
+func loadRefreshTokenTTL() (time.Duration, error) {
+	value := envOrDefault("AUTH_REFRESH_TOKEN_TTL", defaultRefreshTTL.String())
+	ttl, err := time.ParseDuration(value)
+	if err != nil {
+		return 0, fmt.Errorf("invalid AUTH_REFRESH_TOKEN_TTL %q: %w", value, err)
+	}
+	if ttl < minimumRefreshTTL || ttl > maximumRefreshTTL {
+		return 0, fmt.Errorf(
+			"AUTH_REFRESH_TOKEN_TTL must be between %s and %s",
+			minimumRefreshTTL,
+			maximumRefreshTTL,
+		)
+	}
+
+	return ttl, nil
 }
 
 func loadTokenConfig() (token.Config, error) {
