@@ -5,9 +5,11 @@ import (
 	"net"
 	"os"
 	"strconv"
+	"time"
 
 	"github.com/bevzick/Infinitune/services/auth-service/internal/database"
 	"github.com/bevzick/Infinitune/services/auth-service/internal/password"
+	"github.com/bevzick/Infinitune/services/auth-service/internal/token"
 )
 
 const (
@@ -15,12 +17,17 @@ const (
 	defaultHTTPPort     = "8080"
 	defaultPostgresHost = "127.0.0.1"
 	defaultPostgresPort = "5432"
+	defaultJWTIssuer    = "infinitune-auth"
+	defaultJWTAudience  = "infinitune-api"
+	defaultJWTKeyID     = "auth-key-1"
+	defaultJWTAccessTTL = 15 * time.Minute
 )
 
 type Config struct {
 	HTTPAddress string
 	Database    database.Config
 	Password    password.Params
+	Token       token.Config
 }
 
 func Load() (Config, error) {
@@ -39,11 +46,37 @@ func Load() (Config, error) {
 	if err != nil {
 		return Config{}, err
 	}
+	tokenConfig, err := loadTokenConfig()
+	if err != nil {
+		return Config{}, err
+	}
 
 	return Config{
 		HTTPAddress: net.JoinHostPort(host, port),
 		Database:    databaseConfig,
 		Password:    passwordParams,
+		Token:       tokenConfig,
+	}, nil
+}
+
+func loadTokenConfig() (token.Config, error) {
+	privateKey, err := requiredEnv("AUTH_JWT_PRIVATE_KEY_BASE64")
+	if err != nil {
+		return token.Config{}, err
+	}
+
+	ttlValue := envOrDefault("AUTH_JWT_ACCESS_TTL", defaultJWTAccessTTL.String())
+	ttl, err := time.ParseDuration(ttlValue)
+	if err != nil {
+		return token.Config{}, fmt.Errorf("invalid AUTH_JWT_ACCESS_TTL %q: %w", ttlValue, err)
+	}
+
+	return token.Config{
+		Issuer:           envOrDefault("AUTH_JWT_ISSUER", defaultJWTIssuer),
+		Audience:         envOrDefault("AUTH_JWT_AUDIENCE", defaultJWTAudience),
+		KeyID:            envOrDefault("AUTH_JWT_KEY_ID", defaultJWTKeyID),
+		AccessTokenTTL:   ttl,
+		PrivateKeyBase64: privateKey,
 	}, nil
 }
 

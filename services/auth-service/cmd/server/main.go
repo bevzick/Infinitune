@@ -13,9 +13,13 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/bevzick/Infinitune/services/auth-service/internal/auth"
 	"github.com/bevzick/Infinitune/services/auth-service/internal/config"
 	"github.com/bevzick/Infinitune/services/auth-service/internal/database"
 	"github.com/bevzick/Infinitune/services/auth-service/internal/httpapi"
+	"github.com/bevzick/Infinitune/services/auth-service/internal/password"
+	postgres_repository "github.com/bevzick/Infinitune/services/auth-service/internal/repository/postgres"
+	"github.com/bevzick/Infinitune/services/auth-service/internal/token"
 )
 
 const (
@@ -50,10 +54,38 @@ func main() {
 		os.Exit(1)
 	}
 	defer databasePool.Close()
+	passwordHasher, err := password.NewArgon2ID(cfg.Password)
+	if err != nil {
+		logger.Error("failed to initialize password hasher", "error", err)
+		os.Exit(1)
+	}
+	registrationService := auth.NewRegistrationService(
+		postgres_repository.NewRegistrationRepository(databasePool),
+		passwordHasher,
+	)
+	tokenIssuer, err := token.NewEd25519Issuer(cfg.Token)
+	if err != nil {
+		logger.Error("failed to initialize JWT issuer", "error", err)
+		os.Exit(1)
+	}
+	loginService, err := auth.NewLoginService(
+		postgres_repository.NewLoginRepository(databasePool),
+		passwordHasher,
+		tokenIssuer,
+	)
+	if err != nil {
+		logger.Error("failed to initialize login service", "error", err)
+		os.Exit(1)
+	}
 
 	server := &http.Server{
-		Addr:              cfg.HTTPAddress,
-		Handler:           httpapi.NewRouter(databasePool),
+		Addr: cfg.HTTPAddress,
+		Handler: httpapi.NewRouter(httpapi.Dependencies{
+			Database:     databasePool,
+			Registration: registrationService,
+			Login:        loginService,
+			Logger:       logger,
+		}),
 		ReadHeaderTimeout: readHeaderTimeout,
 	}
 

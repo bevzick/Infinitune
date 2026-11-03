@@ -2,9 +2,11 @@ package httpapi
 
 import (
 	"context"
+	"log/slog"
 	"net/http"
 	"time"
 
+	"github.com/bevzick/Infinitune/services/auth-service/internal/auth"
 	"github.com/gin-gonic/gin"
 )
 
@@ -14,12 +16,29 @@ type DatabaseHealth interface {
 	Ping(context.Context) error
 }
 
-func NewRouter(database DatabaseHealth) http.Handler {
+type Registration interface {
+	Register(context.Context, auth.RegisterInput) (auth.RegistrationResult, error)
+}
+
+type Login interface {
+	Login(context.Context, auth.LoginInput) (auth.AccessToken, error)
+}
+
+type Dependencies struct {
+	Database     DatabaseHealth
+	Registration Registration
+	Login        Login
+	Logger       *slog.Logger
+}
+
+func NewRouter(dependencies Dependencies) http.Handler {
 	gin.SetMode(gin.ReleaseMode)
 
 	router := gin.New()
 	router.Use(gin.Logger(), gin.Recovery())
-	router.GET("/health", health(database))
+	router.GET("/health", health(dependencies.Database))
+	router.POST("/v1/auth/register", register(dependencies.Registration, dependencies.Logger))
+	router.POST("/v1/auth/login", login(dependencies.Login, dependencies.Logger))
 
 	return router
 }
