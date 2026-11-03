@@ -30,3 +30,10 @@ type Role struct {
 	Name        string
 	Description *string
 }
+
+const (
+	RoleListener  = "listener"
+	RoleAdmin     = "admin"
+	RoleModerator = "moderator"
+	RoleCreator   = "creator"
+)
