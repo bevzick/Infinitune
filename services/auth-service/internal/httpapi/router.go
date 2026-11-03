@@ -38,6 +38,7 @@ func NewRouter(dependencies Dependencies) http.Handler {
 	router.Use(gin.Logger(), gin.Recovery())
 	router.GET("/health", health(dependencies.Database))
 	router.POST("/v1/auth/register", register(dependencies.Registration, dependencies.Logger))
+	router.POST("/v1/auth/login", login(dependencies.Login, dependencies.Logger))
 
 	return router
 }

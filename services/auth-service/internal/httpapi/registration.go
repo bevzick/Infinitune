@@ -2,11 +2,8 @@ package httpapi
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
-	"io"
 	"log/slog"
-	"mime"
 	"net/http"
 	"time"
 
@@ -14,8 +11,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
-
-const maximumRegistrationBodySize = 16 * 1024
 
 type registrationRequest struct {
 	Email    string `json:"email"`
@@ -57,28 +52,8 @@ func register(registration Registration, logger *slog.Logger) gin.HandlerFunc {
 }
 
 func decodeRegistrationRequest(c *gin.Context) (registrationRequest, bool) {
-	mediaType, _, err := mime.ParseMediaType(c.GetHeader("Content-Type"))
-	if err != nil || mediaType != "application/json" {
-		writeError(
-			c,
-			http.StatusUnsupportedMediaType,
-			"unsupported_media_type",
-			"Content-Type must be application/json",
-		)
-		return registrationRequest{}, false
-	}
-
-	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, maximumRegistrationBodySize)
-	decoder := json.NewDecoder(c.Request.Body)
-	decoder.DisallowUnknownFields()
-
 	var request registrationRequest
-	if err = decoder.Decode(&request); err != nil {
-		writeError(c, http.StatusBadRequest, "invalid_request", "Request body must contain valid JSON")
-		return registrationRequest{}, false
-	}
-	if err = decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
-		writeError(c, http.StatusBadRequest, "invalid_request", "Request body must contain one JSON object")
+	if !decodeJSON(c, &request) {
 		return registrationRequest{}, false
 	}
 
