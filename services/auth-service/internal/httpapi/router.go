@@ -20,9 +20,14 @@ type Registration interface {
 	Register(context.Context, auth.RegisterInput) (auth.RegistrationResult, error)
 }
 
+type Login interface {
+	Login(context.Context, auth.LoginInput) (auth.AccessToken, error)
+}
+
 type Dependencies struct {
 	Database     DatabaseHealth
 	Registration Registration
+	Login        Login
 	Logger       *slog.Logger
 }
 
