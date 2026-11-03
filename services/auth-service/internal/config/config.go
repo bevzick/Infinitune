@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	"github.com/bevzick/Infinitune/services/auth-service/internal/database"
+	"github.com/bevzick/Infinitune/services/auth-service/internal/password"
 )
 
 const (
@@ -19,6 +20,7 @@ const (
 type Config struct {
 	HTTPAddress string
 	Database    database.Config
+	Password    password.Params
 }
 
 func Load() (Config, error) {
@@ -33,10 +35,15 @@ func Load() (Config, error) {
 	if err != nil {
 		return Config{}, err
 	}
+	passwordParams, err := loadPasswordParams()
+	if err != nil {
+		return Config{}, err
+	}
 
 	return Config{
 		HTTPAddress: net.JoinHostPort(host, port),
 		Database:    databaseConfig,
+		Password:    passwordParams,
 	}, nil
 }
 
@@ -83,6 +90,42 @@ func requiredEnv(key string) (string, error) {
 	}
 
 	return value, nil
+}
+
+func loadPasswordParams() (password.Params, error) {
+	params := password.DefaultParams()
+
+	memory, err := parseUintEnv("AUTH_PASSWORD_MEMORY_KIB", uint64(params.MemoryKiB), 32)
+	if err != nil {
+		return password.Params{}, err
+	}
+	iterations, err := parseUintEnv("AUTH_PASSWORD_ITERATIONS", uint64(params.Iterations), 32)
+	if err != nil {
+		return password.Params{}, err
+	}
+	parallelism, err := parseUintEnv("AUTH_PASSWORD_PARALLELISM", uint64(params.Parallelism), 8)
+	if err != nil {
+		return password.Params{}, err
+	}
+
+	params.MemoryKiB = uint32(memory)
+	params.Iterations = uint32(iterations)
+	params.Parallelism = uint8(parallelism)
+	if err = params.Validate(); err != nil {
+		return password.Params{}, fmt.Errorf("invalid password hashing configuration: %w", err)
+	}
+
+	return params, nil
+}
+
+func parseUintEnv(key string, fallback uint64, bitSize int) (uint64, error) {
+	value := envOrDefault(key, strconv.FormatUint(fallback, 10))
+	parsed, err := strconv.ParseUint(value, 10, bitSize)
+	if err != nil {
+		return 0, fmt.Errorf("invalid %s %q: expected an unsigned integer", key, value)
+	}
+
+	return parsed, nil
 }
 
 func parsePort(key, port string) (uint16, error) {
