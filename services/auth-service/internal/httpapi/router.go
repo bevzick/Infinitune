@@ -7,9 +7,7 @@ import (
 	"time"
 
 	"github.com/bevzick/Infinitune/services/auth-service/internal/auth"
-	"github.com/bevzick/Infinitune/services/auth-service/internal/session"
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 )
 
 const healthcheckTimeout = 2 * time.Second
@@ -23,14 +21,17 @@ type Registration interface {
 }
 
 type Login interface {
-	Login(context.Context, auth.LoginInput) (auth.AccessToken, error)
+	Login(context.Context, auth.LoginInput) (auth.SessionTokens, error)
 }
 
-type RefreshSessions interface {
-	Create(context.Context, uuid.UUID) (session.IssuedRefreshToken, error)
-	Find(context.Context, string) (session.RefreshSession, error)
-	Rotate(context.Context, string) (session.IssuedRefreshToken, error)
-	Revoke(context.Context, string) (bool, error)
+type Sessions interface {
+	Refresh(context.Context, string) (auth.SessionTokens, error)
+	Logout(context.Context, string) (bool, error)
+}
+
+type SessionCookieConfig struct {
+	Secure   bool
+	SameSite http.SameSite
 }
 
 type Dependencies struct {
@@ -38,7 +39,9 @@ type Dependencies struct {
 	Redis        HealthCheck
 	Registration Registration
 	Login        Login
-	Sessions     RefreshSessions
+	Sessions     Sessions
+	Cookies      SessionCookieConfig
+	Origins      []string
 	Logger       *slog.Logger
 }
 
@@ -46,10 +49,12 @@ func NewRouter(dependencies Dependencies) http.Handler {
 	gin.SetMode(gin.ReleaseMode)
 
 	router := gin.New()
-	router.Use(gin.Logger(), gin.Recovery())
+	router.Use(gin.Logger(), gin.Recovery(), cors(dependencies.Origins))
 	router.GET("/health", health(dependencies.Database, dependencies.Redis))
 	router.POST("/v1/auth/register", register(dependencies.Registration, dependencies.Logger))
-	router.POST("/v1/auth/login", login(dependencies.Login, dependencies.Logger))
+	router.POST("/v1/auth/login", login(dependencies.Login, dependencies.Cookies, dependencies.Logger))
+	router.POST("/v1/auth/refresh", refresh(dependencies.Sessions, dependencies.Cookies, dependencies.Logger))
+	router.POST("/v1/auth/logout", logout(dependencies.Sessions, dependencies.Cookies, dependencies.Logger))
 
 	return router
 }

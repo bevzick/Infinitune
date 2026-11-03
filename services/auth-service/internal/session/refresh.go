@@ -37,6 +37,7 @@ type RefreshSession struct {
 type IssuedRefreshToken struct {
 	Value     string
 	SessionID uuid.UUID
+	UserID    uuid.UUID
 	ExpiresAt time.Time
 }
 
@@ -98,6 +99,7 @@ func (m *Manager) Create(ctx context.Context, userID uuid.UUID) (IssuedRefreshTo
 	return IssuedRefreshToken{
 		Value:     base64.RawURLEncoding.EncodeToString(secret),
 		SessionID: sessionID,
+		UserID:    userID,
 		ExpiresAt: expiresAt,
 	}, nil
 }
@@ -145,6 +147,7 @@ func (m *Manager) Rotate(ctx context.Context, rawToken string) (IssuedRefreshTok
 		return IssuedRefreshToken{
 			Value:     base64.RawURLEncoding.EncodeToString(secret),
 			SessionID: refreshSession.ID,
+			UserID:    refreshSession.UserID,
 			ExpiresAt: refreshSession.ExpiresAt,
 		}, nil
 	}

@@ -93,11 +93,17 @@ func main() {
 		postgres_repository.NewLoginRepository(databasePool),
 		passwordHasher,
 		tokenIssuer,
+		refreshSessions,
 	)
 	if err != nil {
 		logger.Error("failed to initialize login service", "error", err)
 		os.Exit(1)
 	}
+	refreshService := auth.NewRefreshService(
+		postgres_repository.NewLoginRepository(databasePool),
+		tokenIssuer,
+		refreshSessions,
+	)
 
 	server := &http.Server{
 		Addr: cfg.HTTPAddress,
@@ -106,8 +112,13 @@ func main() {
 			Redis:        redisClient,
 			Registration: registrationService,
 			Login:        loginService,
-			Sessions:     refreshSessions,
-			Logger:       logger,
+			Sessions:     refreshService,
+			Cookies: httpapi.SessionCookieConfig{
+				Secure:   cfg.Cookie.Secure,
+				SameSite: cfg.Cookie.SameSite,
+			},
+			Origins: cfg.Origins,
+			Logger:  logger,
 		}),
 		ReadHeaderTimeout: readHeaderTimeout,
 	}
