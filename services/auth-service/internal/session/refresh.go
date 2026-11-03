@@ -13,12 +13,16 @@ import (
 	"github.com/google/uuid"
 )
 
-const refreshTokenBytes = 32
+const (
+	refreshTokenBytes       = 32
+	maximumCollisionRetries = 3
+)
 
 var (
 	ErrInvalidRefreshToken    = errors.New("invalid refresh token")
 	ErrRefreshSessionNotFound = errors.New("refresh session not found")
 	ErrRefreshTokenCollision  = errors.New("refresh token collision")
+	ErrRefreshTokenReuse      = errors.New("refresh token reuse detected")
 )
 
 type TokenHash [sha256.Size]byte
@@ -39,6 +43,7 @@ type IssuedRefreshToken struct {
 type Store interface {
 	Save(context.Context, TokenHash, RefreshSession, time.Duration) error
 	ByTokenHash(context.Context, TokenHash) (RefreshSession, error)
+	Rotate(context.Context, TokenHash, TokenHash) (RefreshSession, error)
 }
 
 type Manager struct {
@@ -48,8 +53,8 @@ type Manager struct {
 }
 
 func NewManager(store Store, ttl time.Duration) (*Manager, error) {
-	if ttl <= 0 {
-		return nil, errors.New("refresh token TTL must be positive")
+	if ttl < time.Millisecond {
+		return nil, errors.New("refresh token TTL must be at least one millisecond")
 	}
 
 	return &Manager{
@@ -97,12 +102,12 @@ func (m *Manager) Create(ctx context.Context, userID uuid.UUID) (IssuedRefreshTo
 }
 
 func (m *Manager) Find(ctx context.Context, rawToken string) (RefreshSession, error) {
-	secret, err := base64.RawURLEncoding.Strict().DecodeString(rawToken)
-	if err != nil || len(secret) != refreshTokenBytes {
+	tokenHash, err := hashRefreshToken(rawToken)
+	if err != nil {
 		return RefreshSession{}, ErrInvalidRefreshToken
 	}
 
-	refreshSession, err := m.store.ByTokenHash(ctx, sha256.Sum256(secret))
+	refreshSession, err := m.store.ByTokenHash(ctx, tokenHash)
 	if err != nil {
 		return RefreshSession{}, err
 	}
@@ -111,4 +116,46 @@ func (m *Manager) Find(ctx context.Context, rawToken string) (RefreshSession, er
 	}
 
 	return refreshSession, nil
+}
+
+func (m *Manager) Rotate(ctx context.Context, rawToken string) (IssuedRefreshToken, error) {
+	currentHash, err := hashRefreshToken(rawToken)
+	if err != nil {
+		return IssuedRefreshToken{}, ErrInvalidRefreshToken
+	}
+	if err = ctx.Err(); err != nil {
+		return IssuedRefreshToken{}, err
+	}
+
+	for range maximumCollisionRetries {
+		secret := make([]byte, refreshTokenBytes)
+		if _, err = io.ReadFull(m.random, secret); err != nil {
+			return IssuedRefreshToken{}, fmt.Errorf("generate replacement refresh token: %w", err)
+		}
+
+		refreshSession, rotateErr := m.store.Rotate(ctx, currentHash, sha256.Sum256(secret))
+		if errors.Is(rotateErr, ErrRefreshTokenCollision) {
+			continue
+		}
+		if rotateErr != nil {
+			return IssuedRefreshToken{}, fmt.Errorf("rotate refresh session: %w", rotateErr)
+		}
+
+		return IssuedRefreshToken{
+			Value:     base64.RawURLEncoding.EncodeToString(secret),
+			SessionID: refreshSession.ID,
+			ExpiresAt: refreshSession.ExpiresAt,
+		}, nil
+	}
+
+	return IssuedRefreshToken{}, errors.New("rotate refresh session: token collision retry limit reached")
+}
+
+func hashRefreshToken(rawToken string) (TokenHash, error) {
+	secret, err := base64.RawURLEncoding.Strict().DecodeString(rawToken)
+	if err != nil || len(secret) != refreshTokenBytes {
+		return TokenHash{}, ErrInvalidRefreshToken
+	}
+
+	return sha256.Sum256(secret), nil
 }

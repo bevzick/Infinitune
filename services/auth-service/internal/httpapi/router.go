@@ -29,6 +29,7 @@ type Login interface {
 type RefreshSessions interface {
 	Create(context.Context, uuid.UUID) (session.IssuedRefreshToken, error)
 	Find(context.Context, string) (session.RefreshSession, error)
+	Rotate(context.Context, string) (session.IssuedRefreshToken, error)
 }
 
 type Dependencies struct {
