@@ -8,11 +8,12 @@ import (
 )
 
 var (
-	ErrNotFound      = errors.New("profile not found")
-	ErrAlreadyExists = errors.New("profile already exists")
-	ErrUsernameTaken = errors.New("username is already taken")
-	ErrForbidden     = errors.New("operation is forbidden")
-	ErrInvalid       = errors.New("profile data is invalid")
+	ErrNotFound         = errors.New("profile not found")
+	ErrAlreadyExists    = errors.New("profile already exists")
+	ErrUsernameTaken    = errors.New("username is already taken")
+	ErrForbidden        = errors.New("operation is forbidden")
+	ErrInvalid          = errors.New("profile data is invalid")
+	ErrInvalidReference = errors.New("preference references are invalid")
 )
 
 type InterfaceTheme string
@@ -70,8 +71,32 @@ type SettingsUpdateInput struct {
 type Preferences struct {
 	RecommendationsEnabled bool
 	PreferredMoodID        *uuid.UUID
+	Genres                 []WeightedPreference
+	Artists                []WeightedPreference
 	CreatedAt              time.Time
 	UpdatedAt              time.Time
+}
+
+type WeightedPreference struct {
+	ID     uuid.UUID
+	Weight float64
+}
+
+type PreferenceSetUpdate struct {
+	Set    bool
+	Values []WeightedPreference
+}
+
+type UUIDUpdate struct {
+	Set   bool
+	Value *uuid.UUID
+}
+
+type PreferencesUpdateInput struct {
+	RecommendationsEnabled *bool
+	PreferredMoodID        UUIDUpdate
+	Genres                 PreferenceSetUpdate
+	Artists                PreferenceSetUpdate
 }
 
 type CreateInput struct {

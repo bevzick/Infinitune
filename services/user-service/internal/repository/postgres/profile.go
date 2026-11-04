@@ -14,6 +14,7 @@ import (
 type profileDatabase interface {
 	Begin(context.Context) (pgx.Tx, error)
 	Exec(context.Context, string, ...any) (pgconn.CommandTag, error)
+	Query(context.Context, string, ...any) (pgx.Rows, error)
 	QueryRow(context.Context, string, ...any) pgx.Row
 }
 
@@ -135,6 +136,10 @@ func (repository *ProfileRepository) ByUserID(
 	if err != nil {
 		return profile.Profile{}, fmt.Errorf("query profile by user id: %w", err)
 	}
+	result.Preferences, err = repository.PreferencesByUserID(ctx, userID)
+	if err != nil {
+		return profile.Profile{}, fmt.Errorf("query complete profile preferences: %w", err)
+	}
 
 	return result, nil
 }
@@ -235,6 +240,171 @@ func (repository *ProfileRepository) UpdateSettings(
 	}
 
 	return result, nil
+}
+
+func (repository *ProfileRepository) PreferencesByUserID(
+	ctx context.Context,
+	userID uuid.UUID,
+) (profile.Preferences, error) {
+	var result profile.Preferences
+	err := repository.database.QueryRow(ctx, `
+		SELECT
+			recommendations_enabled,
+			preferred_mood_id,
+			created_at,
+			updated_at
+		FROM "user".user_preferences
+		WHERE user_id = $1
+	`, userID).Scan(
+		&result.RecommendationsEnabled,
+		&result.PreferredMoodID,
+		&result.CreatedAt,
+		&result.UpdatedAt,
+	)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return profile.Preferences{}, profile.ErrNotFound
+	}
+	if err != nil {
+		return profile.Preferences{}, fmt.Errorf("query user preferences: %w", err)
+	}
+
+	result.Genres, err = repository.weightedPreferences(ctx, `
+		SELECT genre_id, weight
+		FROM "user".user_genre_preferences
+		WHERE user_id = $1
+		ORDER BY genre_id
+	`, userID)
+	if err != nil {
+		return profile.Preferences{}, fmt.Errorf("query genre preferences: %w", err)
+	}
+	result.Artists, err = repository.weightedPreferences(ctx, `
+		SELECT artist_id, weight
+		FROM "user".user_artist_preferences
+		WHERE user_id = $1
+		ORDER BY artist_id
+	`, userID)
+	if err != nil {
+		return profile.Preferences{}, fmt.Errorf("query artist preferences: %w", err)
+	}
+
+	return result, nil
+}
+
+func (repository *ProfileRepository) UpdatePreferences(
+	ctx context.Context,
+	userID uuid.UUID,
+	input profile.PreferencesUpdateInput,
+) (profile.Preferences, error) {
+	tx, err := repository.database.Begin(ctx)
+	if err != nil {
+		return profile.Preferences{}, fmt.Errorf("begin preferences transaction: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	var recommendationsEnabled any
+	if input.RecommendationsEnabled != nil {
+		recommendationsEnabled = *input.RecommendationsEnabled
+	}
+	var preferredMoodID any
+	if input.PreferredMoodID.Value != nil {
+		preferredMoodID = *input.PreferredMoodID.Value
+	}
+	commandTag, err := tx.Exec(ctx, `
+		UPDATE "user".user_preferences
+		SET
+			recommendations_enabled = COALESCE($2::boolean, recommendations_enabled),
+			preferred_mood_id = CASE WHEN $3::boolean THEN $4::uuid ELSE preferred_mood_id END,
+			updated_at = now()
+		WHERE user_id = $1
+	`, userID, recommendationsEnabled, input.PreferredMoodID.Set, preferredMoodID)
+	if err != nil {
+		return profile.Preferences{}, fmt.Errorf("update base preferences: %w", err)
+	}
+	if commandTag.RowsAffected() == 0 {
+		return profile.Preferences{}, profile.ErrNotFound
+	}
+
+	if input.Genres.Set {
+		if err = replaceWeightedPreferences(
+			ctx,
+			tx,
+			`DELETE FROM "user".user_genre_preferences WHERE user_id = $1`,
+			`INSERT INTO "user".user_genre_preferences (user_id, genre_id, weight) VALUES ($1, $2, $3)`,
+			userID,
+			input.Genres.Values,
+		); err != nil {
+			return profile.Preferences{}, fmt.Errorf("replace genre preferences: %w", err)
+		}
+	}
+	if input.Artists.Set {
+		if err = replaceWeightedPreferences(
+			ctx,
+			tx,
+			`DELETE FROM "user".user_artist_preferences WHERE user_id = $1`,
+			`INSERT INTO "user".user_artist_preferences (user_id, artist_id, weight) VALUES ($1, $2, $3)`,
+			userID,
+			input.Artists.Values,
+		); err != nil {
+			return profile.Preferences{}, fmt.Errorf("replace artist preferences: %w", err)
+		}
+	}
+
+	if err = tx.Commit(ctx); err != nil {
+		return profile.Preferences{}, fmt.Errorf("commit preferences transaction: %w", err)
+	}
+
+	result, err := repository.PreferencesByUserID(ctx, userID)
+	if err != nil {
+		return profile.Preferences{}, fmt.Errorf("read updated preferences: %w", err)
+	}
+
+	return result, nil
+}
+
+func (repository *ProfileRepository) weightedPreferences(
+	ctx context.Context,
+	query string,
+	userID uuid.UUID,
+) ([]profile.WeightedPreference, error) {
+	rows, err := repository.database.Query(ctx, query, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	result := make([]profile.WeightedPreference, 0)
+	for rows.Next() {
+		var preference profile.WeightedPreference
+		if err = rows.Scan(&preference.ID, &preference.Weight); err != nil {
+			return nil, err
+		}
+		result = append(result, preference)
+	}
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return result, nil
+}
+
+func replaceWeightedPreferences(
+	ctx context.Context,
+	tx pgx.Tx,
+	deleteQuery string,
+	insertQuery string,
+	userID uuid.UUID,
+	preferences []profile.WeightedPreference,
+) error {
+	if _, err := tx.Exec(ctx, deleteQuery, userID); err != nil {
+		return err
+	}
+	for _, preference := range preferences {
+		if _, err := tx.Exec(ctx, insertQuery, userID, preference.ID, preference.Weight); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func mapConstraintError(err error) error {

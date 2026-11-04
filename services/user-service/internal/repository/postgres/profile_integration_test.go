@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"os"
+	"reflect"
 	"strconv"
 	"strings"
 	"testing"
@@ -26,6 +27,8 @@ func TestProfileRepositoryCreateAndRead(t *testing.T) {
 	t.Cleanup(func() {
 		cleanupCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
+		_, _ = pool.Exec(cleanupCtx, `DELETE FROM "user".user_artist_preferences WHERE user_id = $1`, userID)
+		_, _ = pool.Exec(cleanupCtx, `DELETE FROM "user".user_genre_preferences WHERE user_id = $1`, userID)
 		_, _ = pool.Exec(cleanupCtx, `DELETE FROM "user".user_preferences WHERE user_id = $1`, userID)
 		_, _ = pool.Exec(cleanupCtx, `DELETE FROM "user".user_settings WHERE user_id = $1`, userID)
 		_, _ = pool.Exec(cleanupCtx, `DELETE FROM "user".profiles WHERE user_id = $1`, userID)
@@ -53,7 +56,7 @@ func TestProfileRepositoryCreateAndRead(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ByUserID() error = %v", err)
 	}
-	if read != created {
+	if !reflect.DeepEqual(read, created) {
 		t.Fatalf("ByUserID() = %+v, want %+v", read, created)
 	}
 
@@ -102,6 +105,52 @@ func TestProfileRepositoryCreateAndRead(t *testing.T) {
 			updatedSettings,
 		)
 	}
+
+	moodID := uuid.New()
+	genreID := uuid.New()
+	artistID := uuid.New()
+	updatedPreferences, err := repository.UpdatePreferences(
+		context.Background(),
+		userID,
+		profile.PreferencesUpdateInput{
+			RecommendationsEnabled: boolPointer(false),
+			PreferredMoodID:        profile.UUIDUpdate{Set: true, Value: &moodID},
+			Genres: profile.PreferenceSetUpdate{Set: true, Values: []profile.WeightedPreference{
+				{ID: genreID, Weight: 0.625},
+			}},
+			Artists: profile.PreferenceSetUpdate{Set: true, Values: []profile.WeightedPreference{
+				{ID: artistID, Weight: 1},
+			}},
+		},
+	)
+	if err != nil {
+		t.Fatalf("UpdatePreferences() error = %v", err)
+	}
+	if updatedPreferences.RecommendationsEnabled || updatedPreferences.PreferredMoodID == nil ||
+		*updatedPreferences.PreferredMoodID != moodID ||
+		len(updatedPreferences.Genres) != 1 || updatedPreferences.Genres[0].ID != genreID ||
+		updatedPreferences.Genres[0].Weight != 0.625 ||
+		len(updatedPreferences.Artists) != 1 || updatedPreferences.Artists[0].ID != artistID ||
+		updatedPreferences.Artists[0].Weight != 1 {
+		t.Fatalf("UpdatePreferences() = %+v", updatedPreferences)
+	}
+
+	clearedPreferences, err := repository.UpdatePreferences(
+		context.Background(),
+		userID,
+		profile.PreferencesUpdateInput{
+			PreferredMoodID: profile.UUIDUpdate{Set: true},
+			Genres:          profile.PreferenceSetUpdate{Set: true},
+			Artists:         profile.PreferenceSetUpdate{Set: true},
+		},
+	)
+	if err != nil {
+		t.Fatalf("UpdatePreferences(clear) error = %v", err)
+	}
+	if clearedPreferences.PreferredMoodID != nil ||
+		len(clearedPreferences.Genres) != 0 || len(clearedPreferences.Artists) != 0 {
+		t.Fatalf("UpdatePreferences(clear) = %+v", clearedPreferences)
+	}
 }
 
 func TestProfileRepositoryRejectsDuplicateUsername(t *testing.T) {
@@ -115,6 +164,8 @@ func TestProfileRepositoryRejectsDuplicateUsername(t *testing.T) {
 		cleanupCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		for _, userID := range []uuid.UUID{firstUserID, secondUserID} {
+			_, _ = pool.Exec(cleanupCtx, `DELETE FROM "user".user_artist_preferences WHERE user_id = $1`, userID)
+			_, _ = pool.Exec(cleanupCtx, `DELETE FROM "user".user_genre_preferences WHERE user_id = $1`, userID)
 			_, _ = pool.Exec(cleanupCtx, `DELETE FROM "user".user_preferences WHERE user_id = $1`, userID)
 			_, _ = pool.Exec(cleanupCtx, `DELETE FROM "user".user_settings WHERE user_id = $1`, userID)
 			_, _ = pool.Exec(cleanupCtx, `DELETE FROM "user".profiles WHERE user_id = $1`, userID)
@@ -138,6 +189,10 @@ func TestProfileRepositoryRejectsDuplicateUsername(t *testing.T) {
 	if !errors.Is(err, profile.ErrUsernameTaken) {
 		t.Fatalf("second Create() error = %v, want %v", err, profile.ErrUsernameTaken)
 	}
+}
+
+func boolPointer(value bool) *bool {
+	return &value
 }
 
 func TestProfileRepositoryReturnsNotFound(t *testing.T) {
