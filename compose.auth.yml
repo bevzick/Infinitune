@@ -119,3 +119,36 @@ services:
       - ./services/auth-service/migrations:/migrations:ro
     networks:
       - backend
+
+  auth-integration-test:
+    build:
+      context: ./services/auth-service
+      dockerfile: Dockerfile
+      target: source
+    profiles: ["tools"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      INFINITUNE_INTEGRATION_TESTS: "1"
+      POSTGRES_HOST: ${POSTGRES_HOST:-postgres}
+      POSTGRES_PORT: ${POSTGRES_PORT:-5432}
+      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER is required}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_AUTH_DB: ${POSTGRES_AUTH_DB:-auth_db}
+      REDIS_HOST: ${REDIS_HOST:-redis}
+      REDIS_PORT: ${REDIS_PORT:-6379}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+      REDIS_AUTH_DB: ${REDIS_AUTH_DB:-0}
+    entrypoint:
+      - go
+      - test
+      - -tags=integration
+      - -count=1
+    command:
+      - ./internal/repository/postgres
+      - ./internal/repository/redis
+    networks:
+      - backend
