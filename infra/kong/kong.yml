@@ -1,4 +1,36 @@
 _format_version: "3.0"
 _transform: true
 
-services: []
+consumers:
+  - username: auth-service
+    jwt_secrets:
+      - key: "__AUTH_JWT_ISSUER__"
+        algorithm: EdDSA
+        secret: unused
+        rsa_public_key: |
+          __AUTH_JWT_PUBLIC_KEY__
+
+services:
+  - name: auth-service
+    url: http://auth-service:8080
+    routes:
+      - name: auth-public
+        paths:
+          - ~/v1/auth/(?:register|login|refresh|logout)$
+        methods:
+          - POST
+          - OPTIONS
+        regex_priority: 100
+        strip_path: false
+
+      - name: auth-protected
+        paths:
+          - ~/v1/auth(?:/|$)
+        strip_path: false
+        plugins:
+          - name: jwt
+            config:
+              key_claim_name: iss
+              claims_to_verify:
+                - exp
+              run_on_preflight: false

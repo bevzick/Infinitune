@@ -42,17 +42,23 @@ services:
   kong:
     image: kong/kong:3.9.4
     restart: unless-stopped
+    entrypoint:
+      - /bin/bash
+      - /etc/kong/render-config.sh
     ports:
       - "127.0.0.1:8000:8000"
     environment:
+      AUTH_JWT_ISSUER: ${AUTH_JWT_ISSUER:-infinitune-auth}
+      AUTH_JWT_PUBLIC_KEY_BASE64: ${AUTH_JWT_PUBLIC_KEY_BASE64:?AUTH_JWT_PUBLIC_KEY_BASE64 is required}
       KONG_DATABASE: "off"
-      KONG_DECLARATIVE_CONFIG: /etc/kong/kong.yml
+      KONG_DECLARATIVE_CONFIG: /tmp/kong.yml
       KONG_PROXY_LISTEN: "0.0.0.0:8000"
       KONG_ADMIN_LISTEN: "off"
       KONG_PROXY_ACCESS_LOG: /dev/stdout
       KONG_PROXY_ERROR_LOG: /dev/stderr
     volumes:
-      - ./infra/kong/kong.yml:/etc/kong/kong.yml:ro
+      - ./infra/kong/kong.yml:/etc/kong/kong.template.yml:ro
+      - ./infra/kong/render-config.sh:/etc/kong/render-config.sh:ro
     healthcheck:
       test: ["CMD", "kong", "health"]
       interval: 10s
