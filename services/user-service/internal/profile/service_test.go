@@ -197,9 +197,10 @@ func TestProfileValidationRejectsInvalidUpdates(t *testing.T) {
 }
 
 type profileStore struct {
-	profiles    map[uuid.UUID]Profile
-	readCalls   int
-	updateCalls int
+	profiles            map[uuid.UUID]Profile
+	readCalls           int
+	updateCalls         int
+	settingsUpdateCalls int
 }
 
 func newProfileStore() *profileStore {
@@ -229,6 +230,18 @@ func (store *profileStore) Update(_ context.Context, updated Profile) (Profile, 
 	return updated, nil
 }
 
+func (store *profileStore) UpdateSettings(
+	_ context.Context,
+	userID uuid.UUID,
+	settings Settings,
+) (Settings, error) {
+	store.settingsUpdateCalls++
+	profile := store.profiles[userID]
+	profile.Settings = settings
+	store.profiles[userID] = profile
+	return settings, nil
+}
+
 func testProfile(userID uuid.UUID) Profile {
 	return Profile{
 		UserID:      userID,
@@ -236,6 +249,13 @@ func testProfile(userID uuid.UUID) Profile {
 		DisplayName: "Listener",
 		CountryCode: "ZZ",
 		Language:    "und",
+		Settings: Settings{
+			Theme:           ThemeSystem,
+			Autoplay:        true,
+			ExplicitContent: true,
+			AudioQuality:    AudioQualityHigh,
+			NormalizeVolume: true,
+		},
 	}
 }
 

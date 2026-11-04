@@ -58,6 +58,15 @@ type Settings struct {
 	UpdatedAt             time.Time
 }
 
+type SettingsUpdateInput struct {
+	Theme                 *InterfaceTheme
+	Autoplay              *bool
+	ExplicitContent       *bool
+	AudioQuality          *AudioQuality
+	NormalizeVolume       *bool
+	ShowListeningActivity *bool
+}
+
 type Preferences struct {
 	RecommendationsEnabled bool
 	PreferredMoodID        *uuid.UUID

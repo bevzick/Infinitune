@@ -12,6 +12,7 @@ type Store interface {
 	Create(context.Context, CreateInput) (Profile, error)
 	ByUserID(context.Context, uuid.UUID) (Profile, error)
 	Update(context.Context, Profile) (Profile, error)
+	UpdateSettings(context.Context, uuid.UUID, Settings) (Settings, error)
 }
 
 type Service struct {
@@ -115,6 +116,37 @@ func (service *Service) Update(
 	result, err := service.store.Update(ctx, updated)
 	if err != nil {
 		return Profile{}, fmt.Errorf("update profile: %w", err)
+	}
+
+	return result, nil
+}
+
+func (service *Service) UpdateSettings(
+	ctx context.Context,
+	actorUserID uuid.UUID,
+	profileUserID uuid.UUID,
+	input SettingsUpdateInput,
+) (Settings, error) {
+	if !ownsProfile(actorUserID, profileUserID) {
+		return Settings{}, ErrForbidden
+	}
+
+	current, err := service.store.ByUserID(ctx, profileUserID)
+	if err != nil {
+		return Settings{}, fmt.Errorf("read settings for update: %w", err)
+	}
+
+	updated, changed, err := applySettingsUpdate(current.Settings, input)
+	if err != nil {
+		return Settings{}, err
+	}
+	if !changed {
+		return current.Settings, nil
+	}
+
+	result, err := service.store.UpdateSettings(ctx, profileUserID, updated)
+	if err != nil {
+		return Settings{}, fmt.Errorf("update settings: %w", err)
 	}
 
 	return result, nil

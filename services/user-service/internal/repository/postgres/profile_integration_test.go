@@ -72,6 +72,36 @@ func TestProfileRepositoryCreateAndRead(t *testing.T) {
 		updated.BirthDate == nil || !updated.BirthDate.Equal(birthDate) {
 		t.Fatalf("Update() = %+v, want editable fields from %+v", updated, created)
 	}
+
+	updatedSettings, err := repository.UpdateSettings(context.Background(), userID, profile.Settings{
+		Theme:                 profile.ThemeDark,
+		Autoplay:              false,
+		ExplicitContent:       false,
+		AudioQuality:          profile.AudioQualityLossless,
+		NormalizeVolume:       false,
+		ShowListeningActivity: true,
+	})
+	if err != nil {
+		t.Fatalf("UpdateSettings() error = %v", err)
+	}
+	if updatedSettings.Theme != profile.ThemeDark ||
+		updatedSettings.AudioQuality != profile.AudioQualityLossless ||
+		updatedSettings.Autoplay || updatedSettings.ExplicitContent ||
+		updatedSettings.NormalizeVolume || !updatedSettings.ShowListeningActivity {
+		t.Fatalf("UpdateSettings() = %+v", updatedSettings)
+	}
+
+	readAfterSettingsUpdate, err := repository.ByUserID(context.Background(), userID)
+	if err != nil {
+		t.Fatalf("ByUserID(after settings update) error = %v", err)
+	}
+	if readAfterSettingsUpdate.Settings != updatedSettings {
+		t.Fatalf(
+			"ByUserID().Settings = %+v, want %+v",
+			readAfterSettingsUpdate.Settings,
+			updatedSettings,
+		)
+	}
 }
 
 func TestProfileRepositoryRejectsDuplicateUsername(t *testing.T) {

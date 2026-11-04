@@ -183,6 +183,60 @@ func (repository *ProfileRepository) Update(
 	return result, nil
 }
 
+func (repository *ProfileRepository) UpdateSettings(
+	ctx context.Context,
+	userID uuid.UUID,
+	settings profile.Settings,
+) (profile.Settings, error) {
+	var result profile.Settings
+	err := repository.database.QueryRow(ctx, `
+		UPDATE "user".user_settings
+		SET
+			theme = $2,
+			autoplay = $3,
+			explicit_content = $4,
+			audio_quality = $5,
+			normalize_volume = $6,
+			show_listening_activity = $7,
+			updated_at = now()
+		WHERE user_id = $1
+		RETURNING
+			theme,
+			autoplay,
+			explicit_content,
+			audio_quality,
+			normalize_volume,
+			show_listening_activity,
+			created_at,
+			updated_at
+	`,
+		userID,
+		settings.Theme,
+		settings.Autoplay,
+		settings.ExplicitContent,
+		settings.AudioQuality,
+		settings.NormalizeVolume,
+		settings.ShowListeningActivity,
+	).Scan(
+		&result.Theme,
+		&result.Autoplay,
+		&result.ExplicitContent,
+		&result.AudioQuality,
+		&result.NormalizeVolume,
+		&result.ShowListeningActivity,
+		&result.CreatedAt,
+		&result.UpdatedAt,
+	)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return profile.Settings{}, profile.ErrNotFound
+	}
+	if err != nil {
+		return profile.Settings{}, fmt.Errorf("update user settings: %w", err)
+	}
+
+	return result, nil
+}
+
 func mapConstraintError(err error) error {
 	var postgresError *pgconn.PgError
 	if !errors.As(err, &postgresError) || postgresError.Code != "23505" {
