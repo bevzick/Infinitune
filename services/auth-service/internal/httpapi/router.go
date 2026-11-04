@@ -47,6 +47,7 @@ type Dependencies struct {
 	Login        Login
 	Sessions     Sessions
 	Tokens       IdentityTokens
+	Roles        RoleAssignments
 	Cookies      SessionCookieConfig
 	Origins      []string
 	Logger       *slog.Logger
@@ -63,7 +64,13 @@ func NewRouter(dependencies Dependencies) http.Handler {
 	router.POST("/v1/auth/refresh", refresh(dependencies.Sessions, dependencies.Cookies, dependencies.Logger))
 	router.POST("/v1/auth/logout", logout(dependencies.Sessions, dependencies.Cookies, dependencies.Logger))
 	router.GET("/v1/auth/jwks", jwks(dependencies.Tokens))
-	router.GET("/v1/auth/identity", identity(dependencies.Tokens))
+
+	protected := router.Group("/v1/auth")
+	protected.Use(authenticate(dependencies.Tokens))
+	protected.GET("/identity", identity())
+	protected.GET("/users/:user_id/roles", listUserRoles(dependencies.Roles, dependencies.Logger))
+	protected.PUT("/users/:user_id/roles/:role", assignUserRole(dependencies.Roles, dependencies.Logger))
+	protected.DELETE("/users/:user_id/roles/:role", removeUserRole(dependencies.Roles, dependencies.Logger))
 
 	return router
 }

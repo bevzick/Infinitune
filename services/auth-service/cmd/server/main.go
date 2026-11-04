@@ -104,6 +104,7 @@ func main() {
 		tokenIssuer,
 		refreshSessions,
 	)
+	roleService := auth.NewRoleService(postgres_repository.NewRoleAssignmentRepository(databasePool))
 
 	server := &http.Server{
 		Addr: cfg.HTTPAddress,
@@ -114,6 +115,7 @@ func main() {
 			Login:        loginService,
 			Sessions:     refreshService,
 			Tokens:       tokenIssuer,
+			Roles:        roleService,
 			Cookies: httpapi.SessionCookieConfig{
 				Secure:   cfg.Cookie.Secure,
 				SameSite: cfg.Cookie.SameSite,

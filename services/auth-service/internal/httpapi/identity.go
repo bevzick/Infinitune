@@ -18,7 +18,9 @@ type identityResponse struct {
 	ExpiresAt time.Time `json:"expires_at"`
 }
 
-func identity(tokens IdentityTokens) gin.HandlerFunc {
+const identityContextKey = "verified_identity"
+
+func authenticate(tokens IdentityTokens) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		c.Header("Cache-Control", "no-store")
 
@@ -30,6 +32,19 @@ func identity(tokens IdentityTokens) gin.HandlerFunc {
 
 		verifiedIdentity, err := tokens.VerifyAccessToken(accessToken, time.Now())
 		if err != nil {
+			writeUnauthorized(c)
+			return
+		}
+
+		c.Set(identityContextKey, verifiedIdentity)
+		c.Next()
+	}
+}
+
+func identity() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		verifiedIdentity, ok := requestIdentity(c)
+		if !ok {
 			writeUnauthorized(c)
 			return
 		}
@@ -61,6 +76,16 @@ func bearerToken(values []string) (string, bool) {
 func writeUnauthorized(c *gin.Context) {
 	c.Header("WWW-Authenticate", "Bearer")
 	writeError(c, http.StatusUnauthorized, "invalid_access_token", "Access token is invalid or expired")
+}
+
+func requestIdentity(c *gin.Context) (auth.Identity, bool) {
+	value, exists := c.Get(identityContextKey)
+	if !exists {
+		return auth.Identity{}, false
+	}
+
+	verifiedIdentity, ok := value.(auth.Identity)
+	return verifiedIdentity, ok
 }
 
 func writeIdentity(c *gin.Context, verifiedIdentity auth.Identity) {
