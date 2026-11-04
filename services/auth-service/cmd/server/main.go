@@ -113,6 +113,7 @@ func main() {
 			Registration: registrationService,
 			Login:        loginService,
 			Sessions:     refreshService,
+			Tokens:       tokenIssuer,
 			Cookies: httpapi.SessionCookieConfig{
 				Secure:   cfg.Cookie.Secure,
 				SameSite: cfg.Cookie.SameSite,

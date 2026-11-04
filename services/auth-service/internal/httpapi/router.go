@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/bevzick/Infinitune/services/auth-service/internal/auth"
+	"github.com/bevzick/Infinitune/services/auth-service/internal/token"
 	"github.com/gin-gonic/gin"
 )
 
@@ -29,6 +30,11 @@ type Sessions interface {
 	Logout(context.Context, string) (bool, error)
 }
 
+type IdentityTokens interface {
+	VerifyAccessToken(string, time.Time) (auth.Identity, error)
+	JSONWebKeySet() token.JSONWebKeySet
+}
+
 type SessionCookieConfig struct {
 	Secure   bool
 	SameSite http.SameSite
@@ -40,6 +46,7 @@ type Dependencies struct {
 	Registration Registration
 	Login        Login
 	Sessions     Sessions
+	Tokens       IdentityTokens
 	Cookies      SessionCookieConfig
 	Origins      []string
 	Logger       *slog.Logger
@@ -55,6 +62,8 @@ func NewRouter(dependencies Dependencies) http.Handler {
 	router.POST("/v1/auth/login", login(dependencies.Login, dependencies.Cookies, dependencies.Logger))
 	router.POST("/v1/auth/refresh", refresh(dependencies.Sessions, dependencies.Cookies, dependencies.Logger))
 	router.POST("/v1/auth/logout", logout(dependencies.Sessions, dependencies.Cookies, dependencies.Logger))
+	router.GET("/v1/auth/jwks", jwks(dependencies.Tokens))
+	router.GET("/v1/auth/identity", identity(dependencies.Tokens))
 
 	return router
 }

@@ -31,6 +31,14 @@ type Role struct {
 	Description *string
 }
 
+type Identity struct {
+	UserID    uuid.UUID
+	Roles     []string
+	TokenID   uuid.UUID
+	IssuedAt  time.Time
+	ExpiresAt time.Time
+}
+
 const (
 	RoleListener  = "listener"
 	RoleAdmin     = "admin"

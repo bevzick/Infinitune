@@ -23,6 +23,15 @@ services:
         regex_priority: 100
         strip_path: false
 
+      - name: auth-keys
+        paths:
+          - ~/v1/auth/jwks$
+        methods:
+          - GET
+          - OPTIONS
+        regex_priority: 100
+        strip_path: false
+
       - name: auth-protected
         paths:
           - ~/v1/auth(?:/|$)
