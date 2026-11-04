@@ -7,6 +7,7 @@ import (
 	"errors"
 	"os"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -55,6 +56,22 @@ func TestProfileRepositoryCreateAndRead(t *testing.T) {
 	if read != created {
 		t.Fatalf("ByUserID() = %+v, want %+v", read, created)
 	}
+
+	created.DisplayName = "Updated Integration User"
+	created.Bio = "Repository integration test"
+	created.CountryCode = "UA"
+	created.Language = "uk-UA"
+	birthDate := time.Date(2000, time.January, 2, 0, 0, 0, 0, time.UTC)
+	created.BirthDate = &birthDate
+	updated, err := repository.Update(context.Background(), created)
+	if err != nil {
+		t.Fatalf("Update() error = %v", err)
+	}
+	if updated.DisplayName != created.DisplayName || updated.Bio != created.Bio ||
+		updated.CountryCode != created.CountryCode || updated.Language != created.Language ||
+		updated.BirthDate == nil || !updated.BirthDate.Equal(birthDate) {
+		t.Fatalf("Update() = %+v, want editable fields from %+v", updated, created)
+	}
 }
 
 func TestProfileRepositoryRejectsDuplicateUsername(t *testing.T) {
@@ -85,7 +102,7 @@ func TestProfileRepositoryRejectsDuplicateUsername(t *testing.T) {
 
 	_, err = repository.Create(context.Background(), profile.CreateInput{
 		UserID:      secondUserID,
-		Username:    username,
+		Username:    strings.ToUpper(username),
 		DisplayName: "Second User",
 	})
 	if !errors.Is(err, profile.ErrUsernameTaken) {

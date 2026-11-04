@@ -13,6 +13,7 @@ import (
 
 type profileDatabase interface {
 	Begin(context.Context) (pgx.Tx, error)
+	Exec(context.Context, string, ...any) (pgconn.CommandTag, error)
 	QueryRow(context.Context, string, ...any) pgx.Row
 }
 
@@ -39,14 +40,8 @@ func (repository *ProfileRepository) Create(
 		VALUES ($1, $2, $3)
 	`, input.UserID, input.Username, input.DisplayName)
 	if err != nil {
-		var postgresError *pgconn.PgError
-		if errors.As(err, &postgresError) && postgresError.Code == "23505" {
-			switch postgresError.ConstraintName {
-			case "profiles_username_key":
-				return profile.Profile{}, profile.ErrUsernameTaken
-			case "profiles_pkey":
-				return profile.Profile{}, profile.ErrAlreadyExists
-			}
+		if mappedError := mapConstraintError(err); mappedError != nil {
+			return profile.Profile{}, mappedError
 		}
 		return profile.Profile{}, fmt.Errorf("insert profile: %w", err)
 	}
@@ -142,4 +137,64 @@ func (repository *ProfileRepository) ByUserID(
 	}
 
 	return result, nil
+}
+
+func (repository *ProfileRepository) Update(
+	ctx context.Context,
+	updated profile.Profile,
+) (profile.Profile, error) {
+	commandTag, err := repository.database.Exec(ctx, `
+		UPDATE "user".profiles
+		SET
+			username = $2,
+			display_name = $3,
+			bio = $4,
+			avatar_url = $5,
+			country_code = $6,
+			language = $7,
+			birth_date = $8,
+			updated_at = now()
+		WHERE user_id = $1
+	`,
+		updated.UserID,
+		updated.Username,
+		updated.DisplayName,
+		updated.Bio,
+		updated.AvatarURL,
+		updated.CountryCode,
+		updated.Language,
+		updated.BirthDate,
+	)
+	if err != nil {
+		if mappedError := mapConstraintError(err); mappedError != nil {
+			return profile.Profile{}, mappedError
+		}
+		return profile.Profile{}, fmt.Errorf("update profile: %w", err)
+	}
+	if commandTag.RowsAffected() == 0 {
+		return profile.Profile{}, profile.ErrNotFound
+	}
+
+	result, err := repository.ByUserID(ctx, updated.UserID)
+	if err != nil {
+		return profile.Profile{}, fmt.Errorf("read updated profile: %w", err)
+	}
+
+	return result, nil
+}
+
+func mapConstraintError(err error) error {
+	var postgresError *pgconn.PgError
+	if !errors.As(err, &postgresError) || postgresError.Code != "23505" {
+		return nil
+	}
+
+	switch postgresError.ConstraintName {
+	case "profiles_username_key":
+		return profile.ErrUsernameTaken
+	case "profiles_pkey":
+		return profile.ErrAlreadyExists
+	default:
+		return nil
+	}
 }
