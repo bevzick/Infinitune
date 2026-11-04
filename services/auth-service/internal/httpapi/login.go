@@ -22,7 +22,7 @@ type loginResponse struct {
 	ExpiresAt   time.Time `json:"expires_at"`
 }
 
-func login(loginService Login, logger *slog.Logger) gin.HandlerFunc {
+func login(loginService Login, cookies SessionCookieConfig, logger *slog.Logger) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		c.Header("Cache-Control", "no-store")
 		c.Header("Pragma", "no-cache")
@@ -32,7 +32,14 @@ func login(loginService Login, logger *slog.Logger) gin.HandlerFunc {
 			return
 		}
 
-		accessToken, err := loginService.Login(c.Request.Context(), auth.LoginInput{
+		csrfToken, err := newCSRFToken()
+		if err != nil {
+			logger.ErrorContext(c.Request.Context(), "failed to generate CSRF token", "error", err)
+			writeError(c, http.StatusInternalServerError, "internal_error", "Internal server error")
+			return
+		}
+
+		tokens, err := loginService.Login(c.Request.Context(), auth.LoginInput{
 			Email:    request.Email,
 			Password: request.Password,
 		})
@@ -41,12 +48,17 @@ func login(loginService Login, logger *slog.Logger) gin.HandlerFunc {
 			return
 		}
 
-		c.JSON(http.StatusOK, loginResponse{
-			AccessToken: accessToken.Value,
-			TokenType:   accessToken.Type,
-			ExpiresAt:   accessToken.ExpiresAt,
-		})
+		setSessionCookies(c, tokens.RefreshToken, csrfToken, cookies)
+		writeAccessToken(c, tokens.AccessToken)
 	}
+}
+
+func writeAccessToken(c *gin.Context, accessToken auth.AccessToken) {
+	c.JSON(http.StatusOK, loginResponse{
+		AccessToken: accessToken.Value,
+		TokenType:   accessToken.Type,
+		ExpiresAt:   accessToken.ExpiresAt,
+	})
 }
 
 func handleLoginError(c *gin.Context, logger *slog.Logger, err error) {

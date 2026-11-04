@@ -17,7 +17,10 @@ import (
 const (
 	minimumAccessTokenTTL = time.Minute
 	maximumAccessTokenTTL = time.Hour
+	allowedClockSkew      = 30 * time.Second
 )
+
+var errInvalidAccessToken = errors.New("invalid access token")
 
 type Config struct {
 	Issuer           string
@@ -33,6 +36,7 @@ type Ed25519Issuer struct {
 	keyID          string
 	accessTokenTTL time.Duration
 	privateKey     ed25519.PrivateKey
+	publicKey      ed25519.PublicKey
 }
 
 type header struct {
@@ -49,6 +53,19 @@ type claims struct {
 	ExpiresAt int64    `json:"exp"`
 	TokenID   string   `json:"jti"`
 	Roles     []string `json:"roles"`
+}
+
+type JSONWebKeySet struct {
+	Keys []JSONWebKey `json:"keys"`
+}
+
+type JSONWebKey struct {
+	KeyType   string `json:"kty"`
+	Curve     string `json:"crv"`
+	Use       string `json:"use"`
+	Algorithm string `json:"alg"`
+	KeyID     string `json:"kid"`
+	X         string `json:"x"`
 }
 
 func NewEd25519Issuer(config Config) (*Ed25519Issuer, error) {
@@ -80,6 +97,7 @@ func NewEd25519Issuer(config Config) (*Ed25519Issuer, error) {
 		keyID:          strings.TrimSpace(config.KeyID),
 		accessTokenTTL: config.AccessTokenTTL,
 		privateKey:     privateKey,
+		publicKey:      append(ed25519.PublicKey(nil), privateKey.Public().(ed25519.PublicKey)...),
 	}, nil
 }
 
@@ -128,9 +146,115 @@ func (i *Ed25519Issuer) IssueAccessToken(
 	}, nil
 }
 
+func (i *Ed25519Issuer) VerifyAccessToken(
+	encodedToken string,
+	now time.Time,
+) (auth.Identity, error) {
+	if encodedToken == "" || strings.TrimSpace(encodedToken) != encodedToken {
+		return auth.Identity{}, errInvalidAccessToken
+	}
+
+	segments := strings.Split(encodedToken, ".")
+	if len(segments) != 3 {
+		return auth.Identity{}, errInvalidAccessToken
+	}
+
+	encoding := base64.RawURLEncoding.Strict()
+	headerJSON, err := encoding.DecodeString(segments[0])
+	if err != nil {
+		return auth.Identity{}, errInvalidAccessToken
+	}
+
+	var tokenHeader header
+	if err = json.Unmarshal(headerJSON, &tokenHeader); err != nil ||
+		tokenHeader.Algorithm != "EdDSA" ||
+		tokenHeader.Type != "JWT" ||
+		tokenHeader.KeyID != i.keyID {
+		return auth.Identity{}, errInvalidAccessToken
+	}
+
+	signature, err := encoding.DecodeString(segments[2])
+	if err != nil || len(signature) != ed25519.SignatureSize {
+		return auth.Identity{}, errInvalidAccessToken
+	}
+
+	signingInput := segments[0] + "." + segments[1]
+	if !ed25519.Verify(i.publicKey, []byte(signingInput), signature) {
+		return auth.Identity{}, errInvalidAccessToken
+	}
+
+	claimsJSON, err := encoding.DecodeString(segments[1])
+	if err != nil {
+		return auth.Identity{}, errInvalidAccessToken
+	}
+
+	var tokenClaims claims
+	if err = json.Unmarshal(claimsJSON, &tokenClaims); err != nil ||
+		tokenClaims.Issuer != i.issuer ||
+		tokenClaims.Audience != i.audience ||
+		tokenClaims.IssuedAt <= 0 ||
+		tokenClaims.ExpiresAt <= 0 {
+		return auth.Identity{}, errInvalidAccessToken
+	}
+
+	issuedAt := time.Unix(tokenClaims.IssuedAt, 0).UTC()
+	expiresAt := time.Unix(tokenClaims.ExpiresAt, 0).UTC()
+	now = now.UTC()
+	if !expiresAt.After(now) ||
+		issuedAt.After(now.Add(allowedClockSkew)) ||
+		!expiresAt.After(issuedAt) ||
+		expiresAt.Sub(issuedAt) > maximumAccessTokenTTL {
+		return auth.Identity{}, errInvalidAccessToken
+	}
+
+	userID, err := uuid.Parse(tokenClaims.Subject)
+	if err != nil || userID == uuid.Nil {
+		return auth.Identity{}, errInvalidAccessToken
+	}
+	tokenID, err := uuid.Parse(tokenClaims.TokenID)
+	if err != nil || tokenID == uuid.Nil {
+		return auth.Identity{}, errInvalidAccessToken
+	}
+
+	roles := make([]string, 0, len(tokenClaims.Roles))
+	seenRoles := make(map[string]struct{}, len(tokenClaims.Roles))
+	for _, role := range tokenClaims.Roles {
+		if strings.TrimSpace(role) != role || role == "" {
+			return auth.Identity{}, errInvalidAccessToken
+		}
+		if _, exists := seenRoles[role]; exists {
+			return auth.Identity{}, errInvalidAccessToken
+		}
+		seenRoles[role] = struct{}{}
+		roles = append(roles, role)
+	}
+
+	return auth.Identity{
+		UserID:    userID,
+		Roles:     roles,
+		TokenID:   tokenID,
+		IssuedAt:  issuedAt,
+		ExpiresAt: expiresAt,
+	}, nil
+}
+
+func (i *Ed25519Issuer) JSONWebKeySet() JSONWebKeySet {
+	return JSONWebKeySet{
+		Keys: []JSONWebKey{
+			{
+				KeyType:   "OKP",
+				Curve:     "Ed25519",
+				Use:       "sig",
+				Algorithm: "EdDSA",
+				KeyID:     i.keyID,
+				X:         base64.RawURLEncoding.EncodeToString(i.PublicKey()),
+			},
+		},
+	}
+}
+
 func (i *Ed25519Issuer) PublicKey() ed25519.PublicKey {
-	publicKey := i.privateKey.Public().(ed25519.PublicKey)
-	return append(ed25519.PublicKey(nil), publicKey...)
+	return append(ed25519.PublicKey(nil), i.publicKey...)
 }
 
 func (i *Ed25519Issuer) KeyID() string {

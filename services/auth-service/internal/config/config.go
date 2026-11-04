@@ -1,10 +1,14 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"net"
+	"net/http"
+	"net/url"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/bevzick/Infinitune/services/auth-service/internal/database"
@@ -17,17 +21,33 @@ const (
 	defaultHTTPPort     = "8080"
 	defaultPostgresHost = "127.0.0.1"
 	defaultPostgresPort = "5432"
+	defaultRedisHost    = "127.0.0.1"
+	defaultRedisPort    = "6379"
 	defaultJWTIssuer    = "infinitune-auth"
 	defaultJWTAudience  = "infinitune-api"
 	defaultJWTKeyID     = "auth-key-1"
 	defaultJWTAccessTTL = 15 * time.Minute
+	defaultRefreshTTL   = 30 * 24 * time.Hour
+	minimumRefreshTTL   = time.Hour
+	maximumRefreshTTL   = 90 * 24 * time.Hour
+	defaultCookieSecure = true
+	defaultCookiePolicy = "lax"
 )
+
+type SessionCookieConfig struct {
+	Secure   bool
+	SameSite http.SameSite
+}
 
 type Config struct {
 	HTTPAddress string
 	Database    database.Config
+	Redis       database.RedisConfig
 	Password    password.Params
 	Token       token.Config
+	RefreshTTL  time.Duration
+	Cookie      SessionCookieConfig
+	Origins     []string
 }
 
 func Load() (Config, error) {
@@ -42,6 +62,10 @@ func Load() (Config, error) {
 	if err != nil {
 		return Config{}, err
 	}
+	redisConfig, err := loadRedisConfig()
+	if err != nil {
+		return Config{}, err
+	}
 	passwordParams, err := loadPasswordParams()
 	if err != nil {
 		return Config{}, err
@@ -50,13 +74,122 @@ func Load() (Config, error) {
 	if err != nil {
 		return Config{}, err
 	}
+	refreshTTL, err := loadRefreshTokenTTL()
+	if err != nil {
+		return Config{}, err
+	}
+	cookieConfig, origins, err := loadSessionTransportConfig()
+	if err != nil {
+		return Config{}, err
+	}
 
 	return Config{
 		HTTPAddress: net.JoinHostPort(host, port),
 		Database:    databaseConfig,
+		Redis:       redisConfig,
 		Password:    passwordParams,
 		Token:       tokenConfig,
+		RefreshTTL:  refreshTTL,
+		Cookie:      cookieConfig,
+		Origins:     origins,
 	}, nil
+}
+
+func loadSessionTransportConfig() (SessionCookieConfig, []string, error) {
+	secureValue := envOrDefault("AUTH_SESSION_COOKIE_SECURE", strconv.FormatBool(defaultCookieSecure))
+	secure, err := strconv.ParseBool(secureValue)
+	if err != nil {
+		return SessionCookieConfig{}, nil, fmt.Errorf(
+			"invalid AUTH_SESSION_COOKIE_SECURE %q: expected a boolean",
+			secureValue,
+		)
+	}
+
+	sameSiteValue := strings.ToLower(envOrDefault("AUTH_SESSION_COOKIE_SAME_SITE", defaultCookiePolicy))
+	var sameSite http.SameSite
+	switch sameSiteValue {
+	case "strict":
+		sameSite = http.SameSiteStrictMode
+	case "lax":
+		sameSite = http.SameSiteLaxMode
+	case "none":
+		if !secure {
+			return SessionCookieConfig{}, nil, errors.New("SameSite=None requires AUTH_SESSION_COOKIE_SECURE=true")
+		}
+		sameSite = http.SameSiteNoneMode
+	default:
+		return SessionCookieConfig{}, nil, fmt.Errorf(
+			"invalid AUTH_SESSION_COOKIE_SAME_SITE %q: expected strict, lax, or none",
+			sameSiteValue,
+		)
+	}
+
+	origins, err := parseAllowedOrigins(envOrDefault("AUTH_ALLOWED_ORIGINS", ""))
+	if err != nil {
+		return SessionCookieConfig{}, nil, err
+	}
+
+	return SessionCookieConfig{Secure: secure, SameSite: sameSite}, origins, nil
+}
+
+func parseAllowedOrigins(value string) ([]string, error) {
+	if strings.TrimSpace(value) == "" {
+		return nil, nil
+	}
+
+	seen := make(map[string]struct{})
+	origins := make([]string, 0)
+	for rawOrigin := range strings.SplitSeq(value, ",") {
+		origin := strings.TrimSpace(rawOrigin)
+		parsed, err := url.Parse(origin)
+		if err != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") ||
+			parsed.Host == "" || parsed.User != nil || parsed.Path != "" ||
+			parsed.RawQuery != "" || parsed.Fragment != "" {
+			return nil, fmt.Errorf("invalid AUTH_ALLOWED_ORIGINS entry %q", origin)
+		}
+		if _, exists := seen[origin]; exists {
+			continue
+		}
+		seen[origin] = struct{}{}
+		origins = append(origins, origin)
+	}
+
+	return origins, nil
+}
+
+func loadRedisConfig() (database.RedisConfig, error) {
+	port, err := parsePort("REDIS_PORT", envOrDefault("REDIS_PORT", defaultRedisPort))
+	if err != nil {
+		return database.RedisConfig{}, err
+	}
+	databaseNumber, err := parseUintEnv("REDIS_AUTH_DB", 0, 31)
+	if err != nil {
+		return database.RedisConfig{}, err
+	}
+
+	return database.RedisConfig{
+		Host:     envOrDefault("REDIS_HOST", defaultRedisHost),
+		Port:     port,
+		Password: envOrDefault("REDIS_PASSWORD", ""),
+		DB:       int(databaseNumber),
+	}, nil
+}
+
+func loadRefreshTokenTTL() (time.Duration, error) {
+	value := envOrDefault("AUTH_REFRESH_TOKEN_TTL", defaultRefreshTTL.String())
+	ttl, err := time.ParseDuration(value)
+	if err != nil {
+		return 0, fmt.Errorf("invalid AUTH_REFRESH_TOKEN_TTL %q: %w", value, err)
+	}
+	if ttl < minimumRefreshTTL || ttl > maximumRefreshTTL {
+		return 0, fmt.Errorf(
+			"AUTH_REFRESH_TOKEN_TTL must be between %s and %s",
+			minimumRefreshTTL,
+			maximumRefreshTTL,
+		)
+	}
+
+	return ttl, nil
 }
 
 func loadTokenConfig() (token.Config, error) {

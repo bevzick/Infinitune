@@ -31,6 +31,19 @@ func (r *LoginRepository) FindUserByEmail(ctx context.Context, email string) (au
 	return user, nil
 }
 
+func (r *LoginRepository) FindUserByID(ctx context.Context, userID uuid.UUID) (auth.User, error) {
+	user, err := NewUserRepository(r.db).ByID(ctx, userID)
+	if err != nil {
+		if errors.Is(err, ErrNotFound) {
+			return auth.User{}, auth.ErrAccountUnavailable
+		}
+
+		return auth.User{}, fmt.Errorf("find session user by id: %w", err)
+	}
+
+	return user, nil
+}
+
 func (r *LoginRepository) ListRoleNamesForUser(
 	ctx context.Context,
 	userID uuid.UUID,
