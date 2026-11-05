@@ -7,9 +7,18 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      auth-service:
+        condition: service_healthy
     environment:
       USER_HTTP_HOST: 0.0.0.0
       USER_HTTP_PORT: 8080
+      USER_GRPC_HOST: 0.0.0.0
+      USER_GRPC_PORT: 9090
+      USER_ALLOWED_ORIGINS: ${USER_ALLOWED_ORIGINS:-http://localhost:5173}
+      USER_AUTH_JWKS_URL: ${USER_AUTH_JWKS_URL:-http://auth-service:8080/v1/auth/jwks}
+      AUTH_JWT_ISSUER: ${AUTH_JWT_ISSUER:-infinitune-auth}
+      AUTH_JWT_AUDIENCE: ${AUTH_JWT_AUDIENCE:-infinitune-api}
+      AUTH_JWT_KEY_ID: ${AUTH_JWT_KEY_ID:-auth-key-1}
       POSTGRES_HOST: ${POSTGRES_HOST:-postgres}
       POSTGRES_PORT: ${POSTGRES_PORT:-5432}
       POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER is required}
@@ -17,6 +26,7 @@ services:
       POSTGRES_USER_DB: ${POSTGRES_USER_DB:-user_db}
     expose:
       - "8080"
+      - "9090"
     networks:
       - backend
 

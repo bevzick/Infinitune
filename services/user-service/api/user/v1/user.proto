@@ -1,0 +1,27 @@
+syntax = "proto3";
+
+package infinitune.user.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/bevzick/Infinitune/services/user-service/api/user/v1;userv1";
+
+service UserService {
+  rpc GetPublicProfile(GetPublicProfileRequest) returns (PublicProfile);
+}
+
+message GetPublicProfileRequest {
+  string user_id = 1;
+}
+
+message PublicProfile {
+  string user_id = 1;
+  string username = 2;
+  string display_name = 3;
+  string bio = 4;
+  string avatar_url = 5;
+  string country_code = 6;
+  string language = 7;
+  google.protobuf.Timestamp created_at = 8;
+  google.protobuf.Timestamp updated_at = 9;
+}

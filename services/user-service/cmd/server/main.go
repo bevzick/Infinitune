@@ -13,9 +13,15 @@ import (
 	"syscall"
 	"time"
 
+	userv1 "github.com/bevzick/Infinitune/services/user-service/api/user/v1"
 	"github.com/bevzick/Infinitune/services/user-service/internal/config"
 	"github.com/bevzick/Infinitune/services/user-service/internal/database"
+	"github.com/bevzick/Infinitune/services/user-service/internal/grpcapi"
 	"github.com/bevzick/Infinitune/services/user-service/internal/httpapi"
+	"github.com/bevzick/Infinitune/services/user-service/internal/identity"
+	"github.com/bevzick/Infinitune/services/user-service/internal/profile"
+	postgres_repository "github.com/bevzick/Infinitune/services/user-service/internal/repository/postgres"
+	"google.golang.org/grpc"
 )
 
 const (
@@ -50,20 +56,43 @@ func main() {
 		os.Exit(1)
 	}
 	defer databasePool.Close()
+	profileService := profile.NewService(postgres_repository.NewProfileRepository(databasePool))
+	tokenVerifier, err := identity.NewVerifier(cfg.Identity, nil)
+	if err != nil {
+		logger.Error("failed to initialize identity verifier", "error", err)
+		os.Exit(1)
+	}
 
-	server := &http.Server{
-		Addr:              cfg.HTTPAddress,
-		Handler:           httpapi.NewRouter(databasePool),
+	httpServer := &http.Server{
+		Addr: cfg.HTTPAddress,
+		Handler: httpapi.NewRouter(httpapi.Dependencies{
+			Database: databasePool,
+			Tokens:   tokenVerifier,
+			Profiles: profileService,
+			Origins:  cfg.Origins,
+			Logger:   logger,
+		}),
 		ReadHeaderTimeout: readHeaderTimeout,
 	}
+	grpcListener, err := net.Listen("tcp", cfg.GRPCAddress)
+	if err != nil {
+		logger.Error("failed to listen for gRPC", "error", err)
+		os.Exit(1)
+	}
+	grpcServer := grpc.NewServer()
+	userv1.RegisterUserServiceServer(grpcServer, grpcapi.NewUserServer(profileService))
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	serverErrors := make(chan error, 1)
+	serverErrors := make(chan error, 2)
 	go func() {
 		logger.Info("user service started", "address", cfg.HTTPAddress)
-		serverErrors <- server.ListenAndServe()
+		serverErrors <- httpServer.ListenAndServe()
+	}()
+	go func() {
+		logger.Info("user gRPC service started", "address", cfg.GRPCAddress)
+		serverErrors <- grpcServer.Serve(grpcListener)
 	}()
 
 	select {
@@ -79,9 +108,19 @@ func main() {
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
 	defer cancel()
 
-	if err = server.Shutdown(shutdownCtx); err != nil {
+	if err = httpServer.Shutdown(shutdownCtx); err != nil {
 		logger.Error("failed to shut down user service", "error", err)
 		os.Exit(1)
+	}
+	grpcStopped := make(chan struct{})
+	go func() {
+		grpcServer.GracefulStop()
+		close(grpcStopped)
+	}()
+	select {
+	case <-grpcStopped:
+	case <-shutdownCtx.Done():
+		grpcServer.Stop()
 	}
 
 	logger.Info("user service stopped")

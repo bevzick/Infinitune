@@ -18,6 +18,7 @@ RUN CGO_ENABLED=0 GOOS=linux go build \
 FROM scratch
 
 COPY --from=build /out/user-service /user-service
+COPY --from=source /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 
 USER 65532:65532
 EXPOSE 8080
