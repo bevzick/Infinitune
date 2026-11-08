@@ -1,8 +1,8 @@
 .DEFAULT_GOAL := help
 
-.PHONY: help config ps up stop down down-volumes restart logs smoke media-storage-init media-storage-test media-test media-test-integration media-migrate-up media-migrate-version media-seed auth-test auth-test-integration auth-migrate-up auth-migrate-version user-test user-test-integration user-migrate-up user-migrate-version catalog-test catalog-test-integration catalog-migrate-up catalog-migrate-version catalog-seed
+.PHONY: help config ps up stop down down-volumes restart logs smoke media-storage-init media-storage-test media-test media-test-integration media-migrate-up media-migrate-version media-seed playlist-test playlist-test-integration playlist-migrate-up playlist-migrate-version auth-test auth-test-integration auth-migrate-up auth-migrate-version user-test user-test-integration user-migrate-up user-migrate-version catalog-test catalog-test-integration catalog-migrate-up catalog-migrate-version catalog-seed
 
-COMPOSE := docker compose -f compose.yml -f compose.auth.yml -f compose.user.yml -f compose.catalog.yml -f compose.media.yml -f compose.media-service.yml
+COMPOSE := docker compose -f compose.yml -f compose.auth.yml -f compose.user.yml -f compose.catalog.yml -f compose.media.yml -f compose.media-service.yml -f compose.playlist.yml
 MEDIA_COMPOSE := docker compose -f compose.media.yml
 
 help:
@@ -26,6 +26,10 @@ help:
 	@echo "  media-migrate-up      - Apply pending Media database migrations"
 	@echo "  media-migrate-version - Show the current Media migration version"
 	@echo "  media-seed            - Generate safe local demo audio and metadata"
+	@echo "  playlist-test         - Run Playlist Service unit tests"
+	@echo "  playlist-test-integration - Run Playlist integration tests"
+	@echo "  playlist-migrate-up      - Apply pending Playlist database migrations"
+	@echo "  playlist-migrate-version - Show the current Playlist migration version"
 	@echo "  auth-test   - Run Auth Service unit tests"
 	@echo "  auth-test-integration - Run Auth repository integration tests"
 	@echo "  auth-migrate-up      - Apply pending Auth database migrations"
@@ -46,7 +50,7 @@ config:
 ps:
 	@$(COMPOSE) ps
 
-up: auth-migrate-up user-migrate-up catalog-migrate-up media-migrate-up media-storage-init
+up: auth-migrate-up user-migrate-up catalog-migrate-up media-migrate-up playlist-migrate-up media-storage-init
 	@$(COMPOSE) up --detach
 
 stop:
@@ -89,6 +93,19 @@ media-migrate-version:
 
 media-seed: catalog-seed media-migrate-up media-storage-init
 	@$(COMPOSE) --profile tools run --rm --build media-seed
+
+playlist-test:
+	@cd services/playlist-service && go test ./...
+
+playlist-test-integration: playlist-migrate-up
+	@$(COMPOSE) up --detach --build playlist-service
+	@$(COMPOSE) --profile tools run --rm --build playlist-integration-test
+
+playlist-migrate-up:
+	@$(COMPOSE) --profile tools run --rm playlist-migrate up
+
+playlist-migrate-version:
+	@$(COMPOSE) --profile tools run --rm playlist-migrate version
 
 auth-test:
 	@cd services/auth-service && go test ./...
