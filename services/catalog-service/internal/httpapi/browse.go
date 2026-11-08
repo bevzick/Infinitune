@@ -127,6 +127,33 @@ func listHandler[Model any, Response any](
 	}
 }
 
+func trackListHandler(
+	logger *slog.Logger,
+	fetch func(context.Context, metadata.TrackQuery) (metadata.Page[metadata.Track], error),
+) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		query, ok := trackQuery(c)
+		if !ok {
+			return
+		}
+		result, err := fetch(c.Request.Context(), query)
+		if err != nil {
+			writeDomainError(c, logger, err)
+			return
+		}
+		items := make([]trackResponse, 0, len(result.Items))
+		for _, item := range result.Items {
+			items = append(items, trackResponseFrom(item))
+		}
+		c.JSON(http.StatusOK, pageResponse[trackResponse]{
+			Items: items,
+			Pagination: paginationResponse{
+				Limit: result.Limit, Offset: result.Offset, Total: result.Total,
+			},
+		})
+	}
+}
+
 func detailHandler[Model any, Response any](
 	logger *slog.Logger,
 	fetch func(context.Context, uuid.UUID) (Model, error),
@@ -157,6 +184,103 @@ func pageRequest(c *gin.Context) (metadata.PageRequest, bool) {
 		return metadata.PageRequest{}, false
 	}
 	return metadata.PageRequest{Limit: limit, Offset: offset}, true
+}
+
+func trackQuery(c *gin.Context) (metadata.TrackQuery, bool) {
+	page, ok := pageRequest(c)
+	if !ok {
+		return metadata.TrackQuery{}, false
+	}
+	artistID, ok := optionalUUID(c, "artist_id")
+	if !ok {
+		return metadata.TrackQuery{}, false
+	}
+	albumID, ok := optionalUUID(c, "album_id")
+	if !ok {
+		return metadata.TrackQuery{}, false
+	}
+	genreID, ok := optionalUUID(c, "genre_id")
+	if !ok {
+		return metadata.TrackQuery{}, false
+	}
+	moodID, ok := optionalUUID(c, "mood_id")
+	if !ok {
+		return metadata.TrackQuery{}, false
+	}
+	releaseYear, ok := optionalYear(c)
+	if !ok {
+		return metadata.TrackQuery{}, false
+	}
+	explicit, ok := optionalBoolean(c, "explicit")
+	if !ok {
+		return metadata.TrackQuery{}, false
+	}
+	sort := metadata.TrackSortNewest
+	if rawSort, exists := c.GetQuery("sort"); exists {
+		sort = metadata.TrackSort(rawSort)
+		switch sort {
+		case metadata.TrackSortNewest, metadata.TrackSortOldest,
+			metadata.TrackSortTitleAsc, metadata.TrackSortTitleDesc:
+		default:
+			writeError(
+				c,
+				http.StatusBadRequest,
+				"invalid_filter",
+				"sort must be one of newest, oldest, title_asc, title_desc",
+				"sort",
+			)
+			return metadata.TrackQuery{}, false
+		}
+	}
+	return metadata.TrackQuery{
+		Page: page, Title: c.Query("title"), ArtistID: artistID, AlbumID: albumID,
+		GenreID: genreID, MoodID: moodID, ReleaseYear: releaseYear,
+		Explicit: explicit, Sort: sort,
+	}, true
+}
+
+func optionalUUID(c *gin.Context, name string) (*uuid.UUID, bool) {
+	raw, exists := c.GetQuery(name)
+	if !exists {
+		return nil, true
+	}
+	id, err := uuid.Parse(raw)
+	if err != nil || id == uuid.Nil {
+		writeError(c, http.StatusBadRequest, "invalid_filter", name+" must be a UUID", name)
+		return nil, false
+	}
+	return &id, true
+}
+
+func optionalYear(c *gin.Context) (*int, bool) {
+	raw, exists := c.GetQuery("release_year")
+	if !exists {
+		return nil, true
+	}
+	year, err := strconv.Atoi(raw)
+	if err != nil || year < 1 || year > 9999 {
+		writeError(c, http.StatusBadRequest, "invalid_filter", "release_year must be between 1 and 9999", "release_year")
+		return nil, false
+	}
+	return &year, true
+}
+
+func optionalBoolean(c *gin.Context, name string) (*bool, bool) {
+	raw, exists := c.GetQuery(name)
+	if !exists {
+		return nil, true
+	}
+	var value bool
+	switch raw {
+	case "true":
+		value = true
+	case "false":
+		value = false
+	default:
+		writeError(c, http.StatusBadRequest, "invalid_filter", name+" must be true or false", name)
+		return nil, false
+	}
+	return &value, true
 }
 
 func paginationValue(c *gin.Context, name string, fallback, minimum, maximum int) (int, bool) {

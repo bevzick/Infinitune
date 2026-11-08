@@ -33,7 +33,8 @@ func TestMetadataRepositoryStoresAndReplacesCompleteMetadata(t *testing.T) {
 	moodTwoID := uuid.New()
 	albumID := uuid.New()
 	trackID := uuid.New()
-	registerCleanup(t, pool, []uuid.UUID{trackID}, []uuid.UUID{albumID},
+	secondTrackID := uuid.New()
+	registerCleanup(t, pool, []uuid.UUID{trackID, secondTrackID}, []uuid.UUID{albumID},
 		[]uuid.UUID{primaryID, featuredID, producerID},
 		[]uuid.UUID{genreOneID, genreTwoID}, []uuid.UUID{moodOneID, moodTwoID})
 
@@ -99,8 +100,9 @@ func TestMetadataRepositoryStoresAndReplacesCompleteMetadata(t *testing.T) {
 		t.Fatalf("album artists = %+v", album.Artists)
 	}
 
+	trackTitle := "Collaborative " + testID + " Track"
 	track, err := service.StoreApprovedTrack(ctx, metadata.TrackInput{
-		ID: trackID, AlbumID: &albumID, Title: "Collaborative Track", DurationMS: 210000,
+		ID: trackID, AlbumID: &albumID, Title: trackTitle, DurationMS: 210000,
 		TrackNumber: 1, DiscNumber: 1, ReleaseDate: releaseDate,
 		MediaAssetID: uuid.New(), ContentID: uuid.New(),
 		Artists: []metadata.TrackArtistInput{
@@ -131,6 +133,51 @@ func TestMetadataRepositoryStoresAndReplacesCompleteMetadata(t *testing.T) {
 			t.Errorf("track artist %d role = %q, want %q", index, track.Artists[index].Role, role)
 		}
 	}
+	_, err = service.StoreApprovedTrack(ctx, metadata.TrackInput{
+		ID: secondTrackID, AlbumID: &albumID, Title: trackTitle, DurationMS: 190000,
+		TrackNumber: 2, DiscNumber: 1, Explicit: true, ReleaseDate: releaseDate,
+		MediaAssetID: uuid.New(), ContentID: uuid.New(),
+		Artists: []metadata.TrackArtistInput{
+			{ArtistID: primaryID, Role: metadata.ArtistRolePrimary, Position: 1},
+		},
+		GenreIDs: []uuid.UUID{genreTwoID},
+		Moods:    []metadata.TrackMoodInput{{MoodID: moodTwoID, Weight: 0.6}},
+	})
+	if err != nil {
+		t.Fatalf("StoreApprovedTrack(second) error = %v", err)
+	}
+
+	releaseYear := 2026
+	notExplicit := false
+	filtered, err := service.Tracks(ctx, metadata.TrackQuery{
+		Page: metadata.PageRequest{Limit: 20}, Title: strings.ToUpper(testID),
+		ArtistID: &primaryID, AlbumID: &albumID, GenreID: &genreOneID, MoodID: &moodOneID,
+		ReleaseYear: &releaseYear, Explicit: &notExplicit, Sort: metadata.TrackSortNewest,
+	})
+	if err != nil {
+		t.Fatalf("Tracks(combined filters) error = %v", err)
+	}
+	if filtered.Total != 1 || len(filtered.Items) != 1 || filtered.Items[0].ID != trackID {
+		t.Fatalf("Tracks(combined filters) = %+v", filtered)
+	}
+
+	stable, err := service.Tracks(ctx, metadata.TrackQuery{
+		Page: metadata.PageRequest{Limit: 20}, Title: testID, Sort: metadata.TrackSortTitleAsc,
+	})
+	if err != nil {
+		t.Fatalf("Tracks(stable sort) error = %v", err)
+	}
+	wantFirstID, wantSecondID := trackID, secondTrackID
+	if wantSecondID.String() < wantFirstID.String() {
+		wantFirstID, wantSecondID = wantSecondID, wantFirstID
+	}
+	if stable.Total != 2 || len(stable.Items) != 2 {
+		t.Fatalf("Tracks(stable sort) = %+v", stable)
+	}
+	if stable.Items[0].ID != wantFirstID || stable.Items[1].ID != wantSecondID {
+		t.Fatalf("Tracks(stable sort) ids = %v, %v; want %v, %v",
+			stable.Items[0].ID, stable.Items[1].ID, wantFirstID, wantSecondID)
+	}
 
 	page := metadata.PageRequest{Limit: 100, Offset: 0}
 	artistsPage, err := service.Artists(ctx, page)
@@ -148,7 +195,7 @@ func TestMetadataRepositoryStoresAndReplacesCompleteMetadata(t *testing.T) {
 	if !exists || len(listedAlbum.Artists) != 2 {
 		t.Fatalf("Albums() album = %+v, exists = %t", listedAlbum, exists)
 	}
-	tracksPage, err := service.Tracks(ctx, page)
+	tracksPage, err := service.Tracks(ctx, metadata.TrackQuery{Page: page})
 	if err != nil {
 		t.Fatalf("Tracks() error = %v", err)
 	}
@@ -164,7 +211,9 @@ func TestMetadataRepositoryStoresAndReplacesCompleteMetadata(t *testing.T) {
 	if err != nil || moodsPage.Total < 2 || !containsMood(moodsPage.Items, moodOneID) {
 		t.Fatalf("Moods() = %+v, %v", moodsPage, err)
 	}
-	emptyPage, err := service.Tracks(ctx, metadata.PageRequest{Limit: 20, Offset: 100000})
+	emptyPage, err := service.Tracks(ctx, metadata.TrackQuery{
+		Page: metadata.PageRequest{Limit: 20, Offset: 100000},
+	})
 	if err != nil {
 		t.Fatalf("Tracks(empty page) error = %v", err)
 	}

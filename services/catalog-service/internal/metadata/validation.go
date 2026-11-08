@@ -26,6 +26,44 @@ func validatePage(page PageRequest) error {
 	return nil
 }
 
+func validateTrackQuery(query TrackQuery) (TrackQuery, error) {
+	if err := validatePage(query.Page); err != nil {
+		return TrackQuery{}, err
+	}
+	query.Title = strings.TrimSpace(query.Title)
+	if utf8.RuneCountInString(query.Title) > 200 {
+		return TrackQuery{}, validationError("title", "must not exceed 200 characters")
+	}
+	for _, reference := range []struct {
+		field string
+		id    *uuid.UUID
+	}{
+		{field: "artist_id", id: query.ArtistID},
+		{field: "album_id", id: query.AlbumID},
+		{field: "genre_id", id: query.GenreID},
+		{field: "mood_id", id: query.MoodID},
+	} {
+		if reference.id != nil && *reference.id == uuid.Nil {
+			return TrackQuery{}, validationError(reference.field, "must not be empty")
+		}
+	}
+	if query.ReleaseYear != nil && (*query.ReleaseYear < 1 || *query.ReleaseYear > 9999) {
+		return TrackQuery{}, validationError("release_year", "must be between 1 and 9999")
+	}
+	if query.Sort == "" {
+		query.Sort = TrackSortNewest
+	}
+	switch query.Sort {
+	case TrackSortNewest, TrackSortOldest, TrackSortTitleAsc, TrackSortTitleDesc:
+	default:
+		return TrackQuery{}, validationError(
+			"sort",
+			"must be one of newest, oldest, title_asc, title_desc",
+		)
+	}
+	return query, nil
+}
+
 func validateArtist(input ArtistInput) (ArtistInput, error) {
 	if err := validateID("id", input.ID); err != nil {
 		return ArtistInput{}, err

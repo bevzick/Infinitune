@@ -170,6 +170,27 @@ type Page[T any] struct {
 	Total  int64
 }
 
+type TrackSort string
+
+const (
+	TrackSortNewest    TrackSort = "newest"
+	TrackSortOldest    TrackSort = "oldest"
+	TrackSortTitleAsc  TrackSort = "title_asc"
+	TrackSortTitleDesc TrackSort = "title_desc"
+)
+
+type TrackQuery struct {
+	Page        PageRequest
+	Title       string
+	ArtistID    *uuid.UUID
+	AlbumID     *uuid.UUID
+	GenreID     *uuid.UUID
+	MoodID      *uuid.UUID
+	ReleaseYear *int
+	Explicit    *bool
+	Sort        TrackSort
+}
+
 type ValidationError struct {
 	Field  string
 	Reason string

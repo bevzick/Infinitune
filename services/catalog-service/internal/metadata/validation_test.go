@@ -150,6 +150,32 @@ func TestValidatePage(t *testing.T) {
 	}
 }
 
+func TestValidateTrackQuery(t *testing.T) {
+	t.Parallel()
+
+	year := 2026
+	query, err := validateTrackQuery(TrackQuery{
+		Page: PageRequest{Limit: 20}, Title: "  Track Name  ", ReleaseYear: &year,
+	})
+	if err != nil {
+		t.Fatalf("validateTrackQuery() error = %v", err)
+	}
+	if query.Title != "Track Name" || query.Sort != TrackSortNewest {
+		t.Fatalf("validateTrackQuery() = %+v", query)
+	}
+
+	invalidYear := 10000
+	for _, invalid := range []TrackQuery{
+		{Page: PageRequest{Limit: 20}, Sort: "random"},
+		{Page: PageRequest{Limit: 20}, ReleaseYear: &invalidYear},
+		{Page: PageRequest{Limit: 20}, ArtistID: new(uuid.UUID)},
+	} {
+		if _, err = validateTrackQuery(invalid); !errors.Is(err, ErrInvalid) {
+			t.Fatalf("validateTrackQuery(%+v) error = %v, want %v", invalid, err, ErrInvalid)
+		}
+	}
+}
+
 func validTrackInput() TrackInput {
 	return TrackInput{
 		ID:           uuid.New(),

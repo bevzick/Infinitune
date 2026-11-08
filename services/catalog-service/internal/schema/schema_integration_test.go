@@ -181,6 +181,32 @@ func TestCatalogSchemaUsesCorrectedColumnNames(t *testing.T) {
 	}
 }
 
+func TestCatalogSearchIndexesExist(t *testing.T) {
+	pool := openIntegrationDatabase(t)
+	ctx := context.Background()
+
+	for _, index := range []string{
+		"tracks_title_trgm_idx",
+		"tracks_title_order_idx",
+		"tracks_release_date_title_idx",
+		"tracks_explicit_release_date_idx",
+	} {
+		var exists bool
+		err := pool.QueryRow(ctx, `
+			SELECT EXISTS (
+				SELECT 1 FROM pg_indexes
+				WHERE schemaname = 'catalog' AND indexname = $1
+			)
+		`, index).Scan(&exists)
+		if err != nil {
+			t.Fatalf("check index %s: %v", index, err)
+		}
+		if !exists {
+			t.Errorf("index catalog.%s does not exist", index)
+		}
+	}
+}
+
 func beginIntegrationTransaction(t *testing.T) pgx.Tx {
 	t.Helper()
 	pool := openIntegrationDatabase(t)

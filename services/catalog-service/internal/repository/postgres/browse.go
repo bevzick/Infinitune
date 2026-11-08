@@ -3,6 +3,8 @@ package postgres
 import (
 	"context"
 	"fmt"
+	"strings"
+	"time"
 
 	"github.com/bevzick/Infinitune/services/catalog-service/internal/metadata"
 	"github.com/google/uuid"
@@ -101,28 +103,51 @@ func (repository *MetadataRepository) ListAlbums(
 	}, nil
 }
 
-func (repository *MetadataRepository) ListTracks(
+func (repository *MetadataRepository) SearchTracks(
 	ctx context.Context,
-	page metadata.PageRequest,
+	query metadata.TrackQuery,
 ) (metadata.Page[metadata.Track], error) {
-	total, err := repository.count(ctx, `SELECT count(*) FROM catalog.tracks`)
+	orderBy, err := trackOrderBy(query.Sort)
 	if err != nil {
-		return metadata.Page[metadata.Track]{}, fmt.Errorf("count tracks: %w", err)
+		return metadata.Page[metadata.Track]{}, err
 	}
+	filterSQL := `
+		FROM catalog.tracks AS t
+		WHERE ($1::text = '' OR t.title ILIKE ('%' || $1 || '%') ESCAPE '\')
+			AND ($2::uuid IS NULL OR EXISTS (
+				SELECT 1 FROM catalog.track_artists AS ta
+				WHERE ta.track_id = t.id AND ta.artist_id = $2
+			))
+			AND ($3::uuid IS NULL OR t.album_id = $3)
+			AND ($4::uuid IS NULL OR EXISTS (
+				SELECT 1 FROM catalog.track_genres AS tg
+				WHERE tg.track_id = t.id AND tg.genre_id = $4
+			))
+			AND ($5::uuid IS NULL OR EXISTS (
+				SELECT 1 FROM catalog.track_moods AS tm
+				WHERE tm.track_id = t.id AND tm.mood_id = $5
+			))
+			AND ($6::date IS NULL OR (t.release_date >= $6 AND t.release_date < $7))
+			AND ($8::boolean IS NULL OR t.explicit = $8)
+	`
+	filterArguments := trackFilterArguments(query)
+	var total int64
+	err = repository.database.QueryRow(ctx, `SELECT count(*) `+filterSQL, filterArguments...).Scan(&total)
+	if err != nil {
+		return metadata.Page[metadata.Track]{}, fmt.Errorf("count filtered tracks: %w", err)
+	}
+	pageArguments := append(filterArguments, query.Page.Limit, query.Page.Offset)
 	rows, err := repository.database.Query(ctx, `
 		SELECT
-			id, album_id, title, duration_ms, track_number, disc_number, explicit,
-			release_date, media_asset_id, content_id, created_at, updated_at
-		FROM catalog.tracks
-		ORDER BY release_date DESC, lower(title), id
-		LIMIT $1 OFFSET $2
-	`, page.Limit, page.Offset)
+			t.id, t.album_id, t.title, t.duration_ms, t.track_number, t.disc_number, t.explicit,
+			t.release_date, t.media_asset_id, t.content_id, t.created_at, t.updated_at
+	`+filterSQL+` ORDER BY `+orderBy+` LIMIT $9 OFFSET $10`, pageArguments...)
 	if err != nil {
-		return metadata.Page[metadata.Track]{}, fmt.Errorf("query tracks: %w", err)
+		return metadata.Page[metadata.Track]{}, fmt.Errorf("query filtered tracks: %w", err)
 	}
 
-	items := make([]metadata.Track, 0, page.Limit)
-	ids := make([]uuid.UUID, 0, page.Limit)
+	items := make([]metadata.Track, 0, query.Page.Limit)
+	ids := make([]uuid.UUID, 0, query.Page.Limit)
 	for rows.Next() {
 		var track metadata.Track
 		if err = scanTrack(rows, &track); err != nil {
@@ -166,8 +191,41 @@ func (repository *MetadataRepository) ListTracks(
 		}
 	}
 	return metadata.Page[metadata.Track]{
-		Items: items, Limit: page.Limit, Offset: page.Offset, Total: total,
+		Items: items, Limit: query.Page.Limit, Offset: query.Page.Offset, Total: total,
 	}, nil
+}
+
+func trackOrderBy(sort metadata.TrackSort) (string, error) {
+	switch sort {
+	case metadata.TrackSortNewest:
+		return "t.release_date DESC, lower(t.title) ASC, t.id ASC", nil
+	case metadata.TrackSortOldest:
+		return "t.release_date ASC, lower(t.title) ASC, t.id ASC", nil
+	case metadata.TrackSortTitleAsc:
+		return "lower(t.title) ASC, t.id ASC", nil
+	case metadata.TrackSortTitleDesc:
+		return "lower(t.title) DESC, t.id ASC", nil
+	default:
+		return "", fmt.Errorf("unsupported track sort %q: %w", sort, metadata.ErrInvalid)
+	}
+}
+
+func trackFilterArguments(query metadata.TrackQuery) []any {
+	var releaseStart, releaseEnd *time.Time
+	if query.ReleaseYear != nil {
+		start := time.Date(*query.ReleaseYear, time.January, 1, 0, 0, 0, 0, time.UTC)
+		end := start.AddDate(1, 0, 0)
+		releaseStart = &start
+		releaseEnd = &end
+	}
+	return []any{
+		escapeLike(query.Title), query.ArtistID, query.AlbumID, query.GenreID,
+		query.MoodID, releaseStart, releaseEnd, query.Explicit,
+	}
+}
+
+func escapeLike(value string) string {
+	return strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`).Replace(value)
 }
 
 func (repository *MetadataRepository) ListGenres(

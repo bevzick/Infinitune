@@ -78,8 +78,12 @@ func TestBrowseRoutesUsePaginationAndReturnArrays(t *testing.T) {
 			if response.Code != http.StatusOK {
 				t.Fatalf("status = %d, body = %s", response.Code, response.Body.String())
 			}
-			if stub.lastPage != (metadata.PageRequest{Limit: 7, Offset: 14}) {
-				t.Fatalf("page = %+v", stub.lastPage)
+			actualPage := stub.lastPage
+			if resource == "tracks" {
+				actualPage = stub.lastTrackQuery.Page
+			}
+			if actualPage != (metadata.PageRequest{Limit: 7, Offset: 14}) {
+				t.Fatalf("page = %+v", actualPage)
 			}
 			var body struct {
 				Items      []json.RawMessage  `json:"items"`
@@ -160,6 +164,18 @@ func TestCatalogRoutesReturnStructuredClientErrors(t *testing.T) {
 			stub: &catalogStub{}, wantStatus: http.StatusBadRequest, wantCode: "invalid_pagination",
 		},
 		{
+			name: "invalid artist filter", path: "/v1/catalog/tracks?artist_id=invalid",
+			stub: &catalogStub{}, wantStatus: http.StatusBadRequest, wantCode: "invalid_filter",
+		},
+		{
+			name: "invalid explicit filter", path: "/v1/catalog/tracks?explicit=yes",
+			stub: &catalogStub{}, wantStatus: http.StatusBadRequest, wantCode: "invalid_filter",
+		},
+		{
+			name: "invalid sort", path: "/v1/catalog/tracks?sort=random",
+			stub: &catalogStub{}, wantStatus: http.StatusBadRequest, wantCode: "invalid_filter",
+		},
+		{
 			name: "not found", path: "/v1/catalog/tracks/" + uuid.NewString(),
 			stub:       &catalogStub{err: metadata.ErrNotFound},
 			wantStatus: http.StatusNotFound, wantCode: "catalog_item_not_found",
@@ -186,6 +202,34 @@ func TestCatalogRoutesReturnStructuredClientErrors(t *testing.T) {
 	}
 }
 
+func TestTrackSearchPassesCombinedFilters(t *testing.T) {
+	artistID := uuid.New()
+	albumID := uuid.New()
+	genreID := uuid.New()
+	moodID := uuid.New()
+	stub := &catalogStub{}
+	path := "/v1/catalog/tracks?title=night&artist_id=" + artistID.String() +
+		"&album_id=" + albumID.String() + "&genre_id=" + genreID.String() +
+		"&mood_id=" + moodID.String() + "&release_year=2026&explicit=false&sort=title_asc"
+	request := httptest.NewRequest(http.MethodGet, path, nil)
+	response := httptest.NewRecorder()
+
+	NewRouter(testDependencies(stub, healthCheckStub{})).ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", response.Code, response.Body.String())
+	}
+	query := stub.lastTrackQuery
+	if query.Title != "night" || query.ArtistID == nil || *query.ArtistID != artistID ||
+		query.AlbumID == nil || *query.AlbumID != albumID ||
+		query.GenreID == nil || *query.GenreID != genreID ||
+		query.MoodID == nil || *query.MoodID != moodID ||
+		query.ReleaseYear == nil || *query.ReleaseYear != 2026 ||
+		query.Explicit == nil || *query.Explicit || query.Sort != metadata.TrackSortTitleAsc {
+		t.Fatalf("track query = %+v", query)
+	}
+}
+
 func TestCatalogCORSPreflight(t *testing.T) {
 	dependencies := testDependencies(&catalogStub{}, healthCheckStub{})
 	dependencies.Origins = []string{"http://localhost:5173"}
@@ -208,9 +252,10 @@ func testDependencies(catalog Catalog, database HealthCheck) Dependencies {
 }
 
 type catalogStub struct {
-	err      error
-	track    metadata.Track
-	lastPage metadata.PageRequest
+	err            error
+	track          metadata.Track
+	lastPage       metadata.PageRequest
+	lastTrackQuery metadata.TrackQuery
 }
 
 func (stub *catalogStub) Artist(context.Context, uuid.UUID) (metadata.Artist, error) {
@@ -235,9 +280,11 @@ func (stub *catalogStub) Track(context.Context, uuid.UUID) (metadata.Track, erro
 	return stub.track, stub.err
 }
 
-func (stub *catalogStub) Tracks(_ context.Context, page metadata.PageRequest) (metadata.Page[metadata.Track], error) {
-	stub.lastPage = page
-	return metadata.Page[metadata.Track]{Items: []metadata.Track{}, Limit: page.Limit, Offset: page.Offset}, stub.err
+func (stub *catalogStub) Tracks(_ context.Context, query metadata.TrackQuery) (metadata.Page[metadata.Track], error) {
+	stub.lastTrackQuery = query
+	return metadata.Page[metadata.Track]{
+		Items: []metadata.Track{}, Limit: query.Page.Limit, Offset: query.Page.Offset,
+	}, stub.err
 }
 
 func (stub *catalogStub) Genre(context.Context, uuid.UUID) (metadata.Genre, error) {

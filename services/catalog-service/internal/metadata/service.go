@@ -15,7 +15,7 @@ type Store interface {
 	ListAlbums(context.Context, PageRequest) (Page[Album], error)
 	SaveAlbum(context.Context, AlbumInput) (Album, error)
 	TrackByID(context.Context, uuid.UUID) (Track, error)
-	ListTracks(context.Context, PageRequest) (Page[Track], error)
+	SearchTracks(context.Context, TrackQuery) (Page[Track], error)
 	SaveTrack(context.Context, TrackInput) (Track, error)
 	GenreByID(context.Context, uuid.UUID) (Genre, error)
 	ListGenres(context.Context, PageRequest) (Page[Genre], error)
@@ -88,11 +88,12 @@ func (service *Service) Track(ctx context.Context, id uuid.UUID) (Track, error) 
 	return result, nil
 }
 
-func (service *Service) Tracks(ctx context.Context, page PageRequest) (Page[Track], error) {
-	if err := validatePage(page); err != nil {
+func (service *Service) Tracks(ctx context.Context, query TrackQuery) (Page[Track], error) {
+	canonical, err := validateTrackQuery(query)
+	if err != nil {
 		return Page[Track]{}, err
 	}
-	result, err := service.store.ListTracks(ctx, page)
+	result, err := service.store.SearchTracks(ctx, canonical)
 	if err != nil {
 		return Page[Track]{}, fmt.Errorf("list tracks: %w", err)
 	}
