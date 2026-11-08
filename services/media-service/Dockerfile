@@ -21,7 +21,7 @@ COPY --from=source /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certific
 COPY --from=build /out/media-service /media-service
 
 USER 65532:65532
-EXPOSE 8080
+EXPOSE 8080 9090
 HEALTHCHECK --interval=10s --timeout=5s --start-period=10s --retries=5 \
     CMD ["/media-service", "healthcheck"]
 

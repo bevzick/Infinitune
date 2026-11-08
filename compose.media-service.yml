@@ -12,6 +12,8 @@ services:
     environment:
       MEDIA_HTTP_HOST: 0.0.0.0
       MEDIA_HTTP_PORT: 8080
+      MEDIA_GRPC_HOST: 0.0.0.0
+      MEDIA_GRPC_PORT: 9090
       POSTGRES_HOST: ${POSTGRES_HOST:-postgres}
       POSTGRES_PORT: ${POSTGRES_PORT:-5432}
       POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER is required}
@@ -24,6 +26,7 @@ services:
       MINIO_USE_SSL: ${MINIO_USE_SSL:-false}
     expose:
       - "8080"
+      - "9090"
     networks:
       - backend
       - media-storage
@@ -125,6 +128,7 @@ services:
         condition: service_healthy
     environment:
       INFINITUNE_INTEGRATION_TESTS: "1"
+      MEDIA_GRPC_TEST_TARGET: media-service:9090
       POSTGRES_HOST: ${POSTGRES_HOST:-postgres}
       POSTGRES_PORT: ${POSTGRES_PORT:-5432}
       POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER is required}
@@ -143,6 +147,8 @@ services:
     command:
       - ./internal/schema
       - ./internal/storage
+      - ./internal/repository/postgres
+      - ./internal/grpcapi
     networks:
       - backend
       - media-storage

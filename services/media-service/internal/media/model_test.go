@@ -1,0 +1,51 @@
+package media
+
+import (
+	"context"
+	"errors"
+	"testing"
+
+	"github.com/google/uuid"
+)
+
+type storeStub struct {
+	asset Asset
+	err   error
+	calls int
+}
+
+func (stub *storeStub) AssetByID(context.Context, uuid.UUID) (Asset, error) {
+	stub.calls++
+	return stub.asset, stub.err
+}
+
+func TestServiceRejectsNilAssetID(t *testing.T) {
+	store := &storeStub{}
+	_, err := NewService(store).Asset(context.Background(), uuid.Nil)
+	if !errors.Is(err, ErrInvalid) || store.calls != 0 {
+		t.Fatalf("Asset() error = %v, calls = %d", err, store.calls)
+	}
+}
+
+func TestServiceReturnsOnlyReadyAssetForPlayback(t *testing.T) {
+	id := uuid.New()
+	ready := &storeStub{asset: Asset{ID: id, Status: StatusReady}}
+	asset, err := NewService(ready).ReadyAsset(context.Background(), id)
+	if err != nil || asset.ID != id {
+		t.Fatalf("ReadyAsset() = %+v, %v", asset, err)
+	}
+
+	notReady := &storeStub{asset: Asset{ID: id, Status: StatusProcessing}}
+	_, err = NewService(notReady).ReadyAsset(context.Background(), id)
+	if !errors.Is(err, ErrNotReady) {
+		t.Fatalf("ReadyAsset() error = %v, want %v", err, ErrNotReady)
+	}
+}
+
+func TestServicePreservesMissingAssetError(t *testing.T) {
+	store := &storeStub{err: ErrNotFound}
+	_, err := NewService(store).ReadyAsset(context.Background(), uuid.New())
+	if !errors.Is(err, ErrNotFound) {
+		t.Fatalf("ReadyAsset() error = %v, want %v", err, ErrNotFound)
+	}
+}

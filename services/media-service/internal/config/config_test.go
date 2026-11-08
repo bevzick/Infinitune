@@ -5,6 +5,8 @@ import "testing"
 func TestLoadUsesMediaDependencies(t *testing.T) {
 	t.Setenv("MEDIA_HTTP_HOST", "127.0.0.1")
 	t.Setenv("MEDIA_HTTP_PORT", "8081")
+	t.Setenv("MEDIA_GRPC_HOST", "127.0.0.2")
+	t.Setenv("MEDIA_GRPC_PORT", "9091")
 	t.Setenv("POSTGRES_HOST", "postgres")
 	t.Setenv("POSTGRES_PORT", "5433")
 	t.Setenv("POSTGRES_USER", "media_user")
@@ -22,6 +24,9 @@ func TestLoadUsesMediaDependencies(t *testing.T) {
 	}
 	if config.HTTPAddress != "127.0.0.1:8081" {
 		t.Errorf("HTTPAddress = %q", config.HTTPAddress)
+	}
+	if config.GRPCAddress != "127.0.0.2:9091" {
+		t.Errorf("GRPCAddress = %q", config.GRPCAddress)
 	}
 	if config.Database.Name != "media_db" || config.Database.User != "media_user" ||
 		config.Database.Host != "postgres" || config.Database.Port != 5433 {
@@ -41,6 +46,7 @@ func TestLoadRejectsInvalidConfiguration(t *testing.T) {
 		value string
 	}{
 		{"invalid HTTP port", "MEDIA_HTTP_PORT", "invalid"},
+		{"invalid gRPC port", "MEDIA_GRPC_PORT", "65536"},
 		{"invalid database port", "POSTGRES_PORT", "0"},
 		{"missing database user", "POSTGRES_USER", ""},
 		{"missing storage password", "MINIO_ROOT_PASSWORD", ""},
@@ -60,6 +66,7 @@ func TestLoadRejectsInvalidConfiguration(t *testing.T) {
 func setRequiredEnvironment(t *testing.T) {
 	t.Helper()
 	t.Setenv("MEDIA_HTTP_PORT", "8080")
+	t.Setenv("MEDIA_GRPC_PORT", "9090")
 	t.Setenv("POSTGRES_PORT", "5432")
 	t.Setenv("POSTGRES_USER", "media_user")
 	t.Setenv("POSTGRES_PASSWORD", "secret")

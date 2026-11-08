@@ -1,0 +1,56 @@
+syntax = "proto3";
+
+package infinitune.media.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/bevzick/Infinitune/services/media-service/api/media/v1;mediav1";
+
+service MediaService {
+  // Returns metadata regardless of processing status.
+  rpc GetMediaAsset(GetMediaAssetRequest) returns (MediaAsset);
+
+  // Returns metadata only when the asset is ready for playback.
+  rpc GetReadyMediaAsset(GetReadyMediaAssetRequest) returns (MediaAsset);
+}
+
+message GetMediaAssetRequest {
+  string media_asset_id = 1;
+}
+
+message GetReadyMediaAssetRequest {
+  string media_asset_id = 1;
+}
+
+enum MediaStatus {
+  MEDIA_STATUS_UNSPECIFIED = 0;
+  MEDIA_STATUS_UPLOADED = 1;
+  MEDIA_STATUS_PROCESSING = 2;
+  MEDIA_STATUS_READY = 3;
+  MEDIA_STATUS_FAILED = 4;
+}
+
+message MediaAsset {
+  string id = 1;
+  string track_id = 2;
+  string source_upload_id = 3;
+  string original_object_key = 4;
+  string original_filename = 5;
+  optional int32 duration_ms = 6;
+  MediaStatus status = 7;
+  repeated AudioVariant variants = 8;
+  google.protobuf.Timestamp created_at = 9;
+  google.protobuf.Timestamp updated_at = 10;
+}
+
+message AudioVariant {
+  string id = 1;
+  string object_key = 2;
+  string codec = 3;
+  string container = 4;
+  int32 bitrate_kbps = 5;
+  int32 sample_rate = 6;
+  int32 channels = 7;
+  int64 size_bytes = 8;
+  google.protobuf.Timestamp created_at = 9;
+}

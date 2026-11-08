@@ -14,6 +14,8 @@ import (
 const (
 	defaultHTTPHost       = "0.0.0.0"
 	defaultHTTPPort       = "8080"
+	defaultGRPCHost       = "0.0.0.0"
+	defaultGRPCPort       = "9090"
 	defaultPostgresHost   = "127.0.0.1"
 	defaultPostgresPort   = "5432"
 	defaultMinIOEndpoint  = "127.0.0.1:9000"
@@ -22,6 +24,7 @@ const (
 
 type Config struct {
 	HTTPAddress string
+	GRPCAddress string
 	Database    database.Config
 	Storage     storage.Config
 }
@@ -29,6 +32,10 @@ type Config struct {
 func Load() (Config, error) {
 	httpPort := envOrDefault("MEDIA_HTTP_PORT", defaultHTTPPort)
 	if _, err := parsePort("MEDIA_HTTP_PORT", httpPort); err != nil {
+		return Config{}, err
+	}
+	grpcPort := envOrDefault("MEDIA_GRPC_PORT", defaultGRPCPort)
+	if _, err := parsePort("MEDIA_GRPC_PORT", grpcPort); err != nil {
 		return Config{}, err
 	}
 	databaseConfig, err := loadDatabaseConfig()
@@ -41,6 +48,7 @@ func Load() (Config, error) {
 	}
 	return Config{
 		HTTPAddress: net.JoinHostPort(envOrDefault("MEDIA_HTTP_HOST", defaultHTTPHost), httpPort),
+		GRPCAddress: net.JoinHostPort(envOrDefault("MEDIA_GRPC_HOST", defaultGRPCHost), grpcPort),
 		Database:    databaseConfig,
 		Storage:     storageConfig,
 	}, nil
