@@ -38,7 +38,7 @@ func (validator *TrackValidator) ValidateTrack(ctx context.Context, trackID uuid
 		&catalogv1.ValidateTrackIdsRequest{TrackIds: []string{trackID.String()}},
 	)
 	if err != nil {
-		return fmt.Errorf("catalog ValidateTrackIds: %w", err)
+		return fmt.Errorf("%w: ValidateTrackIds: %v", playlist.ErrCatalogUnavailable, err)
 	}
 	if len(response.GetMissingTrackIds()) != 0 ||
 		len(response.GetValidTrackIds()) != 1 || response.GetValidTrackIds()[0] != trackID.String() {

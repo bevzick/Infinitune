@@ -50,10 +50,10 @@ func TestTrackValidatorRejectsMissingOrUnexpectedResponse(t *testing.T) {
 }
 
 func TestTrackValidatorPropagatesTransportError(t *testing.T) {
-	want := errors.New("catalog unavailable")
+	want := errors.New("transport failure")
 	validator := NewTrackValidator(&validationClientStub{err: want})
-	if err := validator.ValidateTrack(context.Background(), uuid.New()); !errors.Is(err, want) {
-		t.Fatalf("ValidateTrack() error = %v, want wrapped %v", err, want)
+	if err := validator.ValidateTrack(context.Background(), uuid.New()); !errors.Is(err, playlist.ErrCatalogUnavailable) {
+		t.Fatalf("ValidateTrack() error = %v, want %v", err, playlist.ErrCatalogUnavailable)
 	}
 }
 

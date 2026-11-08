@@ -14,18 +14,32 @@ import (
 func (repository *PlaylistRepository) Tracks(
 	ctx context.Context,
 	playlistID uuid.UUID,
-) ([]playlist.Track, error) {
+	page playlist.PageRequest,
+) (playlist.TrackPage, error) {
+	var total int64
+	if err := repository.database.QueryRow(ctx, `
+		SELECT count(*) FROM playlist.playlist_tracks WHERE playlist_id = $1
+	`, playlistID).Scan(&total); err != nil {
+		return playlist.TrackPage{}, fmt.Errorf("count playlist tracks: %w", err)
+	}
 	rows, err := repository.database.Query(ctx, `
 		SELECT playlist_id, track_id, position, added_by, added_at
 		FROM playlist.playlist_tracks
 		WHERE playlist_id = $1
 		ORDER BY position
-	`, playlistID)
+		LIMIT $2 OFFSET $3
+	`, playlistID, page.Limit, page.Offset)
 	if err != nil {
-		return nil, fmt.Errorf("query playlist tracks: %w", err)
+		return playlist.TrackPage{}, fmt.Errorf("query playlist tracks: %w", err)
 	}
 	defer rows.Close()
-	return scanTracks(rows)
+	items, err := scanTracks(rows)
+	if err != nil {
+		return playlist.TrackPage{}, err
+	}
+	return playlist.TrackPage{
+		Items: items, Limit: page.Limit, Offset: page.Offset, Total: total,
+	}, nil
 }
 
 func (repository *PlaylistRepository) AddTrack(

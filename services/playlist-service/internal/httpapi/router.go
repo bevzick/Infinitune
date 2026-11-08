@@ -2,10 +2,15 @@ package httpapi
 
 import (
 	"context"
+	"io"
+	"log/slog"
 	"net/http"
 	"time"
 
+	"github.com/bevzick/Infinitune/services/playlist-service/internal/identity"
+	"github.com/bevzick/Infinitune/services/playlist-service/internal/playlist"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 )
 
 const healthcheckTimeout = 2 * time.Second
@@ -14,11 +19,55 @@ type DatabaseCheck interface {
 	Ping(context.Context) error
 }
 
-func NewRouter(database DatabaseCheck) http.Handler {
+type IdentityVerifier interface {
+	Verify(context.Context, string, time.Time) (identity.Identity, error)
+}
+
+type Playlists interface {
+	Create(context.Context, uuid.UUID, playlist.CreateInput) (playlist.Playlist, error)
+	ByID(context.Context, uuid.UUID, uuid.UUID) (playlist.Playlist, error)
+	Update(context.Context, uuid.UUID, uuid.UUID, playlist.UpdateInput) (playlist.Playlist, error)
+	Delete(context.Context, uuid.UUID, uuid.UUID) error
+}
+
+type PlaylistTracks interface {
+	Tracks(context.Context, uuid.UUID, uuid.UUID, playlist.PageRequest) (playlist.TrackPage, error)
+	Add(context.Context, uuid.UUID, uuid.UUID, uuid.UUID) (playlist.Track, error)
+	Remove(context.Context, uuid.UUID, uuid.UUID, uuid.UUID) error
+	Reorder(context.Context, uuid.UUID, uuid.UUID, []uuid.UUID) ([]playlist.Track, error)
+}
+
+type Dependencies struct {
+	Database  DatabaseCheck
+	Tokens    IdentityVerifier
+	Playlists Playlists
+	Tracks    PlaylistTracks
+	Origins   []string
+	Logger    *slog.Logger
+}
+
+func NewRouter(dependencies Dependencies) http.Handler {
 	gin.SetMode(gin.ReleaseMode)
+	if dependencies.Logger == nil {
+		dependencies.Logger = slog.New(slog.NewTextHandler(io.Discard, nil))
+	}
 	router := gin.New()
-	router.Use(gin.Logger(), gin.Recovery())
-	router.GET("/health", health(database))
+	router.Use(gin.Logger(), gin.Recovery(), cors(dependencies.Origins))
+	router.GET("/health", health(dependencies.Database))
+
+	read := router.Group("/v1/playlists")
+	read.Use(optionalAuthenticate(dependencies.Tokens, dependencies.Logger))
+	read.GET("/:playlist_id", getPlaylist(dependencies.Playlists, dependencies.Logger))
+	read.GET("/:playlist_id/tracks", getTracks(dependencies.Tracks, dependencies.Logger))
+
+	protected := router.Group("/v1/playlists")
+	protected.Use(authenticate(dependencies.Tokens, dependencies.Logger))
+	protected.POST("", createPlaylist(dependencies.Playlists, dependencies.Logger))
+	protected.PATCH("/:playlist_id", updatePlaylist(dependencies.Playlists, dependencies.Logger))
+	protected.DELETE("/:playlist_id", deletePlaylist(dependencies.Playlists, dependencies.Logger))
+	protected.POST("/:playlist_id/tracks", addTrack(dependencies.Tracks, dependencies.Logger))
+	protected.DELETE("/:playlist_id/tracks/:track_id", removeTrack(dependencies.Tracks, dependencies.Logger))
+	protected.PUT("/:playlist_id/tracks/order", reorderTracks(dependencies.Tracks, dependencies.Logger))
 	return router
 }
 

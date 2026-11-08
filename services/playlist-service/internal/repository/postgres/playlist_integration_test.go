@@ -179,11 +179,14 @@ func TestPlaylistRepositoryManagesManualTrackOrder(t *testing.T) {
 	if _, err = tracks.Reorder(ctx, ownerID, created.ID, []uuid.UUID{secondID}); !errors.Is(err, playlist.ErrInvalidArgument) {
 		t.Fatalf("Reorder(incomplete) error = %v, want %v", err, playlist.ErrInvalidArgument)
 	}
-	unchanged, err := tracks.Tracks(ctx, ownerID, created.ID)
+	unchanged, err := tracks.Tracks(ctx, ownerID, created.ID, playlist.PageRequest{})
 	if err != nil {
 		t.Fatalf("Tracks(after rejected reorder) error = %v", err)
 	}
-	assertTrackOrder(t, unchanged, []uuid.UUID{firstID, secondID})
+	assertTrackOrder(t, unchanged.Items, []uuid.UUID{firstID, secondID})
+	if unchanged.Total != 2 || unchanged.Limit != 50 {
+		t.Fatalf("Tracks() page = %+v", unchanged)
+	}
 
 	reordered, err := tracks.Reorder(ctx, ownerID, created.ID, []uuid.UUID{secondID, firstID})
 	if err != nil {
@@ -197,11 +200,11 @@ func TestPlaylistRepositoryManagesManualTrackOrder(t *testing.T) {
 	if err = tracks.Remove(ctx, ownerID, created.ID, secondID); err != nil {
 		t.Fatalf("Remove() error = %v", err)
 	}
-	remaining, err := tracks.Tracks(ctx, ownerID, created.ID)
+	remaining, err := tracks.Tracks(ctx, ownerID, created.ID, playlist.PageRequest{Limit: 1})
 	if err != nil {
 		t.Fatalf("Tracks(after remove) error = %v", err)
 	}
-	assertTrackOrder(t, remaining, []uuid.UUID{firstID})
+	assertTrackOrder(t, remaining.Items, []uuid.UUID{firstID})
 	if err = tracks.Remove(ctx, ownerID, created.ID, secondID); !errors.Is(err, playlist.ErrTrackNotFound) {
 		t.Fatalf("Remove(missing) error = %v, want %v", err, playlist.ErrTrackNotFound)
 	}

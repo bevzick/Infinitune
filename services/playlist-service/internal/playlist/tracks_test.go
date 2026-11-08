@@ -82,23 +82,25 @@ func TestTrackServiceReadsTracksUsingPlaylistVisibility(t *testing.T) {
 	ownerID := uuid.New()
 	playlistID := uuid.New()
 	trackID := uuid.New()
-	tracks := &trackStoreStub{tracks: []Track{{PlaylistID: playlistID, TrackID: trackID, Position: 1}}}
+	tracks := &trackStoreStub{tracks: TrackPage{
+		Items: []Track{{PlaylistID: playlistID, TrackID: trackID, Position: 1}}, Total: 1,
+	}}
 
 	privateService := NewTrackService(NewService(&stubStore{playlist: Playlist{
 		ID: playlistID, OwnerID: ownerID, Type: TypeManual, Visibility: VisibilityPrivate,
 	}}), tracks, &trackValidatorStub{})
-	if _, err := privateService.Tracks(context.Background(), uuid.New(), playlistID); !errors.Is(err, ErrNotFound) {
+	if _, err := privateService.Tracks(context.Background(), uuid.New(), playlistID, PageRequest{}); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("Tracks(private) error = %v, want %v", err, ErrNotFound)
 	}
 
 	publicService := NewTrackService(NewService(&stubStore{playlist: Playlist{
 		ID: playlistID, OwnerID: ownerID, Type: TypeManual, Visibility: VisibilityPublic,
 	}}), tracks, &trackValidatorStub{})
-	result, err := publicService.Tracks(context.Background(), uuid.Nil, playlistID)
+	result, err := publicService.Tracks(context.Background(), uuid.Nil, playlistID, PageRequest{})
 	if err != nil {
 		t.Fatalf("Tracks(public) error = %v", err)
 	}
-	if len(result) != 1 || result[0].TrackID != trackID {
+	if len(result.Items) != 1 || result.Items[0].TrackID != trackID || result.Limit != defaultTrackPageLimit {
 		t.Fatalf("Tracks(public) = %+v", result)
 	}
 }
@@ -129,11 +131,17 @@ func (stub *trackValidatorStub) ValidateTrack(_ context.Context, trackID uuid.UU
 }
 
 type trackStoreStub struct {
-	tracks []Track
+	tracks TrackPage
 	added  bool
 }
 
-func (stub *trackStoreStub) Tracks(context.Context, uuid.UUID) ([]Track, error) {
+func (stub *trackStoreStub) Tracks(
+	_ context.Context,
+	_ uuid.UUID,
+	page PageRequest,
+) (TrackPage, error) {
+	stub.tracks.Limit = page.Limit
+	stub.tracks.Offset = page.Offset
 	return stub.tracks, nil
 }
 

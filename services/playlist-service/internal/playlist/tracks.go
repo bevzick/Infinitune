@@ -7,8 +7,13 @@ import (
 	"github.com/google/uuid"
 )
 
+const (
+	defaultTrackPageLimit = 50
+	maximumTrackPageLimit = 100
+)
+
 type TrackStore interface {
-	Tracks(context.Context, uuid.UUID) ([]Track, error)
+	Tracks(context.Context, uuid.UUID, PageRequest) (TrackPage, error)
 	AddTrack(context.Context, uuid.UUID, uuid.UUID, uuid.UUID, uuid.UUID) (Track, error)
 	RemoveTrack(context.Context, uuid.UUID, uuid.UUID, uuid.UUID) error
 	ReorderTracks(context.Context, uuid.UUID, uuid.UUID, []uuid.UUID) ([]Track, error)
@@ -36,15 +41,33 @@ func (service *TrackService) Tracks(
 	ctx context.Context,
 	viewerID uuid.UUID,
 	playlistID uuid.UUID,
-) ([]Track, error) {
+	page PageRequest,
+) (TrackPage, error) {
 	if _, err := service.playlists.ByID(ctx, viewerID, playlistID); err != nil {
-		return nil, err
+		return TrackPage{}, err
 	}
-	tracks, err := service.store.Tracks(ctx, playlistID)
+	page, err := validateTrackPage(page)
 	if err != nil {
-		return nil, fmt.Errorf("read playlist tracks: %w", err)
+		return TrackPage{}, err
+	}
+	tracks, err := service.store.Tracks(ctx, playlistID, page)
+	if err != nil {
+		return TrackPage{}, fmt.Errorf("read playlist tracks: %w", err)
 	}
 	return tracks, nil
+}
+
+func validateTrackPage(page PageRequest) (PageRequest, error) {
+	if page.Limit == 0 {
+		page.Limit = defaultTrackPageLimit
+	}
+	if page.Limit < 1 || page.Limit > maximumTrackPageLimit {
+		return PageRequest{}, invalidArgument("track page limit must be from 1 to 100")
+	}
+	if page.Offset < 0 {
+		return PageRequest{}, invalidArgument("track page offset must not be negative")
+	}
+	return page, nil
 }
 
 func (service *TrackService) Add(
