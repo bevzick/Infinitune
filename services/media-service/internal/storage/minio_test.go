@@ -5,6 +5,8 @@ import (
 	"errors"
 	"strings"
 	"testing"
+
+	"github.com/minio/minio-go/v7"
 )
 
 type bucketClientStub struct {
@@ -16,6 +18,15 @@ type bucketClientStub struct {
 func (stub *bucketClientStub) BucketExists(_ context.Context, bucket string) (bool, error) {
 	stub.bucket = bucket
 	return stub.exists, stub.err
+}
+
+func (stub *bucketClientStub) GetObject(
+	context.Context,
+	string,
+	string,
+	minio.GetObjectOptions,
+) (*minio.Object, error) {
+	return nil, errors.New("not implemented")
 }
 
 func TestCheckRequiresExistingBucket(t *testing.T) {

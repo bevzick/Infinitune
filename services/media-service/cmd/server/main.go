@@ -18,6 +18,7 @@ import (
 	"github.com/bevzick/Infinitune/services/media-service/internal/database"
 	"github.com/bevzick/Infinitune/services/media-service/internal/grpcapi"
 	"github.com/bevzick/Infinitune/services/media-service/internal/httpapi"
+	"github.com/bevzick/Infinitune/services/media-service/internal/identity"
 	"github.com/bevzick/Infinitune/services/media-service/internal/media"
 	postgres_repository "github.com/bevzick/Infinitune/services/media-service/internal/repository/postgres"
 	"github.com/bevzick/Infinitune/services/media-service/internal/storage"
@@ -63,6 +64,11 @@ func main() {
 		logger.Error("failed to connect to object storage", "error", err)
 		os.Exit(1)
 	}
+	tokenVerifier, err := identity.NewVerifier(cfg.Identity, nil)
+	if err != nil {
+		logger.Error("failed to initialize identity verifier", "error", err)
+		os.Exit(1)
+	}
 	metadataService := media.NewService(postgres_repository.NewMediaRepository(databasePool))
 	grpcListener, err := net.Listen("tcp", cfg.GRPCAddress)
 	if err != nil {
@@ -77,6 +83,11 @@ func main() {
 		Handler: httpapi.NewRouter(httpapi.Dependencies{
 			Database: databasePool,
 			Storage:  objectStorage,
+			Objects:  objectStorage,
+			Media:    metadataService,
+			Tokens:   tokenVerifier,
+			Origins:  cfg.Origins,
+			Logger:   logger,
 		}),
 		ReadHeaderTimeout: readHeaderTimeout,
 	}

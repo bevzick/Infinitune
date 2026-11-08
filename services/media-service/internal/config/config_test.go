@@ -1,6 +1,9 @@
 package config
 
-import "testing"
+import (
+	"slices"
+	"testing"
+)
 
 func TestLoadUsesMediaDependencies(t *testing.T) {
 	t.Setenv("MEDIA_HTTP_HOST", "127.0.0.1")
@@ -17,6 +20,11 @@ func TestLoadUsesMediaDependencies(t *testing.T) {
 	t.Setenv("MINIO_ROOT_PASSWORD", "minio_secret")
 	t.Setenv("MINIO_MEDIA_BUCKET", "media")
 	t.Setenv("MINIO_USE_SSL", "true")
+	t.Setenv("MEDIA_AUTH_JWKS_URL", "http://auth:8080/v1/auth/jwks")
+	t.Setenv("AUTH_JWT_ISSUER", "test-issuer")
+	t.Setenv("AUTH_JWT_AUDIENCE", "test-audience")
+	t.Setenv("AUTH_JWT_KEY_ID", "test-key")
+	t.Setenv("MEDIA_ALLOWED_ORIGINS", "http://localhost:5173, https://app.example.test")
 
 	config, err := Load()
 	if err != nil {
@@ -36,6 +44,14 @@ func TestLoadUsesMediaDependencies(t *testing.T) {
 		config.Storage.AccessKey != "minio_user" || !config.Storage.Secure {
 		t.Errorf("Storage = %+v", config.Storage)
 	}
+	if config.Identity.JWKSURL != "http://auth:8080/v1/auth/jwks" ||
+		config.Identity.Issuer != "test-issuer" || config.Identity.Audience != "test-audience" ||
+		config.Identity.KeyID != "test-key" {
+		t.Errorf("Identity = %+v", config.Identity)
+	}
+	if !slices.Equal(config.Origins, []string{"http://localhost:5173", "https://app.example.test"}) {
+		t.Errorf("Origins = %v", config.Origins)
+	}
 }
 
 func TestLoadRejectsInvalidConfiguration(t *testing.T) {
@@ -52,6 +68,7 @@ func TestLoadRejectsInvalidConfiguration(t *testing.T) {
 		{"missing storage password", "MINIO_ROOT_PASSWORD", ""},
 		{"endpoint contains scheme", "MINIO_ENDPOINT", "http://minio:9000"},
 		{"invalid TLS flag", "MINIO_USE_SSL", "sometimes"},
+		{"invalid allowed origin", "MEDIA_ALLOWED_ORIGINS", "javascript:alert(1)"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

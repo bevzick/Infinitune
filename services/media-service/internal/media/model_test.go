@@ -49,3 +49,27 @@ func TestServicePreservesMissingAssetError(t *testing.T) {
 		t.Fatalf("ReadyAsset() error = %v, want %v", err, ErrNotFound)
 	}
 }
+
+func TestServiceSelectsHighestBitratePlaybackVariant(t *testing.T) {
+	id := uuid.New()
+	store := &storeStub{asset: Asset{
+		ID: id, Status: StatusReady,
+		Variants: []AudioVariant{
+			{ID: uuid.New(), BitrateKbps: 128},
+			{ID: uuid.New(), BitrateKbps: 320},
+			{ID: uuid.New(), BitrateKbps: 256},
+		},
+	}}
+	_, variant, err := NewService(store).PlaybackVariant(context.Background(), id)
+	if err != nil || variant.BitrateKbps != 320 {
+		t.Fatalf("PlaybackVariant() = %+v, %v", variant, err)
+	}
+}
+
+func TestServiceRejectsReadyAssetWithoutVariant(t *testing.T) {
+	store := &storeStub{asset: Asset{ID: uuid.New(), Status: StatusReady}}
+	_, _, err := NewService(store).PlaybackVariant(context.Background(), store.asset.ID)
+	if !errors.Is(err, ErrNotReady) {
+		t.Fatalf("PlaybackVariant() error = %v, want %v", err, ErrNotReady)
+	}
+}

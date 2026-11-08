@@ -78,3 +78,23 @@ func (service *Service) ReadyAsset(ctx context.Context, id uuid.UUID) (Asset, er
 	}
 	return asset, nil
 }
+
+func (service *Service) PlaybackVariant(
+	ctx context.Context,
+	id uuid.UUID,
+) (Asset, AudioVariant, error) {
+	asset, err := service.ReadyAsset(ctx, id)
+	if err != nil {
+		return Asset{}, AudioVariant{}, err
+	}
+	if len(asset.Variants) == 0 {
+		return Asset{}, AudioVariant{}, fmt.Errorf("media asset has no audio variants: %w", ErrNotReady)
+	}
+	selected := asset.Variants[0]
+	for _, variant := range asset.Variants[1:] {
+		if variant.BitrateKbps > selected.BitrateKbps {
+			selected = variant
+		}
+	}
+	return asset, selected, nil
+}

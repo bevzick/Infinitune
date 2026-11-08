@@ -2,7 +2,10 @@ package storage
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io"
+	"time"
 
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
@@ -18,6 +21,16 @@ type Config struct {
 
 type bucketClient interface {
 	BucketExists(context.Context, string) (bool, error)
+	GetObject(context.Context, string, string, minio.GetObjectOptions) (*minio.Object, error)
+}
+
+var ErrObjectNotFound = errors.New("media object not found")
+
+type Object struct {
+	Body         io.ReadCloser
+	Size         int64
+	ContentType  string
+	LastModified time.Time
 }
 
 type Client struct {
@@ -49,4 +62,28 @@ func (client *Client) Check(ctx context.Context) error {
 		return fmt.Errorf("media bucket %q does not exist", client.bucket)
 	}
 	return nil
+}
+
+func (client *Client) Open(ctx context.Context, objectKey string) (Object, error) {
+	object, err := client.client.GetObject(ctx, client.bucket, objectKey, minio.GetObjectOptions{})
+	if err != nil {
+		return Object{}, mapObjectError(objectKey, err)
+	}
+	info, err := object.Stat()
+	if err != nil {
+		_ = object.Close()
+		return Object{}, mapObjectError(objectKey, err)
+	}
+	return Object{
+		Body: object, Size: info.Size, ContentType: info.ContentType,
+		LastModified: info.LastModified,
+	}, nil
+}
+
+func mapObjectError(objectKey string, err error) error {
+	response := minio.ToErrorResponse(err)
+	if response.Code == "NoSuchKey" || response.Code == "NoSuchObject" {
+		return fmt.Errorf("object %q: %w", objectKey, ErrObjectNotFound)
+	}
+	return fmt.Errorf("open object %q: %w", objectKey, err)
 }
