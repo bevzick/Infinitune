@@ -1,0 +1,134 @@
+package config
+
+import (
+	"fmt"
+	"net"
+	"net/url"
+	"os"
+	"strconv"
+	"strings"
+
+	"github.com/bevzick/Infinitune/services/catalog-service/internal/database"
+)
+
+const (
+	defaultHTTPHost     = "0.0.0.0"
+	defaultHTTPPort     = "8080"
+	defaultGRPCHost     = "0.0.0.0"
+	defaultGRPCPort     = "9090"
+	defaultPostgresHost = "127.0.0.1"
+	defaultPostgresPort = "5432"
+)
+
+type Config struct {
+	HTTPAddress string
+	GRPCAddress string
+	Database    database.Config
+	Origins     []string
+}
+
+func Load() (Config, error) {
+	port := envOrDefault("CATALOG_HTTP_PORT", defaultHTTPPort)
+	if _, err := parsePort("CATALOG_HTTP_PORT", port); err != nil {
+		return Config{}, err
+	}
+	grpcPort := envOrDefault("CATALOG_GRPC_PORT", defaultGRPCPort)
+	if _, err := parsePort("CATALOG_GRPC_PORT", grpcPort); err != nil {
+		return Config{}, err
+	}
+
+	databaseConfig, err := loadDatabaseConfig()
+	if err != nil {
+		return Config{}, err
+	}
+	origins, err := parseAllowedOrigins(envOrDefault("CATALOG_ALLOWED_ORIGINS", ""))
+	if err != nil {
+		return Config{}, err
+	}
+
+	return Config{
+		HTTPAddress: net.JoinHostPort(envOrDefault("CATALOG_HTTP_HOST", defaultHTTPHost), port),
+		GRPCAddress: net.JoinHostPort(envOrDefault("CATALOG_GRPC_HOST", defaultGRPCHost), grpcPort),
+		Database:    databaseConfig,
+		Origins:     origins,
+	}, nil
+}
+
+func parseAllowedOrigins(value string) ([]string, error) {
+	if strings.TrimSpace(value) == "" {
+		return nil, nil
+	}
+
+	seen := make(map[string]struct{})
+	origins := make([]string, 0)
+	for rawOrigin := range strings.SplitSeq(value, ",") {
+		origin := strings.TrimSpace(rawOrigin)
+		parsed, err := url.Parse(origin)
+		if err != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") ||
+			parsed.Host == "" || parsed.User != nil || parsed.Path != "" ||
+			parsed.RawQuery != "" || parsed.Fragment != "" {
+			return nil, fmt.Errorf("invalid CATALOG_ALLOWED_ORIGINS entry %q", origin)
+		}
+		if _, exists := seen[origin]; exists {
+			continue
+		}
+		seen[origin] = struct{}{}
+		origins = append(origins, origin)
+	}
+
+	return origins, nil
+}
+
+func loadDatabaseConfig() (database.Config, error) {
+	port, err := parsePort("POSTGRES_PORT", envOrDefault("POSTGRES_PORT", defaultPostgresPort))
+	if err != nil {
+		return database.Config{}, err
+	}
+
+	user, err := requiredEnv("POSTGRES_USER")
+	if err != nil {
+		return database.Config{}, err
+	}
+	password, err := requiredEnv("POSTGRES_PASSWORD")
+	if err != nil {
+		return database.Config{}, err
+	}
+	name, err := requiredEnv("POSTGRES_CATALOG_DB")
+	if err != nil {
+		return database.Config{}, err
+	}
+
+	return database.Config{
+		Host:     envOrDefault("POSTGRES_HOST", defaultPostgresHost),
+		Port:     port,
+		User:     user,
+		Password: password,
+		Name:     name,
+	}, nil
+}
+
+func requiredEnv(key string) (string, error) {
+	value, ok := os.LookupEnv(key)
+	if !ok || value == "" {
+		return "", fmt.Errorf("%s is required", key)
+	}
+
+	return value, nil
+}
+
+func envOrDefault(key, fallback string) string {
+	if value, ok := os.LookupEnv(key); ok && value != "" {
+		return value
+	}
+
+	return fallback
+}
+
+func parsePort(key, value string) (uint16, error) {
+	port, err := strconv.Atoi(value)
+	if err != nil || port < 1 || port > 65535 {
+		return 0, fmt.Errorf("invalid %s %q: expected a number from 1 to 65535", key, value)
+	}
+
+	return uint16(port), nil
+}

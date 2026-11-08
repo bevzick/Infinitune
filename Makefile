@@ -1,8 +1,8 @@
 .DEFAULT_GOAL := help
 
-.PHONY: help config ps up stop down down-volumes restart logs smoke auth-test auth-test-integration auth-migrate-up auth-migrate-version user-test user-test-integration user-migrate-up user-migrate-version
+.PHONY: help config ps up stop down down-volumes restart logs smoke auth-test auth-test-integration auth-migrate-up auth-migrate-version user-test user-test-integration user-migrate-up user-migrate-version catalog-test catalog-test-integration catalog-migrate-up catalog-migrate-version catalog-seed
 
-COMPOSE := docker compose -f compose.yml -f compose.auth.yml -f compose.user.yml
+COMPOSE := docker compose -f compose.yml -f compose.auth.yml -f compose.user.yml -f compose.catalog.yml
 
 help:
 	@echo "Usage: make <target>"
@@ -26,6 +26,11 @@ help:
 	@echo "  user-test-integration - Run User repository integration tests"
 	@echo "  user-migrate-up      - Apply pending User database migrations"
 	@echo "  user-migrate-version - Show the current User migration version"
+	@echo "  catalog-test            - Run Catalog Service unit tests"
+	@echo "  catalog-test-integration - Run Catalog integration tests"
+	@echo "  catalog-migrate-up      - Apply pending Catalog database migrations"
+	@echo "  catalog-migrate-version - Show the current Catalog migration version"
+	@echo "  catalog-seed            - Load fictional development metadata"
 
 config:
 	@$(COMPOSE) config --quiet
@@ -33,7 +38,7 @@ config:
 ps:
 	@$(COMPOSE) ps
 
-up: auth-migrate-up user-migrate-up
+up: auth-migrate-up user-migrate-up catalog-migrate-up
 	@$(COMPOSE) up --detach
 
 stop:
@@ -77,3 +82,19 @@ user-migrate-up:
 
 user-migrate-version:
 	@$(COMPOSE) --profile tools run --rm user-migrate version
+
+catalog-test:
+	@cd services/catalog-service && go test ./...
+
+catalog-test-integration: catalog-seed
+	@$(COMPOSE) up --detach --build catalog-service
+	@$(COMPOSE) --profile tools run --rm --build catalog-integration-test
+
+catalog-migrate-up:
+	@$(COMPOSE) --profile tools run --rm catalog-migrate up
+
+catalog-migrate-version:
+	@$(COMPOSE) --profile tools run --rm catalog-migrate version
+
+catalog-seed: catalog-migrate-up
+	@$(COMPOSE) --profile tools run --rm catalog-seed
