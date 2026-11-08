@@ -191,6 +191,11 @@ type TrackQuery struct {
 	Sort        TrackSort
 }
 
+type TrackIDValidation struct {
+	ValidIDs   []uuid.UUID
+	MissingIDs []uuid.UUID
+}
+
 type ValidationError struct {
 	Field  string
 	Reason string

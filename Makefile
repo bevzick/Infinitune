@@ -86,6 +86,7 @@ catalog-test:
 	@cd services/catalog-service && go test ./...
 
 catalog-test-integration: catalog-migrate-up
+	@$(COMPOSE) up --detach --build catalog-service
 	@$(COMPOSE) --profile tools run --rm --build catalog-integration-test
 
 catalog-migrate-up:

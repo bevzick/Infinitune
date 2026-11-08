@@ -178,6 +178,27 @@ func TestMetadataRepositoryStoresAndReplacesCompleteMetadata(t *testing.T) {
 		t.Fatalf("Tracks(stable sort) ids = %v, %v; want %v, %v",
 			stable.Items[0].ID, stable.Items[1].ID, wantFirstID, wantSecondID)
 	}
+	batch, err := service.BatchTracks(ctx, []uuid.UUID{secondTrackID, trackID})
+	if err != nil {
+		t.Fatalf("BatchTracks() error = %v", err)
+	}
+	if len(batch) != 2 || batch[0].ID != secondTrackID || batch[1].ID != trackID ||
+		len(batch[1].Artists) != 4 || len(batch[1].Genres) != 2 || len(batch[1].Moods) != 2 {
+		t.Fatalf("BatchTracks() = %+v", batch)
+	}
+	missingID := uuid.New()
+	validation, err := service.ValidateTrackIDs(ctx, []uuid.UUID{trackID, missingID, secondTrackID})
+	if err != nil {
+		t.Fatalf("ValidateTrackIDs() error = %v", err)
+	}
+	if len(validation.ValidIDs) != 2 || validation.ValidIDs[0] != trackID ||
+		validation.ValidIDs[1] != secondTrackID || len(validation.MissingIDs) != 1 ||
+		validation.MissingIDs[0] != missingID {
+		t.Fatalf("ValidateTrackIDs() = %+v", validation)
+	}
+	if _, err = service.BatchTracks(ctx, []uuid.UUID{trackID, missingID}); !errors.Is(err, metadata.ErrNotFound) {
+		t.Fatalf("BatchTracks(missing) error = %v, want %v", err, metadata.ErrNotFound)
+	}
 
 	page := metadata.PageRequest{Limit: 100, Offset: 0}
 	artistsPage, err := service.Artists(ctx, page)

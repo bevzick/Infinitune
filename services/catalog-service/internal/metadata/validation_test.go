@@ -176,6 +176,29 @@ func TestValidateTrackQuery(t *testing.T) {
 	}
 }
 
+func TestValidateTrackIDs(t *testing.T) {
+	t.Parallel()
+
+	firstID := uuid.New()
+	if err := validateTrackIDs([]uuid.UUID{firstID, uuid.New()}); err != nil {
+		t.Fatalf("validateTrackIDs() error = %v", err)
+	}
+	tooMany := make([]uuid.UUID, 101)
+	for index := range tooMany {
+		tooMany[index] = uuid.New()
+	}
+	for _, ids := range [][]uuid.UUID{
+		nil,
+		{uuid.Nil},
+		{firstID, firstID},
+		tooMany,
+	} {
+		if err := validateTrackIDs(ids); !errors.Is(err, ErrInvalid) {
+			t.Fatalf("validateTrackIDs(%d ids) error = %v, want %v", len(ids), err, ErrInvalid)
+		}
+	}
+}
+
 func validTrackInput() TrackInput {
 	return TrackInput{
 		ID:           uuid.New(),

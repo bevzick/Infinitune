@@ -15,6 +15,8 @@ type Store interface {
 	ListAlbums(context.Context, PageRequest) (Page[Album], error)
 	SaveAlbum(context.Context, AlbumInput) (Album, error)
 	TrackByID(context.Context, uuid.UUID) (Track, error)
+	TracksByIDs(context.Context, []uuid.UUID) ([]Track, error)
+	ExistingTrackIDs(context.Context, []uuid.UUID) (map[uuid.UUID]struct{}, error)
 	SearchTracks(context.Context, TrackQuery) (Page[Track], error)
 	SaveTrack(context.Context, TrackInput) (Track, error)
 	GenreByID(context.Context, uuid.UUID) (Genre, error)
@@ -84,6 +86,44 @@ func (service *Service) Track(ctx context.Context, id uuid.UUID) (Track, error) 
 	result, err := service.store.TrackByID(ctx, id)
 	if err != nil {
 		return Track{}, fmt.Errorf("read track: %w", err)
+	}
+	return result, nil
+}
+
+func (service *Service) BatchTracks(ctx context.Context, ids []uuid.UUID) ([]Track, error) {
+	if err := validateTrackIDs(ids); err != nil {
+		return nil, err
+	}
+	result, err := service.store.TracksByIDs(ctx, ids)
+	if err != nil {
+		return nil, fmt.Errorf("read tracks by ids: %w", err)
+	}
+	if len(result) != len(ids) {
+		return nil, ErrNotFound
+	}
+	return result, nil
+}
+
+func (service *Service) ValidateTrackIDs(
+	ctx context.Context,
+	ids []uuid.UUID,
+) (TrackIDValidation, error) {
+	if err := validateTrackIDs(ids); err != nil {
+		return TrackIDValidation{}, err
+	}
+	existing, err := service.store.ExistingTrackIDs(ctx, ids)
+	if err != nil {
+		return TrackIDValidation{}, fmt.Errorf("validate track ids: %w", err)
+	}
+	result := TrackIDValidation{
+		ValidIDs: make([]uuid.UUID, 0, len(ids)), MissingIDs: make([]uuid.UUID, 0),
+	}
+	for _, id := range ids {
+		if _, exists := existing[id]; exists {
+			result.ValidIDs = append(result.ValidIDs, id)
+		} else {
+			result.MissingIDs = append(result.MissingIDs, id)
+		}
 	}
 	return result, nil
 }

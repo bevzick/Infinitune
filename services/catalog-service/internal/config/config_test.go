@@ -13,6 +13,8 @@ func TestLoadUsesCatalogDatabase(t *testing.T) {
 	t.Setenv("POSTGRES_PORT", "5433")
 	t.Setenv("CATALOG_HTTP_HOST", "127.0.0.1")
 	t.Setenv("CATALOG_HTTP_PORT", "8081")
+	t.Setenv("CATALOG_GRPC_HOST", "127.0.0.2")
+	t.Setenv("CATALOG_GRPC_PORT", "9091")
 	t.Setenv("CATALOG_ALLOWED_ORIGINS", "https://app.example.com")
 
 	config, err := Load()
@@ -21,6 +23,9 @@ func TestLoadUsesCatalogDatabase(t *testing.T) {
 	}
 	if config.HTTPAddress != "127.0.0.1:8081" {
 		t.Errorf("HTTPAddress = %q, want %q", config.HTTPAddress, "127.0.0.1:8081")
+	}
+	if config.GRPCAddress != "127.0.0.2:9091" {
+		t.Errorf("GRPCAddress = %q, want %q", config.GRPCAddress, "127.0.0.2:9091")
 	}
 	if config.Database.Name != "catalog_db" || config.Database.User != "catalog_user" ||
 		config.Database.Host != "postgres" || config.Database.Port != 5433 {

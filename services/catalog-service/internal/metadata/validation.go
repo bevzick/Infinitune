@@ -16,6 +16,8 @@ var slugPattern = regexp.MustCompile(`^[a-z0-9]+(?:-[a-z0-9]+)*$`)
 
 const maximumPageSize = 100
 
+const maximumTrackIDBatchSize = 100
+
 func validatePage(page PageRequest) error {
 	if page.Limit < 1 || page.Limit > maximumPageSize {
 		return validationError("limit", "must be between 1 and 100")
@@ -62,6 +64,26 @@ func validateTrackQuery(query TrackQuery) (TrackQuery, error) {
 		)
 	}
 	return query, nil
+}
+
+func validateTrackIDs(ids []uuid.UUID) error {
+	if len(ids) == 0 {
+		return validationError("track_ids", "must contain at least one id")
+	}
+	if len(ids) > maximumTrackIDBatchSize {
+		return validationError("track_ids", "must not contain more than 100 ids")
+	}
+	seen := make(map[uuid.UUID]struct{}, len(ids))
+	for _, id := range ids {
+		if id == uuid.Nil {
+			return validationError("track_ids", "contains an empty id")
+		}
+		if _, exists := seen[id]; exists {
+			return validationError("track_ids", "contains a duplicate id")
+		}
+		seen[id] = struct{}{}
+	}
+	return nil
 }
 
 func validateArtist(input ArtistInput) (ArtistInput, error) {

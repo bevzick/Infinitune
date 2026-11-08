@@ -14,12 +14,15 @@ import (
 const (
 	defaultHTTPHost     = "0.0.0.0"
 	defaultHTTPPort     = "8080"
+	defaultGRPCHost     = "0.0.0.0"
+	defaultGRPCPort     = "9090"
 	defaultPostgresHost = "127.0.0.1"
 	defaultPostgresPort = "5432"
 )
 
 type Config struct {
 	HTTPAddress string
+	GRPCAddress string
 	Database    database.Config
 	Origins     []string
 }
@@ -27,6 +30,10 @@ type Config struct {
 func Load() (Config, error) {
 	port := envOrDefault("CATALOG_HTTP_PORT", defaultHTTPPort)
 	if _, err := parsePort("CATALOG_HTTP_PORT", port); err != nil {
+		return Config{}, err
+	}
+	grpcPort := envOrDefault("CATALOG_GRPC_PORT", defaultGRPCPort)
+	if _, err := parsePort("CATALOG_GRPC_PORT", grpcPort); err != nil {
 		return Config{}, err
 	}
 
@@ -41,6 +48,7 @@ func Load() (Config, error) {
 
 	return Config{
 		HTTPAddress: net.JoinHostPort(envOrDefault("CATALOG_HTTP_HOST", defaultHTTPHost), port),
+		GRPCAddress: net.JoinHostPort(envOrDefault("CATALOG_GRPC_HOST", defaultGRPCHost), grpcPort),
 		Database:    databaseConfig,
 		Origins:     origins,
 	}, nil

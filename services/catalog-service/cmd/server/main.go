@@ -13,11 +13,14 @@ import (
 	"syscall"
 	"time"
 
+	catalogv1 "github.com/bevzick/Infinitune/services/catalog-service/api/catalog/v1"
 	"github.com/bevzick/Infinitune/services/catalog-service/internal/config"
 	"github.com/bevzick/Infinitune/services/catalog-service/internal/database"
+	"github.com/bevzick/Infinitune/services/catalog-service/internal/grpcapi"
 	"github.com/bevzick/Infinitune/services/catalog-service/internal/httpapi"
 	"github.com/bevzick/Infinitune/services/catalog-service/internal/metadata"
 	postgres_repository "github.com/bevzick/Infinitune/services/catalog-service/internal/repository/postgres"
+	"google.golang.org/grpc"
 )
 
 const (
@@ -53,6 +56,13 @@ func main() {
 	}
 	defer databasePool.Close()
 	metadataService := metadata.NewService(postgres_repository.NewMetadataRepository(databasePool))
+	grpcListener, err := net.Listen("tcp", cfg.GRPCAddress)
+	if err != nil {
+		logger.Error("failed to listen for gRPC", "error", err)
+		os.Exit(1)
+	}
+	grpcServer := grpc.NewServer()
+	catalogv1.RegisterCatalogServiceServer(grpcServer, grpcapi.NewCatalogServer(metadataService))
 
 	server := &http.Server{
 		Addr: cfg.HTTPAddress,
@@ -68,10 +78,14 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	serverErrors := make(chan error, 1)
+	serverErrors := make(chan error, 2)
 	go func() {
 		logger.Info("catalog service started", "address", cfg.HTTPAddress)
 		serverErrors <- server.ListenAndServe()
+	}()
+	go func() {
+		logger.Info("catalog gRPC service started", "address", cfg.GRPCAddress)
+		serverErrors <- grpcServer.Serve(grpcListener)
 	}()
 
 	select {
@@ -89,6 +103,16 @@ func main() {
 	if err = server.Shutdown(shutdownCtx); err != nil {
 		logger.Error("failed to shut down catalog service", "error", err)
 		os.Exit(1)
+	}
+	grpcStopped := make(chan struct{})
+	go func() {
+		grpcServer.GracefulStop()
+		close(grpcStopped)
+	}()
+	select {
+	case <-grpcStopped:
+	case <-shutdownCtx.Done():
+		grpcServer.Stop()
 	}
 
 	logger.Info("catalog service stopped")
