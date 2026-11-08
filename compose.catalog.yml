@@ -125,5 +125,6 @@ services:
       - -count=1
     command:
       - ./internal/schema
+      - ./internal/repository/postgres
     networks:
       - backend

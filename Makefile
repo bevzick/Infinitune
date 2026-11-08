@@ -27,7 +27,7 @@ help:
 	@echo "  user-migrate-up      - Apply pending User database migrations"
 	@echo "  user-migrate-version - Show the current User migration version"
 	@echo "  catalog-test            - Run Catalog Service unit tests"
-	@echo "  catalog-test-integration - Run Catalog schema integration tests"
+	@echo "  catalog-test-integration - Run Catalog integration tests"
 	@echo "  catalog-migrate-up      - Apply pending Catalog database migrations"
 	@echo "  catalog-migrate-version - Show the current Catalog migration version"
 
