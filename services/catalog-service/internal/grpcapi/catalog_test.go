@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net"
+	"reflect"
 	"testing"
 	"time"
 
@@ -98,6 +99,88 @@ func TestFilterTracksMapsFiltersAndPagination(t *testing.T) {
 	if len(response.GetTracks()) != 1 || response.GetPage().GetTotal() != 21 ||
 		response.GetPage().GetLimit() != 7 || response.GetPage().GetOffset() != 14 {
 		t.Fatalf("FilterTracks() = %+v", response)
+	}
+}
+
+func TestEvaluateTrackFiltersMapsTypedFilters(t *testing.T) {
+	t.Parallel()
+
+	genreOne := uuid.New()
+	genreTwo := uuid.New()
+	stub := &catalogStub{page: metadata.Page[metadata.Track]{
+		Items: []metadata.Track{grpcTestTrack()}, Limit: 5, Offset: 10, Total: 11,
+	}}
+	server := NewCatalogServer(stub)
+	response, err := server.EvaluateTrackFilters(
+		context.Background(),
+		&catalogv1.EvaluateTrackFiltersRequest{
+			Logic: catalogv1.FilterLogic_FILTER_LOGIC_AND,
+			Filters: []*catalogv1.TrackFilter{
+				{
+					Field:    catalogv1.TrackFilterField_TRACK_FILTER_FIELD_GENRE_ID,
+					Operator: catalogv1.TrackFilterOperator_TRACK_FILTER_OPERATOR_IN,
+					Value: &catalogv1.TrackFilterValue{Kind: &catalogv1.TrackFilterValue_UuidList{
+						UuidList: &catalogv1.UUIDList{Values: []string{genreOne.String(), genreTwo.String()}},
+					}},
+				},
+				{
+					Field:    catalogv1.TrackFilterField_TRACK_FILTER_FIELD_DURATION_MS,
+					Operator: catalogv1.TrackFilterOperator_TRACK_FILTER_OPERATOR_BETWEEN,
+					Value: &catalogv1.TrackFilterValue{Kind: &catalogv1.TrackFilterValue_IntegerRange{
+						IntegerRange: &catalogv1.IntegerRange{Minimum: 120_000, Maximum: 300_000},
+					}},
+				},
+				{
+					Field:    catalogv1.TrackFilterField_TRACK_FILTER_FIELD_EXPLICIT,
+					Operator: catalogv1.TrackFilterOperator_TRACK_FILTER_OPERATOR_EQUALS,
+					Value: &catalogv1.TrackFilterValue{Kind: &catalogv1.TrackFilterValue_Boolean{
+						Boolean: false,
+					}},
+				},
+			},
+			Sort: catalogv1.TrackSort_TRACK_SORT_TITLE_DESC, Limit: 5, Offset: 10,
+		},
+	)
+	if err != nil {
+		t.Fatalf("EvaluateTrackFilters() error = %v", err)
+	}
+	query := stub.lastDynamicQuery
+	if query.Logic != metadata.FilterLogicAnd || query.Sort != metadata.TrackSortTitleDesc ||
+		query.Page != (metadata.PageRequest{Limit: 5, Offset: 10}) || len(query.Filters) != 3 ||
+		!reflect.DeepEqual(query.Filters[0].Value.UUIDs, []uuid.UUID{genreOne, genreTwo}) ||
+		query.Filters[1].Value.IntegerRange != (metadata.IntegerRange{Minimum: 120_000, Maximum: 300_000}) ||
+		query.Filters[2].Value.Kind != metadata.TrackFilterValueBoolean || query.Filters[2].Value.Boolean {
+		t.Fatalf("EvaluateTrackFilters() query = %+v", query)
+	}
+	if len(response.GetTracks()) != 1 || response.GetPage().GetTotal() != 11 ||
+		response.GetPage().GetLimit() != 5 || response.GetPage().GetOffset() != 10 {
+		t.Fatalf("EvaluateTrackFilters() response = %+v", response)
+	}
+}
+
+func TestEvaluateTrackFiltersRejectsInvalidContract(t *testing.T) {
+	t.Parallel()
+
+	tests := []*catalogv1.EvaluateTrackFiltersRequest{
+		{},
+		{Logic: catalogv1.FilterLogic_FILTER_LOGIC_AND},
+		{Logic: catalogv1.FilterLogic_FILTER_LOGIC_AND, Filters: []*catalogv1.TrackFilter{nil}},
+		{Logic: catalogv1.FilterLogic_FILTER_LOGIC_AND, Filters: []*catalogv1.TrackFilter{{
+			Field:    catalogv1.TrackFilterField_TRACK_FILTER_FIELD_ARTIST_ID,
+			Operator: catalogv1.TrackFilterOperator_TRACK_FILTER_OPERATOR_EQUALS,
+			Value:    &catalogv1.TrackFilterValue{Kind: &catalogv1.TrackFilterValue_Uuid{Uuid: "invalid"}},
+		}}},
+		{Logic: catalogv1.FilterLogic_FILTER_LOGIC_AND, Filters: []*catalogv1.TrackFilter{{
+			Field:    catalogv1.TrackFilterField(99),
+			Operator: catalogv1.TrackFilterOperator_TRACK_FILTER_OPERATOR_EQUALS,
+			Value:    &catalogv1.TrackFilterValue{Kind: &catalogv1.TrackFilterValue_Text{Text: "x"}},
+		}}},
+	}
+	for _, request := range tests {
+		_, err := NewCatalogServer(&catalogStub{}).EvaluateTrackFilters(context.Background(), request)
+		if status.Code(err) != codes.InvalidArgument {
+			t.Fatalf("EvaluateTrackFilters(%+v) code = %s; error = %v", request, status.Code(err), err)
+		}
 	}
 }
 
@@ -213,11 +296,12 @@ func grpcTestTrack() metadata.Track {
 }
 
 type catalogStub struct {
-	tracks     []metadata.Track
-	validation metadata.TrackIDValidation
-	page       metadata.Page[metadata.Track]
-	err        error
-	lastQuery  metadata.TrackQuery
+	tracks           []metadata.Track
+	validation       metadata.TrackIDValidation
+	page             metadata.Page[metadata.Track]
+	err              error
+	lastQuery        metadata.TrackQuery
+	lastDynamicQuery metadata.DynamicTrackQuery
 }
 
 func (stub *catalogStub) BatchTracks(context.Context, []uuid.UUID) ([]metadata.Track, error) {
@@ -239,6 +323,14 @@ func (stub *catalogStub) Tracks(
 	return stub.page, stub.err
 }
 
+func (stub *catalogStub) EvaluateTrackFilters(
+	_ context.Context,
+	query metadata.DynamicTrackQuery,
+) (metadata.Page[metadata.Track], error) {
+	stub.lastDynamicQuery = query
+	return stub.page, stub.err
+}
+
 type blockingCatalogStub struct{}
 
 func (blockingCatalogStub) BatchTracks(ctx context.Context, _ []uuid.UUID) ([]metadata.Track, error) {
@@ -257,6 +349,14 @@ func (blockingCatalogStub) ValidateTrackIDs(
 func (blockingCatalogStub) Tracks(
 	ctx context.Context,
 	_ metadata.TrackQuery,
+) (metadata.Page[metadata.Track], error) {
+	<-ctx.Done()
+	return metadata.Page[metadata.Track]{}, ctx.Err()
+}
+
+func (blockingCatalogStub) EvaluateTrackFilters(
+	ctx context.Context,
+	_ metadata.DynamicTrackQuery,
 ) (metadata.Page[metadata.Track], error) {
 	<-ctx.Done()
 	return metadata.Page[metadata.Track]{}, ctx.Err()

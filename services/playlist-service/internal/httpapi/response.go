@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/bevzick/Infinitune/services/playlist-service/internal/playlist"
+	"github.com/bevzick/Infinitune/services/playlist-service/internal/rules"
 	"github.com/gin-gonic/gin"
 )
 
@@ -26,6 +27,8 @@ func writeDomainError(c *gin.Context, logger *slog.Logger, err error) {
 	switch {
 	case errors.Is(err, playlist.ErrInvalidArgument):
 		writeError(c, http.StatusUnprocessableEntity, "invalid_playlist", err.Error())
+	case errors.Is(err, rules.ErrInvalid):
+		writeError(c, http.StatusUnprocessableEntity, "invalid_criteria", err.Error())
 	case errors.Is(err, playlist.ErrForbidden):
 		writeError(c, http.StatusForbidden, "forbidden", "Operation is forbidden")
 	case errors.Is(err, playlist.ErrNotFound):
@@ -37,6 +40,12 @@ func writeDomainError(c *gin.Context, logger *slog.Logger, err error) {
 	case errors.Is(err, playlist.ErrManualOnly):
 		writeError(c, http.StatusConflict, "manual_playlist_required",
 			"Operation is supported only for manual playlists")
+	case errors.Is(err, playlist.ErrDynamicOnly):
+		writeError(c, http.StatusConflict, "dynamic_playlist_required",
+			"Operation is supported only for dynamic playlists")
+	case errors.Is(err, playlist.ErrCatalogTimeout):
+		writeError(c, http.StatusGatewayTimeout, "catalog_timeout",
+			"Catalog service did not respond in time")
 	case errors.Is(err, playlist.ErrCatalogUnavailable):
 		writeError(c, http.StatusServiceUnavailable, "catalog_unavailable",
 			"Catalog service is temporarily unavailable")

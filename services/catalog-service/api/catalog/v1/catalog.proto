@@ -15,6 +15,9 @@ service CatalogService {
 
   // Applies the supported hard filters with stable pagination and sorting.
   rpc FilterTracks(FilterTracksRequest) returns (FilterTracksResponse);
+
+  // Evaluates a validated flat AND/OR rule set for a dynamic playlist.
+  rpc EvaluateTrackFilters(EvaluateTrackFiltersRequest) returns (EvaluateTrackFiltersResponse);
 }
 
 message GetTracksRequest {
@@ -56,6 +59,75 @@ message FilterTracksRequest {
 }
 
 message FilterTracksResponse {
+  repeated Track tracks = 1;
+  Page page = 2;
+}
+
+enum FilterLogic {
+  FILTER_LOGIC_UNSPECIFIED = 0;
+  FILTER_LOGIC_AND = 1;
+  FILTER_LOGIC_OR = 2;
+}
+
+enum TrackFilterField {
+  TRACK_FILTER_FIELD_UNSPECIFIED = 0;
+  TRACK_FILTER_FIELD_TITLE = 1;
+  TRACK_FILTER_FIELD_ARTIST_ID = 2;
+  TRACK_FILTER_FIELD_ALBUM_ID = 3;
+  TRACK_FILTER_FIELD_GENRE_ID = 4;
+  TRACK_FILTER_FIELD_MOOD_ID = 5;
+  TRACK_FILTER_FIELD_RELEASE_YEAR = 6;
+  TRACK_FILTER_FIELD_DURATION_MS = 7;
+  TRACK_FILTER_FIELD_EXPLICIT = 8;
+}
+
+enum TrackFilterOperator {
+  TRACK_FILTER_OPERATOR_UNSPECIFIED = 0;
+  TRACK_FILTER_OPERATOR_EQUALS = 1;
+  TRACK_FILTER_OPERATOR_CONTAINS = 2;
+  TRACK_FILTER_OPERATOR_IN = 3;
+  TRACK_FILTER_OPERATOR_GREATER_THAN = 4;
+  TRACK_FILTER_OPERATOR_GREATER_THAN_OR_EQUAL = 5;
+  TRACK_FILTER_OPERATOR_LESS_THAN = 6;
+  TRACK_FILTER_OPERATOR_LESS_THAN_OR_EQUAL = 7;
+  TRACK_FILTER_OPERATOR_BETWEEN = 8;
+}
+
+message UUIDList {
+  repeated string values = 1;
+}
+
+message IntegerRange {
+  int32 minimum = 1;
+  int32 maximum = 2;
+}
+
+message TrackFilterValue {
+  oneof kind {
+    string text = 1;
+    string uuid = 2;
+    UUIDList uuid_list = 3;
+    int32 integer = 4;
+    IntegerRange integer_range = 5;
+    bool boolean = 6;
+  }
+}
+
+message TrackFilter {
+  TrackFilterField field = 1;
+  TrackFilterOperator operator = 2;
+  TrackFilterValue value = 3;
+}
+
+message EvaluateTrackFiltersRequest {
+  FilterLogic logic = 1;
+  repeated TrackFilter filters = 2;
+  TrackSort sort = 3;
+  int32 limit = 4;
+  int32 offset = 5;
+}
+
+message EvaluateTrackFiltersResponse {
   repeated Track tracks = 1;
   Page page = 2;
 }

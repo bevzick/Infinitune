@@ -15,6 +15,8 @@ var (
 	ErrTrackExists        = errors.New("track already exists in playlist")
 	ErrTrackNotFound      = errors.New("playlist track not found")
 	ErrCatalogUnavailable = errors.New("catalog service unavailable")
+	ErrCatalogTimeout     = errors.New("catalog request timed out")
+	ErrDynamicOnly        = errors.New("operation is supported only for dynamic playlists")
 )
 
 type Type string

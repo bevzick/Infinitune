@@ -6,12 +6,14 @@ import (
 	"context"
 	"errors"
 	"os"
+	"reflect"
 	"strconv"
 	"testing"
 	"time"
 
 	"github.com/bevzick/Infinitune/services/playlist-service/internal/database"
 	"github.com/bevzick/Infinitune/services/playlist-service/internal/playlist"
+	"github.com/bevzick/Infinitune/services/playlist-service/internal/rules"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -234,6 +236,108 @@ func TestPlaylistRepositoryDefendsTrackMutations(t *testing.T) {
 	}
 	if _, err = repository.AddTrack(ctx, dynamic.ID, ownerID, uuid.New(), ownerID); !errors.Is(err, playlist.ErrManualOnly) {
 		t.Fatalf("AddTrack(dynamic) error = %v, want %v", err, playlist.ErrManualOnly)
+	}
+}
+
+func TestPlaylistRepositoryDynamicCriteriaLifecycle(t *testing.T) {
+	pool := openIntegrationDatabase(t)
+	repository := NewPlaylistRepository(pool)
+	playlists := playlist.NewService(repository)
+	dynamic := playlist.NewDynamicService(playlists, repository)
+	ctx := context.Background()
+	ownerID := uuid.New()
+	artistIDs := []uuid.UUID{uuid.New(), uuid.New()}
+
+	created, err := dynamic.Create(ctx, ownerID, playlist.DynamicCreateInput{
+		Playlist: playlist.CreateInput{
+			Name:        "Dynamic discoveries",
+			Description: "created by repository integration test",
+			Visibility:  playlist.VisibilityUnlisted,
+		},
+		Criteria: rules.CreateInput{
+			Name:  "Recent clean tracks",
+			Logic: rules.LogicAnd,
+			Conditions: []rules.ConditionInput{
+				{Field: rules.FieldTitle, Operator: rules.OperatorContains, Value: rules.TextValue("live")},
+				{Field: rules.FieldArtistID, Operator: rules.OperatorIn, Value: rules.UUIDListValue(artistIDs...)},
+				{Field: rules.FieldReleaseYear, Operator: rules.OperatorBetween, Value: rules.IntegerRangeValue(2020, 2026)},
+				{Field: rules.FieldExplicit, Operator: rules.OperatorEquals, Value: rules.BooleanValue(false)},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("Create() error = %v", err)
+	}
+	t.Cleanup(func() {
+		cleanupCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_, _ = pool.Exec(cleanupCtx, `DELETE FROM playlist.playlist_tracks WHERE playlist_id = $1`, created.Playlist.ID)
+		_, _ = pool.Exec(cleanupCtx, `DELETE FROM playlist.playlists WHERE id = $1`, created.Playlist.ID)
+		_, _ = pool.Exec(cleanupCtx, `DELETE FROM rule_engine.rule_sets WHERE id = $1`, created.RuleSet.ID)
+	})
+	if created.Playlist.Type != playlist.TypeDynamic ||
+		created.Playlist.RuleSetID == nil || *created.Playlist.RuleSetID != created.RuleSet.ID ||
+		created.RuleSet.OwnerID != ownerID || created.RuleSet.CreatedAt.IsZero() {
+		t.Fatalf("Create() = %+v", created)
+	}
+
+	read, err := dynamic.Criteria(ctx, ownerID, created.Playlist.ID)
+	if err != nil {
+		t.Fatalf("Criteria() error = %v", err)
+	}
+	if read.ID != created.RuleSet.ID || read.Name != created.RuleSet.Name ||
+		read.Logic != created.RuleSet.Logic || !reflect.DeepEqual(read.Conditions, created.RuleSet.Conditions) {
+		t.Fatalf("Criteria() = %+v, want %+v", read, created.RuleSet)
+	}
+
+	unauthorized := read
+	unauthorized.OwnerID = uuid.New()
+	if _, err = repository.ReplaceRuleSet(ctx, unauthorized); !errors.Is(err, rules.ErrNotFound) {
+		t.Fatalf("ReplaceRuleSet() with wrong owner error = %v, want %v", err, rules.ErrNotFound)
+	}
+
+	replaced, err := dynamic.ReplaceCriteria(ctx, ownerID, created.Playlist.ID, rules.CreateInput{
+		Name:  "Long or classic tracks",
+		Logic: rules.LogicOr,
+		Conditions: []rules.ConditionInput{
+			{Field: rules.FieldDurationMS, Operator: rules.OperatorGreaterThan, Value: rules.IntegerValue(300_000)},
+			{Field: rules.FieldReleaseYear, Operator: rules.OperatorLessThan, Value: rules.IntegerValue(1990)},
+		},
+	})
+	if err != nil {
+		t.Fatalf("ReplaceCriteria() error = %v", err)
+	}
+	if replaced.ID != created.RuleSet.ID || replaced.OwnerID != ownerID ||
+		replaced.Name != "Long or classic tracks" || replaced.Logic != rules.LogicOr ||
+		len(replaced.Conditions) != 2 || !replaced.CreatedAt.Equal(created.RuleSet.CreatedAt) {
+		t.Fatalf("ReplaceCriteria() = %+v", replaced)
+	}
+
+	persisted, err := dynamic.Criteria(ctx, ownerID, created.Playlist.ID)
+	if err != nil {
+		t.Fatalf("Criteria() after replacement error = %v", err)
+	}
+	if !reflect.DeepEqual(persisted, replaced) {
+		t.Fatalf("persisted criteria = %+v, want %+v", persisted, replaced)
+	}
+	var trackCount int
+	if err = pool.QueryRow(ctx, `
+		SELECT count(*) FROM playlist.playlist_tracks WHERE playlist_id = $1
+	`, created.Playlist.ID).Scan(&trackCount); err != nil {
+		t.Fatalf("count dynamic playlist tracks: %v", err)
+	}
+	if trackCount != 0 {
+		t.Fatalf("dynamic playlist track count = %d, want 0", trackCount)
+	}
+
+	if err = playlists.Delete(ctx, ownerID, created.Playlist.ID); err != nil {
+		t.Fatalf("Delete() error = %v", err)
+	}
+	if _, err = repository.ByID(ctx, created.Playlist.ID); !errors.Is(err, playlist.ErrNotFound) {
+		t.Fatalf("ByID() after Delete() error = %v, want %v", err, playlist.ErrNotFound)
+	}
+	if _, err = repository.RuleSetByID(ctx, created.RuleSet.ID); !errors.Is(err, rules.ErrNotFound) {
+		t.Fatalf("RuleSetByID() after Delete() error = %v, want %v", err, rules.ErrNotFound)
 	}
 }
 

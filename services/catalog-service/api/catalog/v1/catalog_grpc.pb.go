@@ -19,9 +19,10 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	CatalogService_GetTracks_FullMethodName        = "/infinitune.catalog.v1.CatalogService/GetTracks"
-	CatalogService_ValidateTrackIds_FullMethodName = "/infinitune.catalog.v1.CatalogService/ValidateTrackIds"
-	CatalogService_FilterTracks_FullMethodName     = "/infinitune.catalog.v1.CatalogService/FilterTracks"
+	CatalogService_GetTracks_FullMethodName            = "/infinitune.catalog.v1.CatalogService/GetTracks"
+	CatalogService_ValidateTrackIds_FullMethodName     = "/infinitune.catalog.v1.CatalogService/ValidateTrackIds"
+	CatalogService_FilterTracks_FullMethodName         = "/infinitune.catalog.v1.CatalogService/FilterTracks"
+	CatalogService_EvaluateTrackFilters_FullMethodName = "/infinitune.catalog.v1.CatalogService/EvaluateTrackFilters"
 )
 
 // CatalogServiceClient is the client API for CatalogService service.
@@ -34,6 +35,8 @@ type CatalogServiceClient interface {
 	ValidateTrackIds(ctx context.Context, in *ValidateTrackIdsRequest, opts ...grpc.CallOption) (*ValidateTrackIdsResponse, error)
 	// Applies the supported hard filters with stable pagination and sorting.
 	FilterTracks(ctx context.Context, in *FilterTracksRequest, opts ...grpc.CallOption) (*FilterTracksResponse, error)
+	// Evaluates a validated flat AND/OR rule set for a dynamic playlist.
+	EvaluateTrackFilters(ctx context.Context, in *EvaluateTrackFiltersRequest, opts ...grpc.CallOption) (*EvaluateTrackFiltersResponse, error)
 }
 
 type catalogServiceClient struct {
@@ -74,6 +77,16 @@ func (c *catalogServiceClient) FilterTracks(ctx context.Context, in *FilterTrack
 	return out, nil
 }
 
+func (c *catalogServiceClient) EvaluateTrackFilters(ctx context.Context, in *EvaluateTrackFiltersRequest, opts ...grpc.CallOption) (*EvaluateTrackFiltersResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(EvaluateTrackFiltersResponse)
+	err := c.cc.Invoke(ctx, CatalogService_EvaluateTrackFilters_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // CatalogServiceServer is the server API for CatalogService service.
 // All implementations must embed UnimplementedCatalogServiceServer
 // for forward compatibility.
@@ -84,6 +97,8 @@ type CatalogServiceServer interface {
 	ValidateTrackIds(context.Context, *ValidateTrackIdsRequest) (*ValidateTrackIdsResponse, error)
 	// Applies the supported hard filters with stable pagination and sorting.
 	FilterTracks(context.Context, *FilterTracksRequest) (*FilterTracksResponse, error)
+	// Evaluates a validated flat AND/OR rule set for a dynamic playlist.
+	EvaluateTrackFilters(context.Context, *EvaluateTrackFiltersRequest) (*EvaluateTrackFiltersResponse, error)
 	mustEmbedUnimplementedCatalogServiceServer()
 }
 
@@ -102,6 +117,9 @@ func (UnimplementedCatalogServiceServer) ValidateTrackIds(context.Context, *Vali
 }
 func (UnimplementedCatalogServiceServer) FilterTracks(context.Context, *FilterTracksRequest) (*FilterTracksResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method FilterTracks not implemented")
+}
+func (UnimplementedCatalogServiceServer) EvaluateTrackFilters(context.Context, *EvaluateTrackFiltersRequest) (*EvaluateTrackFiltersResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method EvaluateTrackFilters not implemented")
 }
 func (UnimplementedCatalogServiceServer) mustEmbedUnimplementedCatalogServiceServer() {}
 func (UnimplementedCatalogServiceServer) testEmbeddedByValue()                        {}
@@ -178,6 +196,24 @@ func _CatalogService_FilterTracks_Handler(srv interface{}, ctx context.Context, 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _CatalogService_EvaluateTrackFilters_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(EvaluateTrackFiltersRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CatalogServiceServer).EvaluateTrackFilters(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: CatalogService_EvaluateTrackFilters_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CatalogServiceServer).EvaluateTrackFilters(ctx, req.(*EvaluateTrackFiltersRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // CatalogService_ServiceDesc is the grpc.ServiceDesc for CatalogService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -196,6 +232,10 @@ var CatalogService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "FilterTracks",
 			Handler:    _CatalogService_FilterTracks_Handler,
+		},
+		{
+			MethodName: "EvaluateTrackFilters",
+			Handler:    _CatalogService_EvaluateTrackFilters_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

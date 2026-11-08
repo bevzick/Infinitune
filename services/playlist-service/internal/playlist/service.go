@@ -31,6 +31,23 @@ func (service *Service) Create(
 	actorID uuid.UUID,
 	input CreateInput,
 ) (Playlist, error) {
+	value, err := newPlaylist(actorID, input, TypeManual, nil)
+	if err != nil {
+		return Playlist{}, err
+	}
+	created, err := service.store.Create(ctx, value)
+	if err != nil {
+		return Playlist{}, fmt.Errorf("create playlist: %w", err)
+	}
+	return created, nil
+}
+
+func newPlaylist(
+	actorID uuid.UUID,
+	input CreateInput,
+	playlistType Type,
+	ruleSetID *uuid.UUID,
+) (Playlist, error) {
 	if actorID == uuid.Nil {
 		return Playlist{}, invalidArgument("actor id is required")
 	}
@@ -46,18 +63,15 @@ func (service *Service) Create(
 		return Playlist{}, err
 	}
 
-	created, err := service.store.Create(ctx, Playlist{
+	return Playlist{
 		ID:          uuid.New(),
 		OwnerID:     actorID,
 		Name:        name,
 		Description: input.Description,
-		Type:        TypeManual,
+		Type:        playlistType,
 		Visibility:  visibility,
-	})
-	if err != nil {
-		return Playlist{}, fmt.Errorf("create playlist: %w", err)
-	}
-	return created, nil
+		RuleSetID:   ruleSetID,
+	}, nil
 }
 
 func (service *Service) ByID(

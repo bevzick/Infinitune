@@ -9,6 +9,7 @@ import (
 
 	"github.com/bevzick/Infinitune/services/playlist-service/internal/identity"
 	"github.com/bevzick/Infinitune/services/playlist-service/internal/playlist"
+	"github.com/bevzick/Infinitune/services/playlist-service/internal/rules"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
@@ -37,13 +38,25 @@ type PlaylistTracks interface {
 	Reorder(context.Context, uuid.UUID, uuid.UUID, []uuid.UUID) ([]playlist.Track, error)
 }
 
+type DynamicPlaylists interface {
+	Create(context.Context, uuid.UUID, playlist.DynamicCreateInput) (playlist.DynamicPlaylist, error)
+	Criteria(context.Context, uuid.UUID, uuid.UUID) (rules.RuleSet, error)
+	ReplaceCriteria(context.Context, uuid.UUID, uuid.UUID, rules.CreateInput) (rules.RuleSet, error)
+}
+
+type DynamicTracks interface {
+	Resolve(context.Context, uuid.UUID, uuid.UUID, playlist.PageRequest) (playlist.DynamicTrackPage, error)
+}
+
 type Dependencies struct {
-	Database  DatabaseCheck
-	Tokens    IdentityVerifier
-	Playlists Playlists
-	Tracks    PlaylistTracks
-	Origins   []string
-	Logger    *slog.Logger
+	Database         DatabaseCheck
+	Tokens           IdentityVerifier
+	Playlists        Playlists
+	Tracks           PlaylistTracks
+	DynamicPlaylists DynamicPlaylists
+	DynamicTracks    DynamicTracks
+	Origins          []string
+	Logger           *slog.Logger
 }
 
 func NewRouter(dependencies Dependencies) http.Handler {
@@ -59,12 +72,19 @@ func NewRouter(dependencies Dependencies) http.Handler {
 	read.Use(optionalAuthenticate(dependencies.Tokens, dependencies.Logger))
 	read.GET("/:playlist_id", getPlaylist(dependencies.Playlists, dependencies.Logger))
 	read.GET("/:playlist_id/tracks", getTracks(dependencies.Tracks, dependencies.Logger))
+	read.GET("/:playlist_id/resolved-tracks",
+		resolveDynamicTracks(dependencies.DynamicTracks, dependencies.Logger))
 
 	protected := router.Group("/v1/playlists")
 	protected.Use(authenticate(dependencies.Tokens, dependencies.Logger))
 	protected.POST("", createPlaylist(dependencies.Playlists, dependencies.Logger))
+	protected.POST("/dynamic", createDynamicPlaylist(dependencies.DynamicPlaylists, dependencies.Logger))
 	protected.PATCH("/:playlist_id", updatePlaylist(dependencies.Playlists, dependencies.Logger))
 	protected.DELETE("/:playlist_id", deletePlaylist(dependencies.Playlists, dependencies.Logger))
+	protected.GET("/:playlist_id/criteria",
+		getDynamicCriteria(dependencies.DynamicPlaylists, dependencies.Logger))
+	protected.PUT("/:playlist_id/criteria",
+		replaceDynamicCriteria(dependencies.DynamicPlaylists, dependencies.Logger))
 	protected.POST("/:playlist_id/tracks", addTrack(dependencies.Tracks, dependencies.Logger))
 	protected.DELETE("/:playlist_id/tracks/:track_id", removeTrack(dependencies.Tracks, dependencies.Logger))
 	protected.PUT("/:playlist_id/tracks/order", reorderTracks(dependencies.Tracks, dependencies.Logger))

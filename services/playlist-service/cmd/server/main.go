@@ -72,10 +72,17 @@ func main() {
 
 	repository := postgres_repository.NewPlaylistRepository(databasePool)
 	playlistService := playlist.NewService(repository)
+	catalogClient := catalogv1.NewCatalogServiceClient(catalogConnection)
 	trackService := playlist.NewTrackService(
 		playlistService,
 		repository,
-		catalog.NewTrackValidator(catalogv1.NewCatalogServiceClient(catalogConnection)),
+		catalog.NewTrackValidator(catalogClient),
+	)
+	dynamicPlaylistService := playlist.NewDynamicService(playlistService, repository)
+	dynamicTrackService := playlist.NewDynamicTrackService(
+		playlistService,
+		repository,
+		catalog.NewDynamicResolver(catalogClient),
 	)
 
 	server := &http.Server{
@@ -83,6 +90,7 @@ func main() {
 		Handler: httpapi.NewRouter(httpapi.Dependencies{
 			Database: databasePool, Tokens: tokenVerifier,
 			Playlists: playlistService, Tracks: trackService,
+			DynamicPlaylists: dynamicPlaylistService, DynamicTracks: dynamicTrackService,
 			Origins: cfg.Origins, Logger: logger,
 		}),
 		ReadHeaderTimeout: readHeaderTimeout,

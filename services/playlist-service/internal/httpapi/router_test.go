@@ -266,6 +266,7 @@ func testDependencies(database DatabaseCheck) Dependencies {
 		Database:  database,
 		Tokens:    identityVerifierStub{identity: identity.Identity{UserID: uuid.New()}},
 		Playlists: &playlistsStub{}, Tracks: &tracksStub{},
+		DynamicPlaylists: &dynamicPlaylistsStub{}, DynamicTracks: &dynamicTracksStub{},
 		Logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
 	}
 }

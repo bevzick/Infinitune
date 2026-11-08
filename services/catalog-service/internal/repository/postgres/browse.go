@@ -131,68 +131,9 @@ func (repository *MetadataRepository) SearchTracks(
 			AND ($8::boolean IS NULL OR t.explicit = $8)
 	`
 	filterArguments := trackFilterArguments(query)
-	var total int64
-	err = repository.database.QueryRow(ctx, `SELECT count(*) `+filterSQL, filterArguments...).Scan(&total)
-	if err != nil {
-		return metadata.Page[metadata.Track]{}, fmt.Errorf("count filtered tracks: %w", err)
-	}
-	pageArguments := append(filterArguments, query.Page.Limit, query.Page.Offset)
-	rows, err := repository.database.Query(ctx, `
-		SELECT
-			t.id, t.album_id, t.title, t.duration_ms, t.track_number, t.disc_number, t.explicit,
-			t.release_date, t.media_asset_id, t.content_id, t.created_at, t.updated_at
-	`+filterSQL+` ORDER BY `+orderBy+` LIMIT $9 OFFSET $10`, pageArguments...)
-	if err != nil {
-		return metadata.Page[metadata.Track]{}, fmt.Errorf("query filtered tracks: %w", err)
-	}
-
-	items := make([]metadata.Track, 0, query.Page.Limit)
-	ids := make([]uuid.UUID, 0, query.Page.Limit)
-	for rows.Next() {
-		var track metadata.Track
-		if err = scanTrack(rows, &track); err != nil {
-			rows.Close()
-			return metadata.Page[metadata.Track]{}, fmt.Errorf("scan track: %w", err)
-		}
-		items = append(items, track)
-		ids = append(ids, track.ID)
-	}
-	err = rows.Err()
-	rows.Close()
-	if err != nil {
-		return metadata.Page[metadata.Track]{}, fmt.Errorf("iterate tracks: %w", err)
-	}
-
-	artists, err := repository.trackArtistsByTrackIDs(ctx, ids)
-	if err != nil {
-		return metadata.Page[metadata.Track]{}, fmt.Errorf("query track page artists: %w", err)
-	}
-	genres, err := repository.trackGenresByTrackIDs(ctx, ids)
-	if err != nil {
-		return metadata.Page[metadata.Track]{}, fmt.Errorf("query track page genres: %w", err)
-	}
-	moods, err := repository.trackMoodsByTrackIDs(ctx, ids)
-	if err != nil {
-		return metadata.Page[metadata.Track]{}, fmt.Errorf("query track page moods: %w", err)
-	}
-	for index := range items {
-		trackID := items[index].ID
-		items[index].Artists = artists[trackID]
-		items[index].Genres = genres[trackID]
-		items[index].Moods = moods[trackID]
-		if items[index].Artists == nil {
-			items[index].Artists = make([]metadata.TrackArtist, 0)
-		}
-		if items[index].Genres == nil {
-			items[index].Genres = make([]metadata.Genre, 0)
-		}
-		if items[index].Moods == nil {
-			items[index].Moods = make([]metadata.TrackMood, 0)
-		}
-	}
-	return metadata.Page[metadata.Track]{
-		Items: items, Limit: query.Page.Limit, Offset: query.Page.Offset, Total: total,
-	}, nil
+	return repository.filteredTrackPage(
+		ctx, filterSQL, filterArguments, query.Page, orderBy,
+	)
 }
 
 func trackOrderBy(sort metadata.TrackSort) (string, error) {
