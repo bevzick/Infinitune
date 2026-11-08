@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+package infinitune.catalog.v1;
+
+option go_package = "github.com/bevzick/Infinitune/services/playlist-service/api/catalog/v1;catalogv1";
+
+// Consumer-side subset of the Catalog Service contract used by Playlist Service.
+service CatalogService {
+  rpc ValidateTrackIds(ValidateTrackIdsRequest) returns (ValidateTrackIdsResponse);
+}
+
+message ValidateTrackIdsRequest {
+  repeated string track_ids = 1;
+}
+
+message ValidateTrackIdsResponse {
+  repeated string valid_track_ids = 1;
+  repeated string missing_track_ids = 2;
+}
