@@ -118,6 +118,37 @@ services:
     networks:
       - backend
 
+  media-seed:
+    build:
+      context: ./services/media-service
+      dockerfile: Dockerfile
+      target: source
+    profiles: ["tools"]
+    restart: "no"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    environment:
+      POSTGRES_HOST: ${POSTGRES_HOST:-postgres}
+      POSTGRES_PORT: ${POSTGRES_PORT:-5432}
+      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER is required}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_MEDIA_DB: ${POSTGRES_MEDIA_DB:-media_db}
+      MINIO_ENDPOINT: ${MINIO_ENDPOINT:-minio:9000}
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?MINIO_ROOT_USER is required}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD is required}
+      MINIO_MEDIA_BUCKET: ${MINIO_MEDIA_BUCKET:-infinitune-media}
+      MINIO_USE_SSL: ${MINIO_USE_SSL:-false}
+    entrypoint:
+      - go
+      - run
+      - ./cmd/devseed
+    networks:
+      - backend
+      - media-storage
+
   media-integration-test:
     build:
       context: ./services/media-service
@@ -152,6 +183,7 @@ services:
     command:
       - ./internal/schema
       - ./internal/storage
+      - ./internal/devseed
       - ./internal/repository/postgres
       - ./internal/grpcapi
     networks:

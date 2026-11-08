@@ -22,6 +22,7 @@ type Config struct {
 type bucketClient interface {
 	BucketExists(context.Context, string) (bool, error)
 	GetObject(context.Context, string, string, minio.GetObjectOptions) (*minio.Object, error)
+	PutObject(context.Context, string, string, io.Reader, int64, minio.PutObjectOptions) (minio.UploadInfo, error)
 }
 
 var ErrObjectNotFound = errors.New("media object not found")
@@ -78,6 +79,21 @@ func (client *Client) Open(ctx context.Context, objectKey string) (Object, error
 		Body: object, Size: info.Size, ContentType: info.ContentType,
 		LastModified: info.LastModified,
 	}, nil
+}
+
+func (client *Client) Put(
+	ctx context.Context,
+	objectKey string,
+	reader io.Reader,
+	size int64,
+	contentType string,
+) error {
+	_, err := client.client.PutObject(ctx, client.bucket, objectKey, reader, size,
+		minio.PutObjectOptions{ContentType: contentType})
+	if err != nil {
+		return fmt.Errorf("put object %q: %w", objectKey, err)
+	}
+	return nil
 }
 
 func mapObjectError(objectKey string, err error) error {
