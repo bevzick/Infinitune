@@ -21,6 +21,244 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+type TrackSort int32
+
+const (
+	TrackSort_TRACK_SORT_UNSPECIFIED TrackSort = 0
+	TrackSort_TRACK_SORT_NEWEST      TrackSort = 1
+	TrackSort_TRACK_SORT_OLDEST      TrackSort = 2
+	TrackSort_TRACK_SORT_TITLE_ASC   TrackSort = 3
+	TrackSort_TRACK_SORT_TITLE_DESC  TrackSort = 4
+)
+
+// Enum value maps for TrackSort.
+var (
+	TrackSort_name = map[int32]string{
+		0: "TRACK_SORT_UNSPECIFIED",
+		1: "TRACK_SORT_NEWEST",
+		2: "TRACK_SORT_OLDEST",
+		3: "TRACK_SORT_TITLE_ASC",
+		4: "TRACK_SORT_TITLE_DESC",
+	}
+	TrackSort_value = map[string]int32{
+		"TRACK_SORT_UNSPECIFIED": 0,
+		"TRACK_SORT_NEWEST":      1,
+		"TRACK_SORT_OLDEST":      2,
+		"TRACK_SORT_TITLE_ASC":   3,
+		"TRACK_SORT_TITLE_DESC":  4,
+	}
+)
+
+func (x TrackSort) Enum() *TrackSort {
+	p := new(TrackSort)
+	*p = x
+	return p
+}
+
+func (x TrackSort) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (TrackSort) Descriptor() protoreflect.EnumDescriptor {
+	return file_api_catalog_v1_catalog_proto_enumTypes[0].Descriptor()
+}
+
+func (TrackSort) Type() protoreflect.EnumType {
+	return &file_api_catalog_v1_catalog_proto_enumTypes[0]
+}
+
+func (x TrackSort) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use TrackSort.Descriptor instead.
+func (TrackSort) EnumDescriptor() ([]byte, []int) {
+	return file_api_catalog_v1_catalog_proto_rawDescGZIP(), []int{0}
+}
+
+type FilterLogic int32
+
+const (
+	FilterLogic_FILTER_LOGIC_UNSPECIFIED FilterLogic = 0
+	FilterLogic_FILTER_LOGIC_AND         FilterLogic = 1
+	FilterLogic_FILTER_LOGIC_OR          FilterLogic = 2
+)
+
+// Enum value maps for FilterLogic.
+var (
+	FilterLogic_name = map[int32]string{
+		0: "FILTER_LOGIC_UNSPECIFIED",
+		1: "FILTER_LOGIC_AND",
+		2: "FILTER_LOGIC_OR",
+	}
+	FilterLogic_value = map[string]int32{
+		"FILTER_LOGIC_UNSPECIFIED": 0,
+		"FILTER_LOGIC_AND":         1,
+		"FILTER_LOGIC_OR":          2,
+	}
+)
+
+func (x FilterLogic) Enum() *FilterLogic {
+	p := new(FilterLogic)
+	*p = x
+	return p
+}
+
+func (x FilterLogic) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (FilterLogic) Descriptor() protoreflect.EnumDescriptor {
+	return file_api_catalog_v1_catalog_proto_enumTypes[1].Descriptor()
+}
+
+func (FilterLogic) Type() protoreflect.EnumType {
+	return &file_api_catalog_v1_catalog_proto_enumTypes[1]
+}
+
+func (x FilterLogic) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use FilterLogic.Descriptor instead.
+func (FilterLogic) EnumDescriptor() ([]byte, []int) {
+	return file_api_catalog_v1_catalog_proto_rawDescGZIP(), []int{1}
+}
+
+type TrackFilterField int32
+
+const (
+	TrackFilterField_TRACK_FILTER_FIELD_UNSPECIFIED  TrackFilterField = 0
+	TrackFilterField_TRACK_FILTER_FIELD_TITLE        TrackFilterField = 1
+	TrackFilterField_TRACK_FILTER_FIELD_ARTIST_ID    TrackFilterField = 2
+	TrackFilterField_TRACK_FILTER_FIELD_ALBUM_ID     TrackFilterField = 3
+	TrackFilterField_TRACK_FILTER_FIELD_GENRE_ID     TrackFilterField = 4
+	TrackFilterField_TRACK_FILTER_FIELD_MOOD_ID      TrackFilterField = 5
+	TrackFilterField_TRACK_FILTER_FIELD_RELEASE_YEAR TrackFilterField = 6
+	TrackFilterField_TRACK_FILTER_FIELD_DURATION_MS  TrackFilterField = 7
+	TrackFilterField_TRACK_FILTER_FIELD_EXPLICIT     TrackFilterField = 8
+)
+
+// Enum value maps for TrackFilterField.
+var (
+	TrackFilterField_name = map[int32]string{
+		0: "TRACK_FILTER_FIELD_UNSPECIFIED",
+		1: "TRACK_FILTER_FIELD_TITLE",
+		2: "TRACK_FILTER_FIELD_ARTIST_ID",
+		3: "TRACK_FILTER_FIELD_ALBUM_ID",
+		4: "TRACK_FILTER_FIELD_GENRE_ID",
+		5: "TRACK_FILTER_FIELD_MOOD_ID",
+		6: "TRACK_FILTER_FIELD_RELEASE_YEAR",
+		7: "TRACK_FILTER_FIELD_DURATION_MS",
+		8: "TRACK_FILTER_FIELD_EXPLICIT",
+	}
+	TrackFilterField_value = map[string]int32{
+		"TRACK_FILTER_FIELD_UNSPECIFIED":  0,
+		"TRACK_FILTER_FIELD_TITLE":        1,
+		"TRACK_FILTER_FIELD_ARTIST_ID":    2,
+		"TRACK_FILTER_FIELD_ALBUM_ID":     3,
+		"TRACK_FILTER_FIELD_GENRE_ID":     4,
+		"TRACK_FILTER_FIELD_MOOD_ID":      5,
+		"TRACK_FILTER_FIELD_RELEASE_YEAR": 6,
+		"TRACK_FILTER_FIELD_DURATION_MS":  7,
+		"TRACK_FILTER_FIELD_EXPLICIT":     8,
+	}
+)
+
+func (x TrackFilterField) Enum() *TrackFilterField {
+	p := new(TrackFilterField)
+	*p = x
+	return p
+}
+
+func (x TrackFilterField) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (TrackFilterField) Descriptor() protoreflect.EnumDescriptor {
+	return file_api_catalog_v1_catalog_proto_enumTypes[2].Descriptor()
+}
+
+func (TrackFilterField) Type() protoreflect.EnumType {
+	return &file_api_catalog_v1_catalog_proto_enumTypes[2]
+}
+
+func (x TrackFilterField) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use TrackFilterField.Descriptor instead.
+func (TrackFilterField) EnumDescriptor() ([]byte, []int) {
+	return file_api_catalog_v1_catalog_proto_rawDescGZIP(), []int{2}
+}
+
+type TrackFilterOperator int32
+
+const (
+	TrackFilterOperator_TRACK_FILTER_OPERATOR_UNSPECIFIED           TrackFilterOperator = 0
+	TrackFilterOperator_TRACK_FILTER_OPERATOR_EQUALS                TrackFilterOperator = 1
+	TrackFilterOperator_TRACK_FILTER_OPERATOR_CONTAINS              TrackFilterOperator = 2
+	TrackFilterOperator_TRACK_FILTER_OPERATOR_IN                    TrackFilterOperator = 3
+	TrackFilterOperator_TRACK_FILTER_OPERATOR_GREATER_THAN          TrackFilterOperator = 4
+	TrackFilterOperator_TRACK_FILTER_OPERATOR_GREATER_THAN_OR_EQUAL TrackFilterOperator = 5
+	TrackFilterOperator_TRACK_FILTER_OPERATOR_LESS_THAN             TrackFilterOperator = 6
+	TrackFilterOperator_TRACK_FILTER_OPERATOR_LESS_THAN_OR_EQUAL    TrackFilterOperator = 7
+	TrackFilterOperator_TRACK_FILTER_OPERATOR_BETWEEN               TrackFilterOperator = 8
+)
+
+// Enum value maps for TrackFilterOperator.
+var (
+	TrackFilterOperator_name = map[int32]string{
+		0: "TRACK_FILTER_OPERATOR_UNSPECIFIED",
+		1: "TRACK_FILTER_OPERATOR_EQUALS",
+		2: "TRACK_FILTER_OPERATOR_CONTAINS",
+		3: "TRACK_FILTER_OPERATOR_IN",
+		4: "TRACK_FILTER_OPERATOR_GREATER_THAN",
+		5: "TRACK_FILTER_OPERATOR_GREATER_THAN_OR_EQUAL",
+		6: "TRACK_FILTER_OPERATOR_LESS_THAN",
+		7: "TRACK_FILTER_OPERATOR_LESS_THAN_OR_EQUAL",
+		8: "TRACK_FILTER_OPERATOR_BETWEEN",
+	}
+	TrackFilterOperator_value = map[string]int32{
+		"TRACK_FILTER_OPERATOR_UNSPECIFIED":           0,
+		"TRACK_FILTER_OPERATOR_EQUALS":                1,
+		"TRACK_FILTER_OPERATOR_CONTAINS":              2,
+		"TRACK_FILTER_OPERATOR_IN":                    3,
+		"TRACK_FILTER_OPERATOR_GREATER_THAN":          4,
+		"TRACK_FILTER_OPERATOR_GREATER_THAN_OR_EQUAL": 5,
+		"TRACK_FILTER_OPERATOR_LESS_THAN":             6,
+		"TRACK_FILTER_OPERATOR_LESS_THAN_OR_EQUAL":    7,
+		"TRACK_FILTER_OPERATOR_BETWEEN":               8,
+	}
+)
+
+func (x TrackFilterOperator) Enum() *TrackFilterOperator {
+	p := new(TrackFilterOperator)
+	*p = x
+	return p
+}
+
+func (x TrackFilterOperator) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (TrackFilterOperator) Descriptor() protoreflect.EnumDescriptor {
+	return file_api_catalog_v1_catalog_proto_enumTypes[3].Descriptor()
+}
+
+func (TrackFilterOperator) Type() protoreflect.EnumType {
+	return &file_api_catalog_v1_catalog_proto_enumTypes[3]
+}
+
+func (x TrackFilterOperator) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use TrackFilterOperator.Descriptor instead.
+func (TrackFilterOperator) EnumDescriptor() ([]byte, []int) {
+	return file_api_catalog_v1_catalog_proto_rawDescGZIP(), []int{3}
+}
+
 type ValidateTrackIdsRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	TrackIds      []string               `protobuf:"bytes,1,rep,name=track_ids,json=trackIds,proto3" json:"track_ids,omitempty"`
@@ -117,6 +355,541 @@ func (x *ValidateTrackIdsResponse) GetMissingTrackIds() []string {
 	return nil
 }
 
+type UUIDList struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Values        []string               `protobuf:"bytes,1,rep,name=values,proto3" json:"values,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UUIDList) Reset() {
+	*x = UUIDList{}
+	mi := &file_api_catalog_v1_catalog_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UUIDList) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UUIDList) ProtoMessage() {}
+
+func (x *UUIDList) ProtoReflect() protoreflect.Message {
+	mi := &file_api_catalog_v1_catalog_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UUIDList.ProtoReflect.Descriptor instead.
+func (*UUIDList) Descriptor() ([]byte, []int) {
+	return file_api_catalog_v1_catalog_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *UUIDList) GetValues() []string {
+	if x != nil {
+		return x.Values
+	}
+	return nil
+}
+
+type IntegerRange struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Minimum       int32                  `protobuf:"varint,1,opt,name=minimum,proto3" json:"minimum,omitempty"`
+	Maximum       int32                  `protobuf:"varint,2,opt,name=maximum,proto3" json:"maximum,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *IntegerRange) Reset() {
+	*x = IntegerRange{}
+	mi := &file_api_catalog_v1_catalog_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *IntegerRange) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*IntegerRange) ProtoMessage() {}
+
+func (x *IntegerRange) ProtoReflect() protoreflect.Message {
+	mi := &file_api_catalog_v1_catalog_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use IntegerRange.ProtoReflect.Descriptor instead.
+func (*IntegerRange) Descriptor() ([]byte, []int) {
+	return file_api_catalog_v1_catalog_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *IntegerRange) GetMinimum() int32 {
+	if x != nil {
+		return x.Minimum
+	}
+	return 0
+}
+
+func (x *IntegerRange) GetMaximum() int32 {
+	if x != nil {
+		return x.Maximum
+	}
+	return 0
+}
+
+type TrackFilterValue struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Types that are valid to be assigned to Kind:
+	//
+	//	*TrackFilterValue_Text
+	//	*TrackFilterValue_Uuid
+	//	*TrackFilterValue_UuidList
+	//	*TrackFilterValue_Integer
+	//	*TrackFilterValue_IntegerRange
+	//	*TrackFilterValue_Boolean
+	Kind          isTrackFilterValue_Kind `protobuf_oneof:"kind"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *TrackFilterValue) Reset() {
+	*x = TrackFilterValue{}
+	mi := &file_api_catalog_v1_catalog_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TrackFilterValue) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TrackFilterValue) ProtoMessage() {}
+
+func (x *TrackFilterValue) ProtoReflect() protoreflect.Message {
+	mi := &file_api_catalog_v1_catalog_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TrackFilterValue.ProtoReflect.Descriptor instead.
+func (*TrackFilterValue) Descriptor() ([]byte, []int) {
+	return file_api_catalog_v1_catalog_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *TrackFilterValue) GetKind() isTrackFilterValue_Kind {
+	if x != nil {
+		return x.Kind
+	}
+	return nil
+}
+
+func (x *TrackFilterValue) GetText() string {
+	if x != nil {
+		if x, ok := x.Kind.(*TrackFilterValue_Text); ok {
+			return x.Text
+		}
+	}
+	return ""
+}
+
+func (x *TrackFilterValue) GetUuid() string {
+	if x != nil {
+		if x, ok := x.Kind.(*TrackFilterValue_Uuid); ok {
+			return x.Uuid
+		}
+	}
+	return ""
+}
+
+func (x *TrackFilterValue) GetUuidList() *UUIDList {
+	if x != nil {
+		if x, ok := x.Kind.(*TrackFilterValue_UuidList); ok {
+			return x.UuidList
+		}
+	}
+	return nil
+}
+
+func (x *TrackFilterValue) GetInteger() int32 {
+	if x != nil {
+		if x, ok := x.Kind.(*TrackFilterValue_Integer); ok {
+			return x.Integer
+		}
+	}
+	return 0
+}
+
+func (x *TrackFilterValue) GetIntegerRange() *IntegerRange {
+	if x != nil {
+		if x, ok := x.Kind.(*TrackFilterValue_IntegerRange); ok {
+			return x.IntegerRange
+		}
+	}
+	return nil
+}
+
+func (x *TrackFilterValue) GetBoolean() bool {
+	if x != nil {
+		if x, ok := x.Kind.(*TrackFilterValue_Boolean); ok {
+			return x.Boolean
+		}
+	}
+	return false
+}
+
+type isTrackFilterValue_Kind interface {
+	isTrackFilterValue_Kind()
+}
+
+type TrackFilterValue_Text struct {
+	Text string `protobuf:"bytes,1,opt,name=text,proto3,oneof"`
+}
+
+type TrackFilterValue_Uuid struct {
+	Uuid string `protobuf:"bytes,2,opt,name=uuid,proto3,oneof"`
+}
+
+type TrackFilterValue_UuidList struct {
+	UuidList *UUIDList `protobuf:"bytes,3,opt,name=uuid_list,json=uuidList,proto3,oneof"`
+}
+
+type TrackFilterValue_Integer struct {
+	Integer int32 `protobuf:"varint,4,opt,name=integer,proto3,oneof"`
+}
+
+type TrackFilterValue_IntegerRange struct {
+	IntegerRange *IntegerRange `protobuf:"bytes,5,opt,name=integer_range,json=integerRange,proto3,oneof"`
+}
+
+type TrackFilterValue_Boolean struct {
+	Boolean bool `protobuf:"varint,6,opt,name=boolean,proto3,oneof"`
+}
+
+func (*TrackFilterValue_Text) isTrackFilterValue_Kind() {}
+
+func (*TrackFilterValue_Uuid) isTrackFilterValue_Kind() {}
+
+func (*TrackFilterValue_UuidList) isTrackFilterValue_Kind() {}
+
+func (*TrackFilterValue_Integer) isTrackFilterValue_Kind() {}
+
+func (*TrackFilterValue_IntegerRange) isTrackFilterValue_Kind() {}
+
+func (*TrackFilterValue_Boolean) isTrackFilterValue_Kind() {}
+
+type TrackFilter struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Field         TrackFilterField       `protobuf:"varint,1,opt,name=field,proto3,enum=infinitune.catalog.v1.TrackFilterField" json:"field,omitempty"`
+	Operator      TrackFilterOperator    `protobuf:"varint,2,opt,name=operator,proto3,enum=infinitune.catalog.v1.TrackFilterOperator" json:"operator,omitempty"`
+	Value         *TrackFilterValue      `protobuf:"bytes,3,opt,name=value,proto3" json:"value,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *TrackFilter) Reset() {
+	*x = TrackFilter{}
+	mi := &file_api_catalog_v1_catalog_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TrackFilter) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TrackFilter) ProtoMessage() {}
+
+func (x *TrackFilter) ProtoReflect() protoreflect.Message {
+	mi := &file_api_catalog_v1_catalog_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TrackFilter.ProtoReflect.Descriptor instead.
+func (*TrackFilter) Descriptor() ([]byte, []int) {
+	return file_api_catalog_v1_catalog_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *TrackFilter) GetField() TrackFilterField {
+	if x != nil {
+		return x.Field
+	}
+	return TrackFilterField_TRACK_FILTER_FIELD_UNSPECIFIED
+}
+
+func (x *TrackFilter) GetOperator() TrackFilterOperator {
+	if x != nil {
+		return x.Operator
+	}
+	return TrackFilterOperator_TRACK_FILTER_OPERATOR_UNSPECIFIED
+}
+
+func (x *TrackFilter) GetValue() *TrackFilterValue {
+	if x != nil {
+		return x.Value
+	}
+	return nil
+}
+
+type EvaluateTrackFiltersRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Logic         FilterLogic            `protobuf:"varint,1,opt,name=logic,proto3,enum=infinitune.catalog.v1.FilterLogic" json:"logic,omitempty"`
+	Filters       []*TrackFilter         `protobuf:"bytes,2,rep,name=filters,proto3" json:"filters,omitempty"`
+	Sort          TrackSort              `protobuf:"varint,3,opt,name=sort,proto3,enum=infinitune.catalog.v1.TrackSort" json:"sort,omitempty"`
+	Limit         int32                  `protobuf:"varint,4,opt,name=limit,proto3" json:"limit,omitempty"`
+	Offset        int32                  `protobuf:"varint,5,opt,name=offset,proto3" json:"offset,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *EvaluateTrackFiltersRequest) Reset() {
+	*x = EvaluateTrackFiltersRequest{}
+	mi := &file_api_catalog_v1_catalog_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *EvaluateTrackFiltersRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*EvaluateTrackFiltersRequest) ProtoMessage() {}
+
+func (x *EvaluateTrackFiltersRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_api_catalog_v1_catalog_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use EvaluateTrackFiltersRequest.ProtoReflect.Descriptor instead.
+func (*EvaluateTrackFiltersRequest) Descriptor() ([]byte, []int) {
+	return file_api_catalog_v1_catalog_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *EvaluateTrackFiltersRequest) GetLogic() FilterLogic {
+	if x != nil {
+		return x.Logic
+	}
+	return FilterLogic_FILTER_LOGIC_UNSPECIFIED
+}
+
+func (x *EvaluateTrackFiltersRequest) GetFilters() []*TrackFilter {
+	if x != nil {
+		return x.Filters
+	}
+	return nil
+}
+
+func (x *EvaluateTrackFiltersRequest) GetSort() TrackSort {
+	if x != nil {
+		return x.Sort
+	}
+	return TrackSort_TRACK_SORT_UNSPECIFIED
+}
+
+func (x *EvaluateTrackFiltersRequest) GetLimit() int32 {
+	if x != nil {
+		return x.Limit
+	}
+	return 0
+}
+
+func (x *EvaluateTrackFiltersRequest) GetOffset() int32 {
+	if x != nil {
+		return x.Offset
+	}
+	return 0
+}
+
+type EvaluateTrackFiltersResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Tracks        []*Track               `protobuf:"bytes,1,rep,name=tracks,proto3" json:"tracks,omitempty"`
+	Page          *Page                  `protobuf:"bytes,2,opt,name=page,proto3" json:"page,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *EvaluateTrackFiltersResponse) Reset() {
+	*x = EvaluateTrackFiltersResponse{}
+	mi := &file_api_catalog_v1_catalog_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *EvaluateTrackFiltersResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*EvaluateTrackFiltersResponse) ProtoMessage() {}
+
+func (x *EvaluateTrackFiltersResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_api_catalog_v1_catalog_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use EvaluateTrackFiltersResponse.ProtoReflect.Descriptor instead.
+func (*EvaluateTrackFiltersResponse) Descriptor() ([]byte, []int) {
+	return file_api_catalog_v1_catalog_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *EvaluateTrackFiltersResponse) GetTracks() []*Track {
+	if x != nil {
+		return x.Tracks
+	}
+	return nil
+}
+
+func (x *EvaluateTrackFiltersResponse) GetPage() *Page {
+	if x != nil {
+		return x.Page
+	}
+	return nil
+}
+
+// Consumer-side subset of Catalog Track. Playlist needs only stable identities.
+type Track struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Track) Reset() {
+	*x = Track{}
+	mi := &file_api_catalog_v1_catalog_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Track) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Track) ProtoMessage() {}
+
+func (x *Track) ProtoReflect() protoreflect.Message {
+	mi := &file_api_catalog_v1_catalog_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Track.ProtoReflect.Descriptor instead.
+func (*Track) Descriptor() ([]byte, []int) {
+	return file_api_catalog_v1_catalog_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *Track) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+type Page struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Limit         int32                  `protobuf:"varint,1,opt,name=limit,proto3" json:"limit,omitempty"`
+	Offset        int32                  `protobuf:"varint,2,opt,name=offset,proto3" json:"offset,omitempty"`
+	Total         int64                  `protobuf:"varint,3,opt,name=total,proto3" json:"total,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Page) Reset() {
+	*x = Page{}
+	mi := &file_api_catalog_v1_catalog_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Page) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Page) ProtoMessage() {}
+
+func (x *Page) ProtoReflect() protoreflect.Message {
+	mi := &file_api_catalog_v1_catalog_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Page.ProtoReflect.Descriptor instead.
+func (*Page) Descriptor() ([]byte, []int) {
+	return file_api_catalog_v1_catalog_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *Page) GetLimit() int32 {
+	if x != nil {
+		return x.Limit
+	}
+	return 0
+}
+
+func (x *Page) GetOffset() int32 {
+	if x != nil {
+		return x.Offset
+	}
+	return 0
+}
+
+func (x *Page) GetTotal() int64 {
+	if x != nil {
+		return x.Total
+	}
+	return 0
+}
+
 var File_api_catalog_v1_catalog_proto protoreflect.FileDescriptor
 
 const file_api_catalog_v1_catalog_proto_rawDesc = "" +
@@ -126,9 +899,72 @@ const file_api_catalog_v1_catalog_proto_rawDesc = "" +
 	"\ttrack_ids\x18\x01 \x03(\tR\btrackIds\"n\n" +
 	"\x18ValidateTrackIdsResponse\x12&\n" +
 	"\x0fvalid_track_ids\x18\x01 \x03(\tR\rvalidTrackIds\x12*\n" +
-	"\x11missing_track_ids\x18\x02 \x03(\tR\x0fmissingTrackIds2\x85\x01\n" +
+	"\x11missing_track_ids\x18\x02 \x03(\tR\x0fmissingTrackIds\"\"\n" +
+	"\bUUIDList\x12\x16\n" +
+	"\x06values\x18\x01 \x03(\tR\x06values\"B\n" +
+	"\fIntegerRange\x12\x18\n" +
+	"\aminimum\x18\x01 \x01(\x05R\aminimum\x12\x18\n" +
+	"\amaximum\x18\x02 \x01(\x05R\amaximum\"\x8a\x02\n" +
+	"\x10TrackFilterValue\x12\x14\n" +
+	"\x04text\x18\x01 \x01(\tH\x00R\x04text\x12\x14\n" +
+	"\x04uuid\x18\x02 \x01(\tH\x00R\x04uuid\x12>\n" +
+	"\tuuid_list\x18\x03 \x01(\v2\x1f.infinitune.catalog.v1.UUIDListH\x00R\buuidList\x12\x1a\n" +
+	"\ainteger\x18\x04 \x01(\x05H\x00R\ainteger\x12J\n" +
+	"\rinteger_range\x18\x05 \x01(\v2#.infinitune.catalog.v1.IntegerRangeH\x00R\fintegerRange\x12\x1a\n" +
+	"\aboolean\x18\x06 \x01(\bH\x00R\abooleanB\x06\n" +
+	"\x04kind\"\xd3\x01\n" +
+	"\vTrackFilter\x12=\n" +
+	"\x05field\x18\x01 \x01(\x0e2'.infinitune.catalog.v1.TrackFilterFieldR\x05field\x12F\n" +
+	"\boperator\x18\x02 \x01(\x0e2*.infinitune.catalog.v1.TrackFilterOperatorR\boperator\x12=\n" +
+	"\x05value\x18\x03 \x01(\v2'.infinitune.catalog.v1.TrackFilterValueR\x05value\"\xf9\x01\n" +
+	"\x1bEvaluateTrackFiltersRequest\x128\n" +
+	"\x05logic\x18\x01 \x01(\x0e2\".infinitune.catalog.v1.FilterLogicR\x05logic\x12<\n" +
+	"\afilters\x18\x02 \x03(\v2\".infinitune.catalog.v1.TrackFilterR\afilters\x124\n" +
+	"\x04sort\x18\x03 \x01(\x0e2 .infinitune.catalog.v1.TrackSortR\x04sort\x12\x14\n" +
+	"\x05limit\x18\x04 \x01(\x05R\x05limit\x12\x16\n" +
+	"\x06offset\x18\x05 \x01(\x05R\x06offset\"\x85\x01\n" +
+	"\x1cEvaluateTrackFiltersResponse\x124\n" +
+	"\x06tracks\x18\x01 \x03(\v2\x1c.infinitune.catalog.v1.TrackR\x06tracks\x12/\n" +
+	"\x04page\x18\x02 \x01(\v2\x1b.infinitune.catalog.v1.PageR\x04page\"\x17\n" +
+	"\x05Track\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\"J\n" +
+	"\x04Page\x12\x14\n" +
+	"\x05limit\x18\x01 \x01(\x05R\x05limit\x12\x16\n" +
+	"\x06offset\x18\x02 \x01(\x05R\x06offset\x12\x14\n" +
+	"\x05total\x18\x03 \x01(\x03R\x05total*\x8a\x01\n" +
+	"\tTrackSort\x12\x1a\n" +
+	"\x16TRACK_SORT_UNSPECIFIED\x10\x00\x12\x15\n" +
+	"\x11TRACK_SORT_NEWEST\x10\x01\x12\x15\n" +
+	"\x11TRACK_SORT_OLDEST\x10\x02\x12\x18\n" +
+	"\x14TRACK_SORT_TITLE_ASC\x10\x03\x12\x19\n" +
+	"\x15TRACK_SORT_TITLE_DESC\x10\x04*V\n" +
+	"\vFilterLogic\x12\x1c\n" +
+	"\x18FILTER_LOGIC_UNSPECIFIED\x10\x00\x12\x14\n" +
+	"\x10FILTER_LOGIC_AND\x10\x01\x12\x13\n" +
+	"\x0fFILTER_LOGIC_OR\x10\x02*\xc2\x02\n" +
+	"\x10TrackFilterField\x12\"\n" +
+	"\x1eTRACK_FILTER_FIELD_UNSPECIFIED\x10\x00\x12\x1c\n" +
+	"\x18TRACK_FILTER_FIELD_TITLE\x10\x01\x12 \n" +
+	"\x1cTRACK_FILTER_FIELD_ARTIST_ID\x10\x02\x12\x1f\n" +
+	"\x1bTRACK_FILTER_FIELD_ALBUM_ID\x10\x03\x12\x1f\n" +
+	"\x1bTRACK_FILTER_FIELD_GENRE_ID\x10\x04\x12\x1e\n" +
+	"\x1aTRACK_FILTER_FIELD_MOOD_ID\x10\x05\x12#\n" +
+	"\x1fTRACK_FILTER_FIELD_RELEASE_YEAR\x10\x06\x12\"\n" +
+	"\x1eTRACK_FILTER_FIELD_DURATION_MS\x10\a\x12\x1f\n" +
+	"\x1bTRACK_FILTER_FIELD_EXPLICIT\x10\b*\xef\x02\n" +
+	"\x13TrackFilterOperator\x12%\n" +
+	"!TRACK_FILTER_OPERATOR_UNSPECIFIED\x10\x00\x12 \n" +
+	"\x1cTRACK_FILTER_OPERATOR_EQUALS\x10\x01\x12\"\n" +
+	"\x1eTRACK_FILTER_OPERATOR_CONTAINS\x10\x02\x12\x1c\n" +
+	"\x18TRACK_FILTER_OPERATOR_IN\x10\x03\x12&\n" +
+	"\"TRACK_FILTER_OPERATOR_GREATER_THAN\x10\x04\x12/\n" +
+	"+TRACK_FILTER_OPERATOR_GREATER_THAN_OR_EQUAL\x10\x05\x12#\n" +
+	"\x1fTRACK_FILTER_OPERATOR_LESS_THAN\x10\x06\x12,\n" +
+	"(TRACK_FILTER_OPERATOR_LESS_THAN_OR_EQUAL\x10\a\x12!\n" +
+	"\x1dTRACK_FILTER_OPERATOR_BETWEEN\x10\b2\x86\x02\n" +
 	"\x0eCatalogService\x12s\n" +
-	"\x10ValidateTrackIds\x12..infinitune.catalog.v1.ValidateTrackIdsRequest\x1a/.infinitune.catalog.v1.ValidateTrackIdsResponseBRZPgithub.com/bevzick/Infinitune/services/playlist-service/api/catalog/v1;catalogv1b\x06proto3"
+	"\x10ValidateTrackIds\x12..infinitune.catalog.v1.ValidateTrackIdsRequest\x1a/.infinitune.catalog.v1.ValidateTrackIdsResponse\x12\x7f\n" +
+	"\x14EvaluateTrackFilters\x122.infinitune.catalog.v1.EvaluateTrackFiltersRequest\x1a3.infinitune.catalog.v1.EvaluateTrackFiltersResponseBRZPgithub.com/bevzick/Infinitune/services/playlist-service/api/catalog/v1;catalogv1b\x06proto3"
 
 var (
 	file_api_catalog_v1_catalog_proto_rawDescOnce sync.Once
@@ -142,19 +978,44 @@ func file_api_catalog_v1_catalog_proto_rawDescGZIP() []byte {
 	return file_api_catalog_v1_catalog_proto_rawDescData
 }
 
-var file_api_catalog_v1_catalog_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
+var file_api_catalog_v1_catalog_proto_enumTypes = make([]protoimpl.EnumInfo, 4)
+var file_api_catalog_v1_catalog_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
 var file_api_catalog_v1_catalog_proto_goTypes = []any{
-	(*ValidateTrackIdsRequest)(nil),  // 0: infinitune.catalog.v1.ValidateTrackIdsRequest
-	(*ValidateTrackIdsResponse)(nil), // 1: infinitune.catalog.v1.ValidateTrackIdsResponse
+	(TrackSort)(0),                       // 0: infinitune.catalog.v1.TrackSort
+	(FilterLogic)(0),                     // 1: infinitune.catalog.v1.FilterLogic
+	(TrackFilterField)(0),                // 2: infinitune.catalog.v1.TrackFilterField
+	(TrackFilterOperator)(0),             // 3: infinitune.catalog.v1.TrackFilterOperator
+	(*ValidateTrackIdsRequest)(nil),      // 4: infinitune.catalog.v1.ValidateTrackIdsRequest
+	(*ValidateTrackIdsResponse)(nil),     // 5: infinitune.catalog.v1.ValidateTrackIdsResponse
+	(*UUIDList)(nil),                     // 6: infinitune.catalog.v1.UUIDList
+	(*IntegerRange)(nil),                 // 7: infinitune.catalog.v1.IntegerRange
+	(*TrackFilterValue)(nil),             // 8: infinitune.catalog.v1.TrackFilterValue
+	(*TrackFilter)(nil),                  // 9: infinitune.catalog.v1.TrackFilter
+	(*EvaluateTrackFiltersRequest)(nil),  // 10: infinitune.catalog.v1.EvaluateTrackFiltersRequest
+	(*EvaluateTrackFiltersResponse)(nil), // 11: infinitune.catalog.v1.EvaluateTrackFiltersResponse
+	(*Track)(nil),                        // 12: infinitune.catalog.v1.Track
+	(*Page)(nil),                         // 13: infinitune.catalog.v1.Page
 }
 var file_api_catalog_v1_catalog_proto_depIdxs = []int32{
-	0, // 0: infinitune.catalog.v1.CatalogService.ValidateTrackIds:input_type -> infinitune.catalog.v1.ValidateTrackIdsRequest
-	1, // 1: infinitune.catalog.v1.CatalogService.ValidateTrackIds:output_type -> infinitune.catalog.v1.ValidateTrackIdsResponse
-	1, // [1:2] is the sub-list for method output_type
-	0, // [0:1] is the sub-list for method input_type
-	0, // [0:0] is the sub-list for extension type_name
-	0, // [0:0] is the sub-list for extension extendee
-	0, // [0:0] is the sub-list for field type_name
+	6,  // 0: infinitune.catalog.v1.TrackFilterValue.uuid_list:type_name -> infinitune.catalog.v1.UUIDList
+	7,  // 1: infinitune.catalog.v1.TrackFilterValue.integer_range:type_name -> infinitune.catalog.v1.IntegerRange
+	2,  // 2: infinitune.catalog.v1.TrackFilter.field:type_name -> infinitune.catalog.v1.TrackFilterField
+	3,  // 3: infinitune.catalog.v1.TrackFilter.operator:type_name -> infinitune.catalog.v1.TrackFilterOperator
+	8,  // 4: infinitune.catalog.v1.TrackFilter.value:type_name -> infinitune.catalog.v1.TrackFilterValue
+	1,  // 5: infinitune.catalog.v1.EvaluateTrackFiltersRequest.logic:type_name -> infinitune.catalog.v1.FilterLogic
+	9,  // 6: infinitune.catalog.v1.EvaluateTrackFiltersRequest.filters:type_name -> infinitune.catalog.v1.TrackFilter
+	0,  // 7: infinitune.catalog.v1.EvaluateTrackFiltersRequest.sort:type_name -> infinitune.catalog.v1.TrackSort
+	12, // 8: infinitune.catalog.v1.EvaluateTrackFiltersResponse.tracks:type_name -> infinitune.catalog.v1.Track
+	13, // 9: infinitune.catalog.v1.EvaluateTrackFiltersResponse.page:type_name -> infinitune.catalog.v1.Page
+	4,  // 10: infinitune.catalog.v1.CatalogService.ValidateTrackIds:input_type -> infinitune.catalog.v1.ValidateTrackIdsRequest
+	10, // 11: infinitune.catalog.v1.CatalogService.EvaluateTrackFilters:input_type -> infinitune.catalog.v1.EvaluateTrackFiltersRequest
+	5,  // 12: infinitune.catalog.v1.CatalogService.ValidateTrackIds:output_type -> infinitune.catalog.v1.ValidateTrackIdsResponse
+	11, // 13: infinitune.catalog.v1.CatalogService.EvaluateTrackFilters:output_type -> infinitune.catalog.v1.EvaluateTrackFiltersResponse
+	12, // [12:14] is the sub-list for method output_type
+	10, // [10:12] is the sub-list for method input_type
+	10, // [10:10] is the sub-list for extension type_name
+	10, // [10:10] is the sub-list for extension extendee
+	0,  // [0:10] is the sub-list for field type_name
 }
 
 func init() { file_api_catalog_v1_catalog_proto_init() }
@@ -162,18 +1023,27 @@ func file_api_catalog_v1_catalog_proto_init() {
 	if File_api_catalog_v1_catalog_proto != nil {
 		return
 	}
+	file_api_catalog_v1_catalog_proto_msgTypes[4].OneofWrappers = []any{
+		(*TrackFilterValue_Text)(nil),
+		(*TrackFilterValue_Uuid)(nil),
+		(*TrackFilterValue_UuidList)(nil),
+		(*TrackFilterValue_Integer)(nil),
+		(*TrackFilterValue_IntegerRange)(nil),
+		(*TrackFilterValue_Boolean)(nil),
+	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_api_catalog_v1_catalog_proto_rawDesc), len(file_api_catalog_v1_catalog_proto_rawDesc)),
-			NumEnums:      0,
-			NumMessages:   2,
+			NumEnums:      4,
+			NumMessages:   10,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
 		GoTypes:           file_api_catalog_v1_catalog_proto_goTypes,
 		DependencyIndexes: file_api_catalog_v1_catalog_proto_depIdxs,
+		EnumInfos:         file_api_catalog_v1_catalog_proto_enumTypes,
 		MessageInfos:      file_api_catalog_v1_catalog_proto_msgTypes,
 	}.Build()
 	File_api_catalog_v1_catalog_proto = out.File
