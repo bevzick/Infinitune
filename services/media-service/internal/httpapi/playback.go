@@ -35,6 +35,30 @@ func playback(dependencies Dependencies) gin.HandlerFunc {
 			return
 		}
 		defer object.Body.Close()
+		c.Header("Accept-Ranges", "bytes")
+		requestedRange, partial, err := parseByteRange(c.GetHeader("Range"), object.Size)
+		if err != nil {
+			c.Header("Content-Range", "bytes */"+strconv.FormatInt(object.Size, 10))
+			writeError(c, http.StatusRequestedRangeNotSatisfiable,
+				"invalid_range", "Requested byte range is not satisfiable")
+			return
+		}
+
+		contentLength := object.Size
+		statusCode := http.StatusOK
+		if partial {
+			if _, err = object.Body.Seek(requestedRange.start, io.SeekStart); err != nil {
+				dependencies.Logger.Error("media seek failed", "error", err,
+					"media_asset_id", asset.ID, "variant_id", variant.ID)
+				writeError(c, http.StatusServiceUnavailable,
+					"media_unavailable", "Media is temporarily unavailable")
+				return
+			}
+			contentLength = requestedRange.end - requestedRange.start + 1
+			statusCode = http.StatusPartialContent
+			c.Header("Content-Range", "bytes "+strconv.FormatInt(requestedRange.start, 10)+"-"+
+				strconv.FormatInt(requestedRange.end, 10)+"/"+strconv.FormatInt(object.Size, 10))
+		}
 
 		contentType := object.ContentType
 		if contentType == "" {
@@ -44,11 +68,16 @@ func playback(dependencies Dependencies) gin.HandlerFunc {
 			contentType = "application/octet-stream"
 		}
 		c.Header("Content-Type", contentType)
-		c.Header("Content-Length", strconv.FormatInt(object.Size, 10))
+		c.Header("Content-Length", strconv.FormatInt(contentLength, 10))
 		c.Header("Cache-Control", "private, no-store")
 		c.Header("X-Content-Type-Options", "nosniff")
-		c.Status(http.StatusOK)
-		if _, err = io.Copy(c.Writer, object.Body); err != nil && !errors.Is(err, c.Request.Context().Err()) {
+		c.Status(statusCode)
+		if partial {
+			_, err = io.CopyN(c.Writer, object.Body, contentLength)
+		} else {
+			_, err = io.Copy(c.Writer, object.Body)
+		}
+		if err != nil && !errors.Is(err, c.Request.Context().Err()) {
 			dependencies.Logger.Error("media stream interrupted", "error", err,
 				"media_asset_id", asset.ID, "variant_id", variant.ID)
 		}

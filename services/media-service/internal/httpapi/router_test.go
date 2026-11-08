@@ -80,6 +80,16 @@ type objectStorageStub struct {
 	key    string
 }
 
+type readSeekCloser struct {
+	*bytes.Reader
+}
+
+func (readSeekCloser) Close() error { return nil }
+
+func newReadSeekCloser(value string) readSeekCloser {
+	return readSeekCloser{Reader: bytes.NewReader([]byte(value))}
+}
+
 func (stub *objectStorageStub) Open(_ context.Context, key string) (storage.Object, error) {
 	stub.key = key
 	return stub.object, stub.err
@@ -105,7 +115,7 @@ func TestPlaybackStreamsReadyMediaObject(t *testing.T) {
 	assetID := uuid.New()
 	variantID := uuid.New()
 	objectStorage := &objectStorageStub{object: storage.Object{
-		Body: io.NopCloser(bytes.NewBufferString("audio bytes")),
+		Body: newReadSeekCloser("audio bytes"),
 		Size: 11, ContentType: "audio/mp4",
 	}}
 	dependencies := playbackDependencies()
@@ -128,11 +138,66 @@ func TestPlaybackStreamsReadyMediaObject(t *testing.T) {
 	}
 	if response.Header().Get("Content-Type") != "audio/mp4" ||
 		response.Header().Get("Content-Length") != "11" ||
+		response.Header().Get("Accept-Ranges") != "bytes" ||
 		response.Header().Get("Cache-Control") != "private, no-store" {
 		t.Fatalf("headers = %v", response.Header())
 	}
 	if objectStorage.key != "variants/track.m4a" {
 		t.Fatalf("Open() key = %q", objectStorage.key)
+	}
+}
+
+func TestPlaybackStreamsRequestedByteRange(t *testing.T) {
+	assetID := uuid.New()
+	dependencies := playbackDependencies()
+	dependencies.Media = playbackStub{
+		asset:   media.Asset{ID: assetID, Status: media.StatusReady},
+		variant: media.AudioVariant{ID: uuid.New(), ObjectKey: "variants/track.m4a"},
+	}
+	dependencies.Objects = &objectStorageStub{object: storage.Object{
+		Body: newReadSeekCloser("0123456789"), Size: 10, ContentType: "audio/mp4",
+	}}
+	request := httptest.NewRequest(http.MethodGet,
+		"/v1/media/assets/"+assetID.String()+"/playback", nil)
+	request.Header.Set("Authorization", "Bearer valid")
+	request.Header.Set("Range", "bytes=2-5")
+	response := httptest.NewRecorder()
+
+	NewRouter(dependencies).ServeHTTP(response, request)
+
+	if response.Code != http.StatusPartialContent || response.Body.String() != "2345" {
+		t.Fatalf("status = %d, body = %q", response.Code, response.Body.String())
+	}
+	if response.Header().Get("Content-Range") != "bytes 2-5/10" ||
+		response.Header().Get("Content-Length") != "4" ||
+		response.Header().Get("Accept-Ranges") != "bytes" {
+		t.Fatalf("headers = %v", response.Header())
+	}
+}
+
+func TestPlaybackRejectsUnsatisfiableByteRange(t *testing.T) {
+	assetID := uuid.New()
+	dependencies := playbackDependencies()
+	dependencies.Media = playbackStub{
+		asset:   media.Asset{ID: assetID, Status: media.StatusReady},
+		variant: media.AudioVariant{ID: uuid.New(), ObjectKey: "variants/track.m4a"},
+	}
+	dependencies.Objects = &objectStorageStub{object: storage.Object{
+		Body: newReadSeekCloser("0123456789"), Size: 10, ContentType: "audio/mp4",
+	}}
+	request := httptest.NewRequest(http.MethodGet,
+		"/v1/media/assets/"+assetID.String()+"/playback", nil)
+	request.Header.Set("Authorization", "Bearer valid")
+	request.Header.Set("Range", "bytes=20-30")
+	response := httptest.NewRecorder()
+
+	NewRouter(dependencies).ServeHTTP(response, request)
+
+	if response.Code != http.StatusRequestedRangeNotSatisfiable ||
+		response.Header().Get("Content-Range") != "bytes */10" ||
+		response.Header().Get("Accept-Ranges") != "bytes" {
+		t.Fatalf("status = %d, headers = %v, body = %s",
+			response.Code, response.Header(), response.Body.String())
 	}
 }
 

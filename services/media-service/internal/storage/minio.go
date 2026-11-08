@@ -27,7 +27,7 @@ type bucketClient interface {
 var ErrObjectNotFound = errors.New("media object not found")
 
 type Object struct {
-	Body         io.ReadCloser
+	Body         io.ReadSeekCloser
 	Size         int64
 	ContentType  string
 	LastModified time.Time

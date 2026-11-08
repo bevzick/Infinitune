@@ -89,6 +89,23 @@ func TestMinIOStreamsPrivateMediaObject(t *testing.T) {
 	if !bytes.Equal(got, want) || object.Size != int64(len(want)) || object.ContentType != "audio/mp4" {
 		t.Fatalf("object = size %d, content-type %q, body %q", object.Size, object.ContentType, got)
 	}
+
+	seekObject, err := client.Open(ctx, objectKey)
+	if err != nil {
+		t.Fatalf("Open(for seek) error = %v", err)
+	}
+	defer seekObject.Body.Close()
+	const offset = int64(12)
+	if _, err = seekObject.Body.Seek(offset, io.SeekStart); err != nil {
+		t.Fatalf("Seek() error = %v", err)
+	}
+	seeked, err := io.ReadAll(seekObject.Body)
+	if err != nil {
+		t.Fatalf("read seeked media object: %v", err)
+	}
+	if !bytes.Equal(seeked, want[offset:]) {
+		t.Fatalf("seeked body = %q, want %q", seeked, want[offset:])
+	}
 }
 
 func requiredEnv(t *testing.T, key string) string {
