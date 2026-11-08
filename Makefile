@@ -1,6 +1,6 @@
 .DEFAULT_GOAL := help
 
-.PHONY: help config ps up stop down down-volumes restart logs smoke auth-test auth-test-integration auth-migrate-up auth-migrate-version user-test user-test-integration user-migrate-up user-migrate-version catalog-test catalog-test-integration catalog-migrate-up catalog-migrate-version
+.PHONY: help config ps up stop down down-volumes restart logs smoke auth-test auth-test-integration auth-migrate-up auth-migrate-version user-test user-test-integration user-migrate-up user-migrate-version catalog-test catalog-test-integration catalog-migrate-up catalog-migrate-version catalog-seed
 
 COMPOSE := docker compose -f compose.yml -f compose.auth.yml -f compose.user.yml -f compose.catalog.yml
 
@@ -30,6 +30,7 @@ help:
 	@echo "  catalog-test-integration - Run Catalog integration tests"
 	@echo "  catalog-migrate-up      - Apply pending Catalog database migrations"
 	@echo "  catalog-migrate-version - Show the current Catalog migration version"
+	@echo "  catalog-seed            - Load fictional development metadata"
 
 config:
 	@$(COMPOSE) config --quiet
@@ -85,7 +86,7 @@ user-migrate-version:
 catalog-test:
 	@cd services/catalog-service && go test ./...
 
-catalog-test-integration: catalog-migrate-up
+catalog-test-integration: catalog-seed
 	@$(COMPOSE) up --detach --build catalog-service
 	@$(COMPOSE) --profile tools run --rm --build catalog-integration-test
 
@@ -94,3 +95,6 @@ catalog-migrate-up:
 
 catalog-migrate-version:
 	@$(COMPOSE) --profile tools run --rm catalog-migrate version
+
+catalog-seed: catalog-migrate-up
+	@$(COMPOSE) --profile tools run --rm catalog-seed
