@@ -11,6 +11,9 @@ var (
 	ErrForbidden       = errors.New("playlist access forbidden")
 	ErrInvalidArgument = errors.New("invalid playlist argument")
 	ErrNotFound        = errors.New("playlist not found")
+	ErrManualOnly      = errors.New("operation is supported only for manual playlists")
+	ErrTrackExists     = errors.New("track already exists in playlist")
+	ErrTrackNotFound   = errors.New("playlist track not found")
 )
 
 type Type string
@@ -50,4 +53,12 @@ type UpdateInput struct {
 	Name        *string
 	Description *string
 	Visibility  *Visibility
+}
+
+type Track struct {
+	PlaylistID uuid.UUID
+	TrackID    uuid.UUID
+	Position   int
+	AddedBy    uuid.UUID
+	AddedAt    time.Time
 }
