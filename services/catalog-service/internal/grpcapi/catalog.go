@@ -3,6 +3,7 @@ package grpcapi
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	catalogv1 "github.com/bevzick/Infinitune/services/catalog-service/api/catalog/v1"
@@ -19,6 +20,7 @@ type Catalog interface {
 	BatchTracks(context.Context, []uuid.UUID) ([]metadata.Track, error)
 	ValidateTrackIDs(context.Context, []uuid.UUID) (metadata.TrackIDValidation, error)
 	Tracks(context.Context, metadata.TrackQuery) (metadata.Page[metadata.Track], error)
+	EvaluateTrackFilters(context.Context, metadata.DynamicTrackQuery) (metadata.Page[metadata.Track], error)
 }
 
 type CatalogServer struct {
@@ -93,6 +95,29 @@ func (server *CatalogServer) FilterTracks(
 	}, nil
 }
 
+func (server *CatalogServer) EvaluateTrackFilters(
+	ctx context.Context,
+	request *catalogv1.EvaluateTrackFiltersRequest,
+) (*catalogv1.EvaluateTrackFiltersResponse, error) {
+	query, err := dynamicTrackQuery(request)
+	if err != nil {
+		return nil, err
+	}
+	callCtx, cancel := context.WithTimeout(ctx, server.timeout)
+	defer cancel()
+
+	result, err := server.catalog.EvaluateTrackFilters(callCtx, query)
+	if err != nil {
+		return nil, mapCatalogError(err, "dynamic track filtering failed")
+	}
+	return &catalogv1.EvaluateTrackFiltersResponse{
+		Tracks: tracksResponse(result.Items),
+		Page: &catalogv1.Page{
+			Limit: int32(result.Limit), Offset: int32(result.Offset), Total: result.Total,
+		},
+	}, nil
+}
+
 func parseTrackIDs(values []string) ([]uuid.UUID, error) {
 	if len(values) == 0 {
 		return nil, status.Error(codes.InvalidArgument, "track_ids must not be empty")
@@ -160,6 +185,191 @@ func filterQuery(request *catalogv1.FilterTracksRequest) (metadata.TrackQuery, e
 		GenreID: genreID, MoodID: moodID, ReleaseYear: releaseYear,
 		Explicit: explicit, Sort: sort,
 	}, nil
+}
+
+func dynamicTrackQuery(
+	request *catalogv1.EvaluateTrackFiltersRequest,
+) (metadata.DynamicTrackQuery, error) {
+	if request == nil {
+		request = &catalogv1.EvaluateTrackFiltersRequest{}
+	}
+	logic, err := filterLogic(request.GetLogic())
+	if err != nil {
+		return metadata.DynamicTrackQuery{}, err
+	}
+	if len(request.GetFilters()) == 0 {
+		return metadata.DynamicTrackQuery{}, status.Error(codes.InvalidArgument, "filters must not be empty")
+	}
+	filters := make([]metadata.TrackFilter, 0, len(request.GetFilters()))
+	for index, filter := range request.GetFilters() {
+		mapped, mapErr := dynamicTrackFilter(filter, index)
+		if mapErr != nil {
+			return metadata.DynamicTrackQuery{}, mapErr
+		}
+		filters = append(filters, mapped)
+	}
+	sort, err := trackSort(request.GetSort())
+	if err != nil {
+		return metadata.DynamicTrackQuery{}, err
+	}
+	limit := int(request.GetLimit())
+	if limit == 0 {
+		limit = 20
+	}
+	return metadata.DynamicTrackQuery{
+		Page:  metadata.PageRequest{Limit: limit, Offset: int(request.GetOffset())},
+		Logic: logic, Filters: filters, Sort: sort,
+	}, nil
+}
+
+func filterLogic(value catalogv1.FilterLogic) (metadata.FilterLogic, error) {
+	switch value {
+	case catalogv1.FilterLogic_FILTER_LOGIC_AND:
+		return metadata.FilterLogicAnd, nil
+	case catalogv1.FilterLogic_FILTER_LOGIC_OR:
+		return metadata.FilterLogicOr, nil
+	default:
+		return "", status.Error(codes.InvalidArgument, "logic must be AND or OR")
+	}
+}
+
+func dynamicTrackFilter(value *catalogv1.TrackFilter, index int) (metadata.TrackFilter, error) {
+	if value == nil || value.GetValue() == nil {
+		return metadata.TrackFilter{}, status.Errorf(
+			codes.InvalidArgument, "filters[%d].value is required", index,
+		)
+	}
+	field, err := dynamicTrackFilterField(value.GetField(), index)
+	if err != nil {
+		return metadata.TrackFilter{}, err
+	}
+	operator, err := dynamicTrackFilterOperator(value.GetOperator(), index)
+	if err != nil {
+		return metadata.TrackFilter{}, err
+	}
+	mappedValue, err := dynamicTrackFilterValue(value.GetValue(), index)
+	if err != nil {
+		return metadata.TrackFilter{}, err
+	}
+	return metadata.TrackFilter{Field: field, Operator: operator, Value: mappedValue}, nil
+}
+
+func dynamicTrackFilterField(
+	value catalogv1.TrackFilterField,
+	index int,
+) (metadata.TrackFilterField, error) {
+	switch value {
+	case catalogv1.TrackFilterField_TRACK_FILTER_FIELD_TITLE:
+		return metadata.TrackFilterTitle, nil
+	case catalogv1.TrackFilterField_TRACK_FILTER_FIELD_ARTIST_ID:
+		return metadata.TrackFilterArtistID, nil
+	case catalogv1.TrackFilterField_TRACK_FILTER_FIELD_ALBUM_ID:
+		return metadata.TrackFilterAlbumID, nil
+	case catalogv1.TrackFilterField_TRACK_FILTER_FIELD_GENRE_ID:
+		return metadata.TrackFilterGenreID, nil
+	case catalogv1.TrackFilterField_TRACK_FILTER_FIELD_MOOD_ID:
+		return metadata.TrackFilterMoodID, nil
+	case catalogv1.TrackFilterField_TRACK_FILTER_FIELD_RELEASE_YEAR:
+		return metadata.TrackFilterReleaseYear, nil
+	case catalogv1.TrackFilterField_TRACK_FILTER_FIELD_DURATION_MS:
+		return metadata.TrackFilterDurationMS, nil
+	case catalogv1.TrackFilterField_TRACK_FILTER_FIELD_EXPLICIT:
+		return metadata.TrackFilterExplicit, nil
+	default:
+		return "", status.Errorf(codes.InvalidArgument, "filters[%d].field is unsupported", index)
+	}
+}
+
+func dynamicTrackFilterOperator(
+	value catalogv1.TrackFilterOperator,
+	index int,
+) (metadata.TrackFilterOperator, error) {
+	switch value {
+	case catalogv1.TrackFilterOperator_TRACK_FILTER_OPERATOR_EQUALS:
+		return metadata.TrackFilterEquals, nil
+	case catalogv1.TrackFilterOperator_TRACK_FILTER_OPERATOR_CONTAINS:
+		return metadata.TrackFilterContains, nil
+	case catalogv1.TrackFilterOperator_TRACK_FILTER_OPERATOR_IN:
+		return metadata.TrackFilterIn, nil
+	case catalogv1.TrackFilterOperator_TRACK_FILTER_OPERATOR_GREATER_THAN:
+		return metadata.TrackFilterGreaterThan, nil
+	case catalogv1.TrackFilterOperator_TRACK_FILTER_OPERATOR_GREATER_THAN_OR_EQUAL:
+		return metadata.TrackFilterGreaterThanOrEqual, nil
+	case catalogv1.TrackFilterOperator_TRACK_FILTER_OPERATOR_LESS_THAN:
+		return metadata.TrackFilterLessThan, nil
+	case catalogv1.TrackFilterOperator_TRACK_FILTER_OPERATOR_LESS_THAN_OR_EQUAL:
+		return metadata.TrackFilterLessThanOrEqual, nil
+	case catalogv1.TrackFilterOperator_TRACK_FILTER_OPERATOR_BETWEEN:
+		return metadata.TrackFilterBetween, nil
+	default:
+		return "", status.Errorf(codes.InvalidArgument, "filters[%d].operator is unsupported", index)
+	}
+}
+
+func dynamicTrackFilterValue(
+	value *catalogv1.TrackFilterValue,
+	index int,
+) (metadata.TrackFilterValue, error) {
+	switch kind := value.GetKind().(type) {
+	case *catalogv1.TrackFilterValue_Text:
+		return metadata.TextFilterValue(kind.Text), nil
+	case *catalogv1.TrackFilterValue_Uuid:
+		id, err := uuid.Parse(kind.Uuid)
+		if err != nil || id == uuid.Nil {
+			return metadata.TrackFilterValue{}, status.Errorf(
+				codes.InvalidArgument, "filters[%d].value must be a UUID", index,
+			)
+		}
+		return metadata.UUIDFilterValue(id), nil
+	case *catalogv1.TrackFilterValue_UuidList:
+		if kind.UuidList == nil {
+			return metadata.TrackFilterValue{}, status.Errorf(
+				codes.InvalidArgument, "filters[%d].value must contain UUIDs", index,
+			)
+		}
+		ids, err := parseUUIDList(kind.UuidList.GetValues(), fmt.Sprintf("filters[%d].value", index))
+		if err != nil {
+			return metadata.TrackFilterValue{}, err
+		}
+		return metadata.UUIDListFilterValue(ids...), nil
+	case *catalogv1.TrackFilterValue_Integer:
+		return metadata.IntegerFilterValue(int(kind.Integer)), nil
+	case *catalogv1.TrackFilterValue_IntegerRange:
+		if kind.IntegerRange == nil {
+			return metadata.TrackFilterValue{}, status.Errorf(
+				codes.InvalidArgument, "filters[%d].value must contain an integer range", index,
+			)
+		}
+		return metadata.IntegerRangeFilterValue(
+			int(kind.IntegerRange.GetMinimum()), int(kind.IntegerRange.GetMaximum()),
+		), nil
+	case *catalogv1.TrackFilterValue_Boolean:
+		return metadata.BooleanFilterValue(kind.Boolean), nil
+	default:
+		return metadata.TrackFilterValue{}, status.Errorf(
+			codes.InvalidArgument, "filters[%d].value is required", index,
+		)
+	}
+}
+
+func parseUUIDList(values []string, field string) ([]uuid.UUID, error) {
+	if len(values) == 0 || len(values) > 100 {
+		return nil, status.Errorf(codes.InvalidArgument, "%s must contain from 1 to 100 UUIDs", field)
+	}
+	ids := make([]uuid.UUID, 0, len(values))
+	seen := make(map[uuid.UUID]struct{}, len(values))
+	for _, value := range values {
+		id, err := uuid.Parse(value)
+		if err != nil || id == uuid.Nil {
+			return nil, status.Errorf(codes.InvalidArgument, "%s must contain UUIDs", field)
+		}
+		if _, exists := seen[id]; exists {
+			return nil, status.Errorf(codes.InvalidArgument, "%s must not contain duplicates", field)
+		}
+		seen[id] = struct{}{}
+		ids = append(ids, id)
+	}
+	return ids, nil
 }
 
 func optionalUUID(value, field string) (*uuid.UUID, error) {

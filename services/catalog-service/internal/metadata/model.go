@@ -191,6 +191,107 @@ type TrackQuery struct {
 	Sort        TrackSort
 }
 
+type FilterLogic string
+
+const (
+	FilterLogicAnd FilterLogic = "AND"
+	FilterLogicOr  FilterLogic = "OR"
+)
+
+type TrackFilterField string
+
+const (
+	TrackFilterTitle       TrackFilterField = "title"
+	TrackFilterArtistID    TrackFilterField = "artist_id"
+	TrackFilterAlbumID     TrackFilterField = "album_id"
+	TrackFilterGenreID     TrackFilterField = "genre_id"
+	TrackFilterMoodID      TrackFilterField = "mood_id"
+	TrackFilterReleaseYear TrackFilterField = "release_year"
+	TrackFilterDurationMS  TrackFilterField = "duration_ms"
+	TrackFilterExplicit    TrackFilterField = "explicit"
+)
+
+type TrackFilterOperator string
+
+const (
+	TrackFilterEquals             TrackFilterOperator = "equals"
+	TrackFilterContains           TrackFilterOperator = "contains"
+	TrackFilterIn                 TrackFilterOperator = "in"
+	TrackFilterGreaterThan        TrackFilterOperator = "greater_than"
+	TrackFilterGreaterThanOrEqual TrackFilterOperator = "greater_than_or_equal"
+	TrackFilterLessThan           TrackFilterOperator = "less_than"
+	TrackFilterLessThanOrEqual    TrackFilterOperator = "less_than_or_equal"
+	TrackFilterBetween            TrackFilterOperator = "between"
+)
+
+type TrackFilterValueKind string
+
+const (
+	TrackFilterValueText         TrackFilterValueKind = "text"
+	TrackFilterValueUUID         TrackFilterValueKind = "uuid"
+	TrackFilterValueUUIDList     TrackFilterValueKind = "uuid_list"
+	TrackFilterValueInteger      TrackFilterValueKind = "integer"
+	TrackFilterValueIntegerRange TrackFilterValueKind = "integer_range"
+	TrackFilterValueBoolean      TrackFilterValueKind = "boolean"
+)
+
+type IntegerRange struct {
+	Minimum int
+	Maximum int
+}
+
+type TrackFilterValue struct {
+	Kind         TrackFilterValueKind
+	Text         string
+	UUID         uuid.UUID
+	UUIDs        []uuid.UUID
+	Integer      int
+	IntegerRange IntegerRange
+	Boolean      bool
+}
+
+func TextFilterValue(value string) TrackFilterValue {
+	return TrackFilterValue{Kind: TrackFilterValueText, Text: value}
+}
+
+func UUIDFilterValue(value uuid.UUID) TrackFilterValue {
+	return TrackFilterValue{Kind: TrackFilterValueUUID, UUID: value}
+}
+
+func UUIDListFilterValue(values ...uuid.UUID) TrackFilterValue {
+	return TrackFilterValue{
+		Kind: TrackFilterValueUUIDList, UUIDs: append([]uuid.UUID(nil), values...),
+	}
+}
+
+func IntegerFilterValue(value int) TrackFilterValue {
+	return TrackFilterValue{Kind: TrackFilterValueInteger, Integer: value}
+}
+
+func IntegerRangeFilterValue(minimum, maximum int) TrackFilterValue {
+	return TrackFilterValue{
+		Kind:         TrackFilterValueIntegerRange,
+		IntegerRange: IntegerRange{Minimum: minimum, Maximum: maximum},
+	}
+}
+
+func BooleanFilterValue(value bool) TrackFilterValue {
+	return TrackFilterValue{Kind: TrackFilterValueBoolean, Boolean: value}
+}
+
+type TrackFilter struct {
+	Field    TrackFilterField
+	Operator TrackFilterOperator
+	Value    TrackFilterValue
+}
+
+type DynamicTrackQuery struct {
+	Page    PageRequest
+	Logic   FilterLogic
+	Filters []TrackFilter
+	Sort    TrackSort
+}
+
 type TrackIDValidation struct {
 	ValidIDs   []uuid.UUID
 	MissingIDs []uuid.UUID

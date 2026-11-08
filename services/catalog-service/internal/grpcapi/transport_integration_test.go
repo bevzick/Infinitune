@@ -43,4 +43,23 @@ func TestCatalogServiceInternalTransport(t *testing.T) {
 		response.GetMissingTrackIds()[0] != missingID {
 		t.Fatalf("ValidateTrackIds() = %+v", response)
 	}
+
+	filtered, err := client.EvaluateTrackFilters(ctx, &catalogv1.EvaluateTrackFiltersRequest{
+		Logic: catalogv1.FilterLogic_FILTER_LOGIC_AND,
+		Filters: []*catalogv1.TrackFilter{{
+			Field:    catalogv1.TrackFilterField_TRACK_FILTER_FIELD_TITLE,
+			Operator: catalogv1.TrackFilterOperator_TRACK_FILTER_OPERATOR_EQUALS,
+			Value: &catalogv1.TrackFilterValue{Kind: &catalogv1.TrackFilterValue_Text{
+				Text: "missing-" + missingID,
+			}},
+		}},
+		Limit: 10,
+	})
+	if err != nil {
+		t.Fatalf("EvaluateTrackFilters() error = %v", err)
+	}
+	if len(filtered.GetTracks()) != 0 || filtered.GetPage() == nil ||
+		filtered.GetPage().GetTotal() != 0 || filtered.GetPage().GetLimit() != 10 {
+		t.Fatalf("EvaluateTrackFilters() = %+v", filtered)
+	}
 }

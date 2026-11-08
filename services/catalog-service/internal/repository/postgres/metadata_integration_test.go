@@ -34,7 +34,8 @@ func TestMetadataRepositoryStoresAndReplacesCompleteMetadata(t *testing.T) {
 	albumID := uuid.New()
 	trackID := uuid.New()
 	secondTrackID := uuid.New()
-	registerCleanup(t, pool, []uuid.UUID{trackID, secondTrackID}, []uuid.UUID{albumID},
+	thirdTrackID := uuid.New()
+	registerCleanup(t, pool, []uuid.UUID{trackID, secondTrackID, thirdTrackID}, []uuid.UUID{albumID},
 		[]uuid.UUID{primaryID, featuredID, producerID},
 		[]uuid.UUID{genreOneID, genreTwoID}, []uuid.UUID{moodOneID, moodTwoID})
 
@@ -177,6 +178,79 @@ func TestMetadataRepositoryStoresAndReplacesCompleteMetadata(t *testing.T) {
 	if stable.Items[0].ID != wantFirstID || stable.Items[1].ID != wantSecondID {
 		t.Fatalf("Tracks(stable sort) ids = %v, %v; want %v, %v",
 			stable.Items[0].ID, stable.Items[1].ID, wantFirstID, wantSecondID)
+	}
+
+	dynamicQuery := metadata.DynamicTrackQuery{
+		Page: metadata.PageRequest{Limit: 20}, Logic: metadata.FilterLogicAnd,
+		Sort: metadata.TrackSortTitleAsc,
+		Filters: []metadata.TrackFilter{
+			{Field: metadata.TrackFilterTitle, Operator: metadata.TrackFilterContains, Value: metadata.TextFilterValue(testID)},
+			{Field: metadata.TrackFilterArtistID, Operator: metadata.TrackFilterIn, Value: metadata.UUIDListFilterValue(featuredID)},
+			{Field: metadata.TrackFilterAlbumID, Operator: metadata.TrackFilterIn, Value: metadata.UUIDListFilterValue(albumID)},
+			{Field: metadata.TrackFilterGenreID, Operator: metadata.TrackFilterEquals, Value: metadata.UUIDFilterValue(genreOneID)},
+			{Field: metadata.TrackFilterMoodID, Operator: metadata.TrackFilterEquals, Value: metadata.UUIDFilterValue(moodOneID)},
+			{Field: metadata.TrackFilterReleaseYear, Operator: metadata.TrackFilterGreaterThanOrEqual, Value: metadata.IntegerFilterValue(2026)},
+			{Field: metadata.TrackFilterDurationMS, Operator: metadata.TrackFilterBetween, Value: metadata.IntegerRangeFilterValue(200_000, 220_000)},
+			{Field: metadata.TrackFilterExplicit, Operator: metadata.TrackFilterEquals, Value: metadata.BooleanFilterValue(false)},
+		},
+	}
+	dynamicInitial, err := service.EvaluateTrackFilters(ctx, dynamicQuery)
+	if err != nil {
+		t.Fatalf("EvaluateTrackFilters(AND) error = %v", err)
+	}
+	if dynamicInitial.Total != 1 || len(dynamicInitial.Items) != 1 || dynamicInitial.Items[0].ID != trackID {
+		t.Fatalf("EvaluateTrackFilters(AND) = %+v", dynamicInitial)
+	}
+
+	_, err = service.StoreApprovedTrack(ctx, metadata.TrackInput{
+		ID: thirdTrackID, AlbumID: &albumID, Title: "Fresh " + testID + " Track",
+		DurationMS: 215000, TrackNumber: 3, DiscNumber: 1, ReleaseDate: releaseDate,
+		MediaAssetID: uuid.New(), ContentID: uuid.New(),
+		Artists: []metadata.TrackArtistInput{{
+			ArtistID: featuredID, Role: metadata.ArtistRolePrimary, Position: 1,
+		}},
+		GenreIDs: []uuid.UUID{genreOneID},
+		Moods:    []metadata.TrackMoodInput{{MoodID: moodOneID, Weight: 0.9}},
+	})
+	if err != nil {
+		t.Fatalf("StoreApprovedTrack(dynamic match) error = %v", err)
+	}
+	dynamicAfterInsert, err := service.EvaluateTrackFilters(ctx, dynamicQuery)
+	if err != nil {
+		t.Fatalf("EvaluateTrackFilters(after insert) error = %v", err)
+	}
+	if dynamicAfterInsert.Total != 2 || len(dynamicAfterInsert.Items) != 2 ||
+		!containsTrack(dynamicAfterInsert.Items, trackID) || !containsTrack(dynamicAfterInsert.Items, thirdTrackID) {
+		t.Fatalf("EvaluateTrackFilters(after insert) = %+v", dynamicAfterInsert)
+	}
+
+	dynamicOr, err := service.EvaluateTrackFilters(ctx, metadata.DynamicTrackQuery{
+		Page: metadata.PageRequest{Limit: 1}, Logic: metadata.FilterLogicOr,
+		Sort: metadata.TrackSortTitleAsc,
+		Filters: []metadata.TrackFilter{
+			{Field: metadata.TrackFilterTitle, Operator: metadata.TrackFilterEquals, Value: metadata.TextFilterValue(trackTitle)},
+			{Field: metadata.TrackFilterTitle, Operator: metadata.TrackFilterEquals, Value: metadata.TextFilterValue("Missing " + testID)},
+		},
+	})
+	if err != nil {
+		t.Fatalf("EvaluateTrackFilters(OR) error = %v", err)
+	}
+	if dynamicOr.Total != 2 || len(dynamicOr.Items) != 1 || dynamicOr.Limit != 1 {
+		t.Fatalf("EvaluateTrackFilters(OR) = %+v", dynamicOr)
+	}
+
+	injection, err := service.EvaluateTrackFilters(ctx, metadata.DynamicTrackQuery{
+		Page: metadata.PageRequest{Limit: 20}, Logic: metadata.FilterLogicAnd,
+		Filters: []metadata.TrackFilter{{
+			Field: metadata.TrackFilterTitle, Operator: metadata.TrackFilterContains,
+			Value: metadata.TextFilterValue(`%' OR TRUE; DROP TABLE catalog.tracks; --`),
+		}},
+	})
+	if err != nil {
+		t.Fatalf("EvaluateTrackFilters(injection text) error = %v", err)
+	}
+	if injection.Total != 0 || len(injection.Items) != 0 {
+		t.Fatalf("EvaluateTrackFilters(injection text) = %+v", injection)
 	}
 	batch, err := service.BatchTracks(ctx, []uuid.UUID{secondTrackID, trackID})
 	if err != nil {
@@ -427,6 +501,11 @@ func findTrack(items []metadata.Track, id uuid.UUID) (metadata.Track, bool) {
 		}
 	}
 	return metadata.Track{}, false
+}
+
+func containsTrack(items []metadata.Track, id uuid.UUID) bool {
+	_, exists := findTrack(items, id)
+	return exists
 }
 
 func containsGenre(items []metadata.Genre, id uuid.UUID) bool {

@@ -18,6 +18,7 @@ type Store interface {
 	TracksByIDs(context.Context, []uuid.UUID) ([]Track, error)
 	ExistingTrackIDs(context.Context, []uuid.UUID) (map[uuid.UUID]struct{}, error)
 	SearchTracks(context.Context, TrackQuery) (Page[Track], error)
+	EvaluateTrackFilters(context.Context, DynamicTrackQuery) (Page[Track], error)
 	SaveTrack(context.Context, TrackInput) (Track, error)
 	GenreByID(context.Context, uuid.UUID) (Genre, error)
 	ListGenres(context.Context, PageRequest) (Page[Genre], error)
@@ -136,6 +137,21 @@ func (service *Service) Tracks(ctx context.Context, query TrackQuery) (Page[Trac
 	result, err := service.store.SearchTracks(ctx, canonical)
 	if err != nil {
 		return Page[Track]{}, fmt.Errorf("list tracks: %w", err)
+	}
+	return result, nil
+}
+
+func (service *Service) EvaluateTrackFilters(
+	ctx context.Context,
+	query DynamicTrackQuery,
+) (Page[Track], error) {
+	canonical, err := validateDynamicTrackQuery(query)
+	if err != nil {
+		return Page[Track]{}, err
+	}
+	result, err := service.store.EvaluateTrackFilters(ctx, canonical)
+	if err != nil {
+		return Page[Track]{}, fmt.Errorf("evaluate track filters: %w", err)
 	}
 	return result, nil
 }

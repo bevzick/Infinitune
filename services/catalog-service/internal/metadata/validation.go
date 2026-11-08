@@ -66,6 +66,163 @@ func validateTrackQuery(query TrackQuery) (TrackQuery, error) {
 	return query, nil
 }
 
+func validateDynamicTrackQuery(query DynamicTrackQuery) (DynamicTrackQuery, error) {
+	if err := validatePage(query.Page); err != nil {
+		return DynamicTrackQuery{}, err
+	}
+	if query.Logic != FilterLogicAnd && query.Logic != FilterLogicOr {
+		return DynamicTrackQuery{}, validationError("logic", "must be AND or OR")
+	}
+	if len(query.Filters) == 0 {
+		return DynamicTrackQuery{}, validationError("filters", "must not be empty")
+	}
+	if query.Sort == "" {
+		query.Sort = TrackSortNewest
+	}
+	switch query.Sort {
+	case TrackSortNewest, TrackSortOldest, TrackSortTitleAsc, TrackSortTitleDesc:
+	default:
+		return DynamicTrackQuery{}, validationError(
+			"sort", "must be one of newest, oldest, title_asc, title_desc",
+		)
+	}
+
+	filters := make([]TrackFilter, 0, len(query.Filters))
+	for index, filter := range query.Filters {
+		canonical, err := validateTrackFilter(filter, index)
+		if err != nil {
+			return DynamicTrackQuery{}, err
+		}
+		filters = append(filters, canonical)
+	}
+	query.Filters = filters
+	return query, nil
+}
+
+func validateTrackFilter(filter TrackFilter, index int) (TrackFilter, error) {
+	path := fmt.Sprintf("filters[%d]", index)
+	switch filter.Field {
+	case TrackFilterTitle:
+		if filter.Operator != TrackFilterContains && filter.Operator != TrackFilterEquals {
+			return TrackFilter{}, validationError(path+".operator", "title supports contains or equals")
+		}
+		if filter.Value.Kind != TrackFilterValueText {
+			return TrackFilter{}, filterValueKindError(path, TrackFilterValueText)
+		}
+		filter.Value.Text = strings.TrimSpace(filter.Value.Text)
+		if filter.Value.Text == "" {
+			return TrackFilter{}, validationError(path+".value", "must not be blank")
+		}
+		if !utf8.ValidString(filter.Value.Text) || utf8.RuneCountInString(filter.Value.Text) > 200 {
+			return TrackFilter{}, validationError(path+".value", "must contain at most 200 characters")
+		}
+	case TrackFilterArtistID, TrackFilterAlbumID, TrackFilterGenreID, TrackFilterMoodID:
+		if err := validateUUIDTrackFilter(filter, path); err != nil {
+			return TrackFilter{}, err
+		}
+	case TrackFilterReleaseYear:
+		if err := validateIntegerTrackFilter(filter, path, 1, 9999); err != nil {
+			return TrackFilter{}, err
+		}
+	case TrackFilterDurationMS:
+		if err := validateIntegerTrackFilter(filter, path, 1, math.MaxInt32); err != nil {
+			return TrackFilter{}, err
+		}
+	case TrackFilterExplicit:
+		if filter.Operator != TrackFilterEquals {
+			return TrackFilter{}, validationError(path+".operator", "explicit supports equals")
+		}
+		if filter.Value.Kind != TrackFilterValueBoolean {
+			return TrackFilter{}, filterValueKindError(path, TrackFilterValueBoolean)
+		}
+	default:
+		return TrackFilter{}, validationError(path+".field", "is not supported")
+	}
+	filter.Value = canonicalTrackFilterValue(filter.Value)
+	return filter, nil
+}
+
+func validateUUIDTrackFilter(filter TrackFilter, path string) error {
+	switch filter.Operator {
+	case TrackFilterEquals:
+		if filter.Value.Kind != TrackFilterValueUUID {
+			return filterValueKindError(path, TrackFilterValueUUID)
+		}
+		if filter.Value.UUID == uuid.Nil {
+			return validationError(path+".value", "must be a UUID")
+		}
+	case TrackFilterIn:
+		if filter.Value.Kind != TrackFilterValueUUIDList {
+			return filterValueKindError(path, TrackFilterValueUUIDList)
+		}
+		if len(filter.Value.UUIDs) == 0 || len(filter.Value.UUIDs) > 100 {
+			return validationError(path+".value", "must contain from 1 to 100 UUIDs")
+		}
+		seen := make(map[uuid.UUID]struct{}, len(filter.Value.UUIDs))
+		for _, id := range filter.Value.UUIDs {
+			if id == uuid.Nil {
+				return validationError(path+".value", "must contain UUIDs")
+			}
+			if _, exists := seen[id]; exists {
+				return validationError(path+".value", "must not contain duplicates")
+			}
+			seen[id] = struct{}{}
+		}
+	default:
+		return validationError(path+".operator", "UUID fields support equals or in")
+	}
+	return nil
+}
+
+func validateIntegerTrackFilter(filter TrackFilter, path string, minimum, maximum int) error {
+	switch filter.Operator {
+	case TrackFilterEquals, TrackFilterGreaterThan, TrackFilterGreaterThanOrEqual,
+		TrackFilterLessThan, TrackFilterLessThanOrEqual:
+		if filter.Value.Kind != TrackFilterValueInteger {
+			return filterValueKindError(path, TrackFilterValueInteger)
+		}
+		if filter.Value.Integer < minimum || filter.Value.Integer > maximum {
+			return validationError(path+".value",
+				fmt.Sprintf("must be from %d to %d", minimum, maximum))
+		}
+	case TrackFilterBetween:
+		if filter.Value.Kind != TrackFilterValueIntegerRange {
+			return filterValueKindError(path, TrackFilterValueIntegerRange)
+		}
+		value := filter.Value.IntegerRange
+		if value.Minimum < minimum || value.Maximum > maximum || value.Minimum > value.Maximum {
+			return validationError(path+".value",
+				fmt.Sprintf("range must be ordered and within %d to %d", minimum, maximum))
+		}
+	default:
+		return validationError(path+".operator", "numeric fields support equals, comparisons, or between")
+	}
+	return nil
+}
+
+func canonicalTrackFilterValue(value TrackFilterValue) TrackFilterValue {
+	switch value.Kind {
+	case TrackFilterValueText:
+		return TextFilterValue(value.Text)
+	case TrackFilterValueUUID:
+		return UUIDFilterValue(value.UUID)
+	case TrackFilterValueUUIDList:
+		return UUIDListFilterValue(value.UUIDs...)
+	case TrackFilterValueInteger:
+		return IntegerFilterValue(value.Integer)
+	case TrackFilterValueIntegerRange:
+		return IntegerRangeFilterValue(value.IntegerRange.Minimum, value.IntegerRange.Maximum)
+	case TrackFilterValueBoolean:
+		return BooleanFilterValue(value.Boolean)
+	default:
+		return TrackFilterValue{Kind: value.Kind}
+	}
+}
+
+func filterValueKindError(path string, expected TrackFilterValueKind) error {
+	return validationError(path+".value", "must use "+string(expected)+" value")
+}
+
 func validateTrackIDs(ids []uuid.UUID) error {
 	if len(ids) == 0 {
 		return validationError("track_ids", "must contain at least one id")
