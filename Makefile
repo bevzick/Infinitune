@@ -1,8 +1,9 @@
 .DEFAULT_GOAL := help
 
-.PHONY: help config ps up stop down down-volumes restart logs smoke auth-test auth-test-integration auth-migrate-up auth-migrate-version user-test user-test-integration user-migrate-up user-migrate-version catalog-test catalog-test-integration catalog-migrate-up catalog-migrate-version catalog-seed
+.PHONY: help config ps up stop down down-volumes restart logs smoke media-storage-init media-storage-test media-test media-test-integration media-migrate-up media-migrate-version media-seed auth-test auth-test-integration auth-migrate-up auth-migrate-version user-test user-test-integration user-migrate-up user-migrate-version catalog-test catalog-test-integration catalog-migrate-up catalog-migrate-version catalog-seed
 
-COMPOSE := docker compose -f compose.yml -f compose.auth.yml -f compose.user.yml -f compose.catalog.yml
+COMPOSE := docker compose -f compose.yml -f compose.auth.yml -f compose.user.yml -f compose.catalog.yml -f compose.media.yml -f compose.media-service.yml
+MEDIA_COMPOSE := docker compose -f compose.media.yml
 
 help:
 	@echo "Usage: make <target>"
@@ -18,6 +19,13 @@ help:
 	@echo "  restart     - Restart running containers"
 	@echo "  logs        - Follow logs from all containers"
 	@echo "  smoke       - Run basic service health checks"
+	@echo "  media-storage-init - Start MinIO and create the private media bucket"
+	@echo "  media-storage-test - Verify an object survives a MinIO restart"
+	@echo "  media-test            - Run Media Service unit tests"
+	@echo "  media-test-integration - Run Media integration tests"
+	@echo "  media-migrate-up      - Apply pending Media database migrations"
+	@echo "  media-migrate-version - Show the current Media migration version"
+	@echo "  media-seed            - Generate safe local demo audio and metadata"
 	@echo "  auth-test   - Run Auth Service unit tests"
 	@echo "  auth-test-integration - Run Auth repository integration tests"
 	@echo "  auth-migrate-up      - Apply pending Auth database migrations"
@@ -38,7 +46,7 @@ config:
 ps:
 	@$(COMPOSE) ps
 
-up: auth-migrate-up user-migrate-up catalog-migrate-up
+up: auth-migrate-up user-migrate-up catalog-migrate-up media-migrate-up media-storage-init
 	@$(COMPOSE) up --detach
 
 stop:
@@ -58,6 +66,29 @@ logs:
 
 smoke:
 	@bash scripts/smoke.sh
+
+media-storage-init:
+	@$(MEDIA_COMPOSE) up --detach --wait --build minio
+	@$(MEDIA_COMPOSE) --profile tools run --rm --build minio-init
+
+media-storage-test: media-storage-init
+	@bash scripts/test-minio.sh
+
+media-test:
+	@cd services/media-service && go test ./...
+
+media-test-integration: media-migrate-up media-storage-init
+	@$(COMPOSE) up --detach --build media-service
+	@$(COMPOSE) --profile tools run --rm --build media-integration-test
+
+media-migrate-up:
+	@$(COMPOSE) --profile tools run --rm media-migrate up
+
+media-migrate-version:
+	@$(COMPOSE) --profile tools run --rm media-migrate version
+
+media-seed: catalog-seed media-migrate-up media-storage-init
+	@$(COMPOSE) --profile tools run --rm --build media-seed
 
 auth-test:
 	@cd services/auth-service && go test ./...

@@ -1,0 +1,73 @@
+name: infinitune
+
+services:
+  minio:
+    build:
+      context: ./infra/minio
+      dockerfile: Dockerfile
+      target: server
+      args:
+        MINIO_VERSION: RELEASE.2025-10-15T17-29-55Z
+        MC_VERSION: RELEASE.2025-08-13T08-35-41Z
+    restart: unless-stopped
+    command:
+      - server
+      - /data
+      - --address
+      - ":9000"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?MINIO_ROOT_USER is required}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD is required}
+      MINIO_BROWSER: "off"
+    volumes:
+      - minio_data:/data
+    expose:
+      - "9000"
+    healthcheck:
+      test:
+        - CMD
+        - curl
+        - --fail
+        - http://127.0.0.1:9000/minio/health/live
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - media-storage
+
+  minio-init:
+    build:
+      context: ./infra/minio
+      dockerfile: Dockerfile
+      target: client
+      args:
+        MINIO_VERSION: RELEASE.2025-10-15T17-29-55Z
+        MC_VERSION: RELEASE.2025-08-13T08-35-41Z
+    profiles: ["tools"]
+    restart: "no"
+    depends_on:
+      minio:
+        condition: service_healthy
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?MINIO_ROOT_USER is required}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD is required}
+      MINIO_MEDIA_BUCKET: ${MINIO_MEDIA_BUCKET:-infinitune-media}
+    entrypoint:
+      - /bin/sh
+      - -ec
+    command:
+      - |
+        mc alias set local http://minio:9000 "$$MINIO_ROOT_USER" "$$MINIO_ROOT_PASSWORD" >/dev/null
+        mc mb --ignore-existing "local/$$MINIO_MEDIA_BUCKET"
+        mc anonymous set none "local/$$MINIO_MEDIA_BUCKET"
+        mc stat "local/$$MINIO_MEDIA_BUCKET" >/dev/null
+    networks:
+      - media-storage
+
+volumes:
+  minio_data:
+
+networks:
+  media-storage:
+    internal: true
