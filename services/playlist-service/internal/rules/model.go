@@ -7,7 +7,10 @@ import (
 	"github.com/google/uuid"
 )
 
-var ErrInvalid = errors.New("invalid rule set")
+var (
+	ErrInvalid  = errors.New("invalid rule set")
+	ErrNotFound = errors.New("rule set not found")
+)
 
 type LogicOperator string
 

@@ -100,15 +100,36 @@ func (repository *PlaylistRepository) Delete(
 	`, id); err != nil {
 		return fmt.Errorf("delete playlist tracks: %w", err)
 	}
-	commandTag, err := tx.Exec(ctx, `
+	var ruleSetID *uuid.UUID
+	err = tx.QueryRow(ctx, `
 		DELETE FROM playlist.playlists
 		WHERE id = $1 AND owner_id = $2
-	`, id, ownerID)
+		RETURNING rule_set_id
+	`, id, ownerID).Scan(&ruleSetID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return playlist.ErrNotFound
+	}
 	if err != nil {
 		return fmt.Errorf("delete playlist: %w", err)
 	}
-	if commandTag.RowsAffected() == 0 {
-		return playlist.ErrNotFound
+	if ruleSetID != nil {
+		var referenced bool
+		if err = tx.QueryRow(ctx, `
+			SELECT EXISTS (
+				SELECT 1 FROM playlist.playlists WHERE rule_set_id = $1
+			)
+		`, *ruleSetID).Scan(&referenced); err != nil {
+			return fmt.Errorf("check rule set references: %w", err)
+		}
+		if !referenced {
+			_, deleteErr := tx.Exec(ctx, `
+				DELETE FROM rule_engine.rule_sets
+				WHERE id = $1 AND owner_id = $2
+			`, *ruleSetID, ownerID)
+			if deleteErr != nil {
+				return fmt.Errorf("delete dynamic playlist rules: %w", deleteErr)
+			}
+		}
 	}
 	if err = tx.Commit(ctx); err != nil {
 		return fmt.Errorf("commit delete playlist transaction: %w", err)

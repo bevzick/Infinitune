@@ -27,6 +27,17 @@ var uuidFields = map[Field]struct{}{
 }
 
 func New(ownerID uuid.UUID, input CreateInput) (RuleSet, error) {
+	return build(uuid.New(), ownerID, input)
+}
+
+func Replace(id uuid.UUID, ownerID uuid.UUID, input CreateInput) (RuleSet, error) {
+	if id == uuid.Nil {
+		return RuleSet{}, validationError("id", "must be a UUID")
+	}
+	return build(id, ownerID, input)
+}
+
+func build(ruleSetID uuid.UUID, ownerID uuid.UUID, input CreateInput) (RuleSet, error) {
 	if ownerID == uuid.Nil {
 		return RuleSet{}, validationError("owner_id", "must be a UUID")
 	}
@@ -44,7 +55,6 @@ func New(ownerID uuid.UUID, input CreateInput) (RuleSet, error) {
 		return RuleSet{}, validationError("conditions", "must not be empty")
 	}
 
-	ruleSetID := uuid.New()
 	conditions := make([]Condition, 0, len(input.Conditions))
 	for index, condition := range input.Conditions {
 		canonical, err := validateCondition(condition, index)
