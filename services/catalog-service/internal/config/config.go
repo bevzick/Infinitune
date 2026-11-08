@@ -3,8 +3,10 @@ package config
 import (
 	"fmt"
 	"net"
+	"net/url"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/bevzick/Infinitune/services/catalog-service/internal/database"
 )
@@ -19,6 +21,7 @@ const (
 type Config struct {
 	HTTPAddress string
 	Database    database.Config
+	Origins     []string
 }
 
 func Load() (Config, error) {
@@ -31,11 +34,41 @@ func Load() (Config, error) {
 	if err != nil {
 		return Config{}, err
 	}
+	origins, err := parseAllowedOrigins(envOrDefault("CATALOG_ALLOWED_ORIGINS", ""))
+	if err != nil {
+		return Config{}, err
+	}
 
 	return Config{
 		HTTPAddress: net.JoinHostPort(envOrDefault("CATALOG_HTTP_HOST", defaultHTTPHost), port),
 		Database:    databaseConfig,
+		Origins:     origins,
 	}, nil
+}
+
+func parseAllowedOrigins(value string) ([]string, error) {
+	if strings.TrimSpace(value) == "" {
+		return nil, nil
+	}
+
+	seen := make(map[string]struct{})
+	origins := make([]string, 0)
+	for rawOrigin := range strings.SplitSeq(value, ",") {
+		origin := strings.TrimSpace(rawOrigin)
+		parsed, err := url.Parse(origin)
+		if err != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") ||
+			parsed.Host == "" || parsed.User != nil || parsed.Path != "" ||
+			parsed.RawQuery != "" || parsed.Fragment != "" {
+			return nil, fmt.Errorf("invalid CATALOG_ALLOWED_ORIGINS entry %q", origin)
+		}
+		if _, exists := seen[origin]; exists {
+			continue
+		}
+		seen[origin] = struct{}{}
+		origins = append(origins, origin)
+	}
+
+	return origins, nil
 }
 
 func loadDatabaseConfig() (database.Config, error) {

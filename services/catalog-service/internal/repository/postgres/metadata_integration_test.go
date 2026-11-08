@@ -132,6 +132,46 @@ func TestMetadataRepositoryStoresAndReplacesCompleteMetadata(t *testing.T) {
 		}
 	}
 
+	page := metadata.PageRequest{Limit: 100, Offset: 0}
+	artistsPage, err := service.Artists(ctx, page)
+	if err != nil {
+		t.Fatalf("Artists() error = %v", err)
+	}
+	if artistsPage.Total < 3 || !containsArtist(artistsPage.Items, primaryID) {
+		t.Fatalf("Artists() = %+v", artistsPage)
+	}
+	albumsPage, err := service.Albums(ctx, page)
+	if err != nil {
+		t.Fatalf("Albums() error = %v", err)
+	}
+	listedAlbum, exists := findAlbum(albumsPage.Items, albumID)
+	if !exists || len(listedAlbum.Artists) != 2 {
+		t.Fatalf("Albums() album = %+v, exists = %t", listedAlbum, exists)
+	}
+	tracksPage, err := service.Tracks(ctx, page)
+	if err != nil {
+		t.Fatalf("Tracks() error = %v", err)
+	}
+	listedTrack, exists := findTrack(tracksPage.Items, trackID)
+	if !exists || len(listedTrack.Artists) != 4 || len(listedTrack.Genres) != 2 || len(listedTrack.Moods) != 2 {
+		t.Fatalf("Tracks() track = %+v, exists = %t", listedTrack, exists)
+	}
+	genresPage, err := service.Genres(ctx, page)
+	if err != nil || genresPage.Total < 2 || !containsGenre(genresPage.Items, genreOneID) {
+		t.Fatalf("Genres() = %+v, %v", genresPage, err)
+	}
+	moodsPage, err := service.Moods(ctx, page)
+	if err != nil || moodsPage.Total < 2 || !containsMood(moodsPage.Items, moodOneID) {
+		t.Fatalf("Moods() = %+v, %v", moodsPage, err)
+	}
+	emptyPage, err := service.Tracks(ctx, metadata.PageRequest{Limit: 20, Offset: 100000})
+	if err != nil {
+		t.Fatalf("Tracks(empty page) error = %v", err)
+	}
+	if emptyPage.Items == nil || len(emptyPage.Items) != 0 || emptyPage.Total < 1 {
+		t.Fatalf("Tracks(empty page) = %+v", emptyPage)
+	}
+
 	updatedAlbum, err := service.StoreApprovedAlbum(ctx, metadata.AlbumInput{
 		ID: albumID, Title: "Updated Shared Single", Type: metadata.AlbumTypeSingle,
 		ReleaseDate: releaseDate,
@@ -290,4 +330,49 @@ func envOrDefault(key, fallback string) string {
 		return value
 	}
 	return fallback
+}
+
+func containsArtist(items []metadata.Artist, id uuid.UUID) bool {
+	for _, item := range items {
+		if item.ID == id {
+			return true
+		}
+	}
+	return false
+}
+
+func findAlbum(items []metadata.Album, id uuid.UUID) (metadata.Album, bool) {
+	for _, item := range items {
+		if item.ID == id {
+			return item, true
+		}
+	}
+	return metadata.Album{}, false
+}
+
+func findTrack(items []metadata.Track, id uuid.UUID) (metadata.Track, bool) {
+	for _, item := range items {
+		if item.ID == id {
+			return item, true
+		}
+	}
+	return metadata.Track{}, false
+}
+
+func containsGenre(items []metadata.Genre, id uuid.UUID) bool {
+	for _, item := range items {
+		if item.ID == id {
+			return true
+		}
+	}
+	return false
+}
+
+func containsMood(items []metadata.Mood, id uuid.UUID) bool {
+	for _, item := range items {
+		if item.ID == id {
+			return true
+		}
+	}
+	return false
 }

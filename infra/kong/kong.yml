@@ -68,3 +68,15 @@ services:
               claims_to_verify:
                 - exp
               run_on_preflight: false
+
+  - name: catalog-service
+    url: http://catalog-service:8080
+    routes:
+      - name: catalog-public
+        paths:
+          - ~/v1/catalog(?:/|$)
+        methods:
+          - GET
+          - OPTIONS
+        regex_priority: 100
+        strip_path: false

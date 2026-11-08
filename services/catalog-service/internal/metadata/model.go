@@ -158,6 +158,18 @@ type TrackInput struct {
 	Moods        []TrackMoodInput
 }
 
+type PageRequest struct {
+	Limit  int
+	Offset int
+}
+
+type Page[T any] struct {
+	Items  []T
+	Limit  int
+	Offset int
+	Total  int64
+}
+
 type ValidationError struct {
 	Field  string
 	Reason string

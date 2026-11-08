@@ -9,14 +9,19 @@ import (
 
 type Store interface {
 	ArtistByID(context.Context, uuid.UUID) (Artist, error)
+	ListArtists(context.Context, PageRequest) (Page[Artist], error)
 	SaveArtist(context.Context, ArtistInput) (Artist, error)
 	AlbumByID(context.Context, uuid.UUID) (Album, error)
+	ListAlbums(context.Context, PageRequest) (Page[Album], error)
 	SaveAlbum(context.Context, AlbumInput) (Album, error)
 	TrackByID(context.Context, uuid.UUID) (Track, error)
+	ListTracks(context.Context, PageRequest) (Page[Track], error)
 	SaveTrack(context.Context, TrackInput) (Track, error)
 	GenreByID(context.Context, uuid.UUID) (Genre, error)
+	ListGenres(context.Context, PageRequest) (Page[Genre], error)
 	SaveGenre(context.Context, GenreInput) (Genre, error)
 	MoodByID(context.Context, uuid.UUID) (Mood, error)
+	ListMoods(context.Context, PageRequest) (Page[Mood], error)
 	SaveMood(context.Context, MoodInput) (Mood, error)
 }
 
@@ -39,6 +44,17 @@ func (service *Service) Artist(ctx context.Context, id uuid.UUID) (Artist, error
 	return result, nil
 }
 
+func (service *Service) Artists(ctx context.Context, page PageRequest) (Page[Artist], error) {
+	if err := validatePage(page); err != nil {
+		return Page[Artist]{}, err
+	}
+	result, err := service.store.ListArtists(ctx, page)
+	if err != nil {
+		return Page[Artist]{}, fmt.Errorf("list artists: %w", err)
+	}
+	return result, nil
+}
+
 func (service *Service) Album(ctx context.Context, id uuid.UUID) (Album, error) {
 	if err := validateID("album_id", id); err != nil {
 		return Album{}, err
@@ -46,6 +62,17 @@ func (service *Service) Album(ctx context.Context, id uuid.UUID) (Album, error) 
 	result, err := service.store.AlbumByID(ctx, id)
 	if err != nil {
 		return Album{}, fmt.Errorf("read album: %w", err)
+	}
+	return result, nil
+}
+
+func (service *Service) Albums(ctx context.Context, page PageRequest) (Page[Album], error) {
+	if err := validatePage(page); err != nil {
+		return Page[Album]{}, err
+	}
+	result, err := service.store.ListAlbums(ctx, page)
+	if err != nil {
+		return Page[Album]{}, fmt.Errorf("list albums: %w", err)
 	}
 	return result, nil
 }
@@ -61,6 +88,17 @@ func (service *Service) Track(ctx context.Context, id uuid.UUID) (Track, error) 
 	return result, nil
 }
 
+func (service *Service) Tracks(ctx context.Context, page PageRequest) (Page[Track], error) {
+	if err := validatePage(page); err != nil {
+		return Page[Track]{}, err
+	}
+	result, err := service.store.ListTracks(ctx, page)
+	if err != nil {
+		return Page[Track]{}, fmt.Errorf("list tracks: %w", err)
+	}
+	return result, nil
+}
+
 func (service *Service) Genre(ctx context.Context, id uuid.UUID) (Genre, error) {
 	if err := validateID("genre_id", id); err != nil {
 		return Genre{}, err
@@ -72,6 +110,17 @@ func (service *Service) Genre(ctx context.Context, id uuid.UUID) (Genre, error) 
 	return result, nil
 }
 
+func (service *Service) Genres(ctx context.Context, page PageRequest) (Page[Genre], error) {
+	if err := validatePage(page); err != nil {
+		return Page[Genre]{}, err
+	}
+	result, err := service.store.ListGenres(ctx, page)
+	if err != nil {
+		return Page[Genre]{}, fmt.Errorf("list genres: %w", err)
+	}
+	return result, nil
+}
+
 func (service *Service) Mood(ctx context.Context, id uuid.UUID) (Mood, error) {
 	if err := validateID("mood_id", id); err != nil {
 		return Mood{}, err
@@ -79,6 +128,17 @@ func (service *Service) Mood(ctx context.Context, id uuid.UUID) (Mood, error) {
 	result, err := service.store.MoodByID(ctx, id)
 	if err != nil {
 		return Mood{}, fmt.Errorf("read mood: %w", err)
+	}
+	return result, nil
+}
+
+func (service *Service) Moods(ctx context.Context, page PageRequest) (Page[Mood], error) {
+	if err := validatePage(page); err != nil {
+		return Page[Mood]{}, err
+	}
+	result, err := service.store.ListMoods(ctx, page)
+	if err != nil {
+		return Page[Mood]{}, fmt.Errorf("list moods: %w", err)
 	}
 	return result, nil
 }

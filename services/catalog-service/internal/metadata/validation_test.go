@@ -133,6 +133,23 @@ func TestValidateTaxonomyCanonicalizesSlug(t *testing.T) {
 	}
 }
 
+func TestValidatePage(t *testing.T) {
+	t.Parallel()
+
+	if err := validatePage(PageRequest{Limit: 100, Offset: 10}); err != nil {
+		t.Fatalf("validatePage() error = %v", err)
+	}
+	for _, page := range []PageRequest{
+		{Limit: 0},
+		{Limit: 101},
+		{Limit: 20, Offset: -1},
+	} {
+		if err := validatePage(page); !errors.Is(err, ErrInvalid) {
+			t.Fatalf("validatePage(%+v) error = %v, want %v", page, err, ErrInvalid)
+		}
+	}
+}
+
 func validTrackInput() TrackInput {
 	return TrackInput{
 		ID:           uuid.New(),

@@ -14,6 +14,18 @@ import (
 
 var slugPattern = regexp.MustCompile(`^[a-z0-9]+(?:-[a-z0-9]+)*$`)
 
+const maximumPageSize = 100
+
+func validatePage(page PageRequest) error {
+	if page.Limit < 1 || page.Limit > maximumPageSize {
+		return validationError("limit", "must be between 1 and 100")
+	}
+	if page.Offset < 0 {
+		return validationError("offset", "must not be negative")
+	}
+	return nil
+}
+
 func validateArtist(input ArtistInput) (ArtistInput, error) {
 	if err := validateID("id", input.ID); err != nil {
 		return ArtistInput{}, err

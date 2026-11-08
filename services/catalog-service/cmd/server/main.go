@@ -16,6 +16,8 @@ import (
 	"github.com/bevzick/Infinitune/services/catalog-service/internal/config"
 	"github.com/bevzick/Infinitune/services/catalog-service/internal/database"
 	"github.com/bevzick/Infinitune/services/catalog-service/internal/httpapi"
+	"github.com/bevzick/Infinitune/services/catalog-service/internal/metadata"
+	postgres_repository "github.com/bevzick/Infinitune/services/catalog-service/internal/repository/postgres"
 )
 
 const (
@@ -50,10 +52,16 @@ func main() {
 		os.Exit(1)
 	}
 	defer databasePool.Close()
+	metadataService := metadata.NewService(postgres_repository.NewMetadataRepository(databasePool))
 
 	server := &http.Server{
-		Addr:              cfg.HTTPAddress,
-		Handler:           httpapi.NewRouter(databasePool),
+		Addr: cfg.HTTPAddress,
+		Handler: httpapi.NewRouter(httpapi.Dependencies{
+			Database: databasePool,
+			Catalog:  metadataService,
+			Origins:  cfg.Origins,
+			Logger:   logger,
+		}),
 		ReadHeaderTimeout: readHeaderTimeout,
 	}
 

@@ -1,6 +1,9 @@
 package config
 
-import "testing"
+import (
+	"slices"
+	"testing"
+)
 
 func TestLoadUsesCatalogDatabase(t *testing.T) {
 	t.Setenv("POSTGRES_USER", "catalog_user")
@@ -10,6 +13,7 @@ func TestLoadUsesCatalogDatabase(t *testing.T) {
 	t.Setenv("POSTGRES_PORT", "5433")
 	t.Setenv("CATALOG_HTTP_HOST", "127.0.0.1")
 	t.Setenv("CATALOG_HTTP_PORT", "8081")
+	t.Setenv("CATALOG_ALLOWED_ORIGINS", "https://app.example.com")
 
 	config, err := Load()
 	if err != nil {
@@ -21,6 +25,9 @@ func TestLoadUsesCatalogDatabase(t *testing.T) {
 	if config.Database.Name != "catalog_db" || config.Database.User != "catalog_user" ||
 		config.Database.Host != "postgres" || config.Database.Port != 5433 {
 		t.Errorf("Database = %+v", config.Database)
+	}
+	if !slices.Equal(config.Origins, []string{"https://app.example.com"}) {
+		t.Errorf("Origins = %v", config.Origins)
 	}
 }
 
@@ -44,5 +51,41 @@ func TestParsePort(t *testing.T) {
 		if _, err := parsePort("PORT", value); err == nil {
 			t.Fatalf("parsePort(%q) error = nil", value)
 		}
+	}
+}
+
+func TestParseAllowedOrigins(t *testing.T) {
+	t.Parallel()
+
+	origins, err := parseAllowedOrigins(
+		"https://app.example.com, http://localhost:5173, https://app.example.com",
+	)
+	if err != nil {
+		t.Fatalf("parseAllowedOrigins() error = %v", err)
+	}
+	want := []string{"https://app.example.com", "http://localhost:5173"}
+	if !slices.Equal(origins, want) {
+		t.Fatalf("parseAllowedOrigins() = %v, want %v", origins, want)
+	}
+}
+
+func TestParseAllowedOriginsRejectsUnsafeValues(t *testing.T) {
+	t.Parallel()
+
+	for _, value := range []string{
+		"javascript:alert(1)",
+		"https://user@example.com",
+		"https://example.com/path",
+		"https://example.com?query=value",
+		"https://example.com#fragment",
+		"example.com",
+	} {
+		value := value
+		t.Run(value, func(t *testing.T) {
+			t.Parallel()
+			if _, err := parseAllowedOrigins(value); err == nil {
+				t.Fatal("parseAllowedOrigins() error = nil")
+			}
+		})
 	}
 }
