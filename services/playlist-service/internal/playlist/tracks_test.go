@@ -105,6 +105,18 @@ func TestTrackServiceReadsTracksUsingPlaylistVisibility(t *testing.T) {
 	}
 }
 
+func TestTrackServiceDoesNotReadStoredTracksForDynamicPlaylist(t *testing.T) {
+	playlistID := uuid.New()
+	service := NewTrackService(NewService(&stubStore{playlist: Playlist{
+		ID: playlistID, OwnerID: uuid.New(), Type: TypeDynamic, Visibility: VisibilityPublic,
+	}}), &trackStoreStub{}, &trackValidatorStub{})
+
+	_, err := service.Tracks(context.Background(), uuid.Nil, playlistID, PageRequest{})
+	if !errors.Is(err, ErrManualOnly) {
+		t.Fatalf("Tracks(dynamic) error = %v, want %v", err, ErrManualOnly)
+	}
+}
+
 func TestTrackServiceValidatesCompleteOrder(t *testing.T) {
 	ownerID := uuid.New()
 	playlistID := uuid.New()

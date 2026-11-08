@@ -43,10 +43,14 @@ func (service *TrackService) Tracks(
 	playlistID uuid.UUID,
 	page PageRequest,
 ) (TrackPage, error) {
-	if _, err := service.playlists.ByID(ctx, viewerID, playlistID); err != nil {
+	current, err := service.playlists.ByID(ctx, viewerID, playlistID)
+	if err != nil {
 		return TrackPage{}, err
 	}
-	page, err := validateTrackPage(page)
+	if current.Type != TypeManual {
+		return TrackPage{}, ErrManualOnly
+	}
+	page, err = validateTrackPage(page)
 	if err != nil {
 		return TrackPage{}, err
 	}
