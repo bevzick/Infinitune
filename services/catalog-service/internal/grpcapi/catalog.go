@@ -21,6 +21,7 @@ type Catalog interface {
 	ArchivePublishedRelease(context.Context, uuid.UUID) (metadata.Archive, error)
 	BatchTracks(context.Context, []uuid.UUID) ([]metadata.Track, error)
 	ValidateTrackIDs(context.Context, []uuid.UUID) (metadata.TrackIDValidation, error)
+	ValidateAlbumIDs(context.Context, []uuid.UUID) (metadata.AlbumIDValidation, error)
 	Tracks(context.Context, metadata.TrackQuery) (metadata.Page[metadata.Track], error)
 	EvaluateTrackFilters(context.Context, metadata.DynamicTrackQuery) (metadata.Page[metadata.Track], error)
 }
@@ -229,6 +230,27 @@ func (server *CatalogServer) ValidateTrackIds(
 	}, nil
 }
 
+func (server *CatalogServer) ValidateAlbumIds(
+	ctx context.Context,
+	request *catalogv1.ValidateAlbumIdsRequest,
+) (*catalogv1.ValidateAlbumIdsResponse, error) {
+	ids, err := parseIDs(request.GetAlbumIds(), "album_ids")
+	if err != nil {
+		return nil, err
+	}
+	callCtx, cancel := context.WithTimeout(ctx, server.timeout)
+	defer cancel()
+
+	result, err := server.catalog.ValidateAlbumIDs(callCtx, ids)
+	if err != nil {
+		return nil, mapCatalogError(err, "album validation failed")
+	}
+	return &catalogv1.ValidateAlbumIdsResponse{
+		ValidAlbumIds:   uuidStrings(result.ValidIDs),
+		MissingAlbumIds: uuidStrings(result.MissingIDs),
+	}, nil
+}
+
 func (server *CatalogServer) FilterTracks(
 	ctx context.Context,
 	request *catalogv1.FilterTracksRequest,
@@ -276,21 +298,25 @@ func (server *CatalogServer) EvaluateTrackFilters(
 }
 
 func parseTrackIDs(values []string) ([]uuid.UUID, error) {
+	return parseIDs(values, "track_ids")
+}
+
+func parseIDs(values []string, field string) ([]uuid.UUID, error) {
 	if len(values) == 0 {
-		return nil, status.Error(codes.InvalidArgument, "track_ids must not be empty")
+		return nil, status.Errorf(codes.InvalidArgument, "%s must not be empty", field)
 	}
 	if len(values) > 100 {
-		return nil, status.Error(codes.InvalidArgument, "track_ids must not contain more than 100 ids")
+		return nil, status.Errorf(codes.InvalidArgument, "%s must not contain more than 100 ids", field)
 	}
 	ids := make([]uuid.UUID, 0, len(values))
 	seen := make(map[uuid.UUID]struct{}, len(values))
 	for _, value := range values {
 		id, err := uuid.Parse(value)
 		if err != nil || id == uuid.Nil {
-			return nil, status.Error(codes.InvalidArgument, "track_ids must contain UUIDs")
+			return nil, status.Errorf(codes.InvalidArgument, "%s must contain UUIDs", field)
 		}
 		if _, exists := seen[id]; exists {
-			return nil, status.Error(codes.InvalidArgument, "track_ids must not contain duplicates")
+			return nil, status.Errorf(codes.InvalidArgument, "%s must not contain duplicates", field)
 		}
 		seen[id] = struct{}{}
 		ids = append(ids, id)

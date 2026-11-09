@@ -13,9 +13,16 @@ import (
 	"syscall"
 	"time"
 
+	catalogv1 "github.com/bevzick/Infinitune/services/interaction-service/api/catalog/v1"
+	"github.com/bevzick/Infinitune/services/interaction-service/internal/catalog"
 	"github.com/bevzick/Infinitune/services/interaction-service/internal/config"
 	"github.com/bevzick/Infinitune/services/interaction-service/internal/database"
 	"github.com/bevzick/Infinitune/services/interaction-service/internal/httpapi"
+	"github.com/bevzick/Infinitune/services/interaction-service/internal/identity"
+	"github.com/bevzick/Infinitune/services/interaction-service/internal/interaction"
+	postgres_repository "github.com/bevzick/Infinitune/services/interaction-service/internal/repository/postgres"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 const (
@@ -48,9 +55,33 @@ func main() {
 		os.Exit(1)
 	}
 	defer databasePool.Close()
+	tokenVerifier, err := identity.NewVerifier(cfg.Identity, nil)
+	if err != nil {
+		logger.Error("failed to initialize identity verifier", "error", err)
+		os.Exit(1)
+	}
+	catalogConnection, err := grpc.NewClient(
+		cfg.CatalogAddress,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+	)
+	if err != nil {
+		logger.Error("failed to configure Catalog gRPC client", "error", err)
+		os.Exit(1)
+	}
+	defer catalogConnection.Close()
+
+	repository := postgres_repository.NewLikeRepository(databasePool)
+	likes := interaction.NewService(
+		repository,
+		catalog.NewValidator(catalogv1.NewCatalogServiceClient(catalogConnection)),
+	)
 
 	server := &http.Server{
-		Addr: cfg.HTTPAddress, Handler: httpapi.NewRouter(databasePool),
+		Addr: cfg.HTTPAddress,
+		Handler: httpapi.NewRouter(httpapi.Dependencies{
+			Database: databasePool, Tokens: tokenVerifier, Likes: likes,
+			Origins: cfg.Origins, Logger: logger,
+		}),
 		ReadHeaderTimeout: readHeaderTimeout,
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)

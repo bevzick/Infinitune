@@ -130,6 +130,26 @@ func TestValidateTrackIdsSeparatesValidAndMissing(t *testing.T) {
 	}
 }
 
+func TestValidateAlbumIdsSeparatesValidAndMissing(t *testing.T) {
+	t.Parallel()
+
+	validID, missingID := uuid.New(), uuid.New()
+	server := NewCatalogServer(&catalogStub{albumValidation: metadata.AlbumIDValidation{
+		ValidIDs: []uuid.UUID{validID}, MissingIDs: []uuid.UUID{missingID},
+	}})
+	response, err := server.ValidateAlbumIds(
+		context.Background(),
+		&catalogv1.ValidateAlbumIdsRequest{AlbumIds: []string{validID.String(), missingID.String()}},
+	)
+	if err != nil {
+		t.Fatalf("ValidateAlbumIds() error = %v", err)
+	}
+	if len(response.GetValidAlbumIds()) != 1 || response.GetValidAlbumIds()[0] != validID.String() ||
+		len(response.GetMissingAlbumIds()) != 1 || response.GetMissingAlbumIds()[0] != missingID.String() {
+		t.Fatalf("ValidateAlbumIds() = %+v", response)
+	}
+}
+
 func TestFilterTracksMapsFiltersAndPagination(t *testing.T) {
 	t.Parallel()
 
@@ -367,6 +387,7 @@ type catalogStub struct {
 	publicationInput metadata.PublicationInput
 	tracks           []metadata.Track
 	validation       metadata.TrackIDValidation
+	albumValidation  metadata.AlbumIDValidation
 	page             metadata.Page[metadata.Track]
 	err              error
 	lastQuery        metadata.TrackQuery
@@ -397,6 +418,13 @@ func (stub *catalogStub) ValidateTrackIDs(
 	[]uuid.UUID,
 ) (metadata.TrackIDValidation, error) {
 	return stub.validation, stub.err
+}
+
+func (stub *catalogStub) ValidateAlbumIDs(
+	context.Context,
+	[]uuid.UUID,
+) (metadata.AlbumIDValidation, error) {
+	return stub.albumValidation, stub.err
 }
 
 func (stub *catalogStub) Tracks(
@@ -444,6 +472,14 @@ func (blockingCatalogStub) ValidateTrackIDs(
 ) (metadata.TrackIDValidation, error) {
 	<-ctx.Done()
 	return metadata.TrackIDValidation{}, ctx.Err()
+}
+
+func (blockingCatalogStub) ValidateAlbumIDs(
+	ctx context.Context,
+	_ []uuid.UUID,
+) (metadata.AlbumIDValidation, error) {
+	<-ctx.Done()
+	return metadata.AlbumIDValidation{}, ctx.Err()
 }
 
 func (blockingCatalogStub) Tracks(

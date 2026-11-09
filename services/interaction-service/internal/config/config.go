@@ -3,23 +3,36 @@ package config
 import (
 	"fmt"
 	"net"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/bevzick/Infinitune/services/interaction-service/internal/database"
+	"github.com/bevzick/Infinitune/services/interaction-service/internal/identity"
 )
 
 const (
 	defaultHTTPHost     = "0.0.0.0"
 	defaultHTTPPort     = "8080"
+	defaultCatalogHost  = "127.0.0.1"
+	defaultCatalogPort  = "9090"
 	defaultPostgresHost = "127.0.0.1"
 	defaultPostgresPort = "5432"
+	defaultJWKSURL      = "http://auth-service:8080/v1/auth/jwks"
+	defaultJWTIssuer    = "infinitune-auth"
+	defaultJWTAudience  = "infinitune-api"
+	defaultJWTKeyID     = "auth-key-1"
+	defaultJWKSRefresh  = 5 * time.Minute
 )
 
 type Config struct {
-	HTTPAddress string
-	Database    database.Config
+	HTTPAddress    string
+	CatalogAddress string
+	Database       database.Config
+	Identity       identity.Config
+	Origins        []string
 }
 
 func Load() (Config, error) {
@@ -27,7 +40,15 @@ func Load() (Config, error) {
 	if _, err := parsePort("INTERACTION_HTTP_PORT", httpPort); err != nil {
 		return Config{}, err
 	}
+	catalogPort := envOrDefault("CATALOG_GRPC_PORT", defaultCatalogPort)
+	if _, err := parsePort("CATALOG_GRPC_PORT", catalogPort); err != nil {
+		return Config{}, err
+	}
 	databaseConfig, err := loadDatabaseConfig()
+	if err != nil {
+		return Config{}, err
+	}
+	origins, err := parseAllowedOrigins(envOrDefault("INTERACTION_ALLOWED_ORIGINS", ""))
 	if err != nil {
 		return Config{}, err
 	}
@@ -35,8 +56,42 @@ func Load() (Config, error) {
 		HTTPAddress: net.JoinHostPort(
 			envOrDefault("INTERACTION_HTTP_HOST", defaultHTTPHost), httpPort,
 		),
+		CatalogAddress: net.JoinHostPort(
+			envOrDefault("CATALOG_GRPC_HOST", defaultCatalogHost), catalogPort,
+		),
 		Database: databaseConfig,
+		Identity: identity.Config{
+			JWKSURL:         envOrDefault("INTERACTION_AUTH_JWKS_URL", defaultJWKSURL),
+			Issuer:          envOrDefault("AUTH_JWT_ISSUER", defaultJWTIssuer),
+			Audience:        envOrDefault("AUTH_JWT_AUDIENCE", defaultJWTAudience),
+			KeyID:           envOrDefault("AUTH_JWT_KEY_ID", defaultJWTKeyID),
+			RefreshInterval: defaultJWKSRefresh,
+		},
+		Origins: origins,
 	}, nil
+}
+
+func parseAllowedOrigins(value string) ([]string, error) {
+	if strings.TrimSpace(value) == "" {
+		return nil, nil
+	}
+	seen := make(map[string]struct{})
+	origins := make([]string, 0)
+	for rawOrigin := range strings.SplitSeq(value, ",") {
+		origin := strings.TrimSpace(rawOrigin)
+		parsed, err := url.Parse(origin)
+		if err != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") ||
+			parsed.Host == "" || parsed.User != nil || parsed.Path != "" ||
+			parsed.RawQuery != "" || parsed.Fragment != "" {
+			return nil, fmt.Errorf("invalid INTERACTION_ALLOWED_ORIGINS entry %q", origin)
+		}
+		if _, exists := seen[origin]; exists {
+			continue
+		}
+		seen[origin] = struct{}{}
+		origins = append(origins, origin)
+	}
+	return origins, nil
 }
 
 func loadDatabaseConfig() (database.Config, error) {
