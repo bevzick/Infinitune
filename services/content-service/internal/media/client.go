@@ -33,6 +33,7 @@ type Asset struct {
 	ID             uuid.UUID
 	SourceUploadID uuid.UUID
 	ContentTrackID uuid.UUID
+	DurationMS     int
 	Status         Status
 }
 
@@ -96,8 +97,13 @@ func parseAsset(response *mediav1.MediaAsset) (Asset, error) {
 	if err != nil {
 		return Asset{}, err
 	}
+	duration := int(response.GetDurationMs())
+	if assetStatus == StatusReady && (response.DurationMs == nil || duration <= 0) {
+		return Asset{}, fmt.Errorf("ready media duration is invalid: %w", ErrInvalid)
+	}
 	return Asset{
 		ID: id, SourceUploadID: uploadID, ContentTrackID: trackID, Status: assetStatus,
+		DurationMS: duration,
 	}, nil
 }
 

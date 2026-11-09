@@ -17,10 +17,144 @@ import (
 const defaultRequestTimeout = 3 * time.Second
 
 type Catalog interface {
+	PublishApprovedRelease(context.Context, metadata.PublicationInput) (metadata.Publication, error)
 	BatchTracks(context.Context, []uuid.UUID) ([]metadata.Track, error)
 	ValidateTrackIDs(context.Context, []uuid.UUID) (metadata.TrackIDValidation, error)
 	Tracks(context.Context, metadata.TrackQuery) (metadata.Page[metadata.Track], error)
 	EvaluateTrackFilters(context.Context, metadata.DynamicTrackQuery) (metadata.Page[metadata.Track], error)
+}
+
+func (server *CatalogServer) PublishRelease(
+	ctx context.Context,
+	request *catalogv1.PublishReleaseRequest,
+) (*catalogv1.PublishReleaseResponse, error) {
+	input, err := publicationInput(request)
+	if err != nil {
+		return nil, err
+	}
+	callCtx, cancel := context.WithTimeout(ctx, server.timeout)
+	defer cancel()
+	result, err := server.catalog.PublishApprovedRelease(callCtx, input)
+	if err != nil {
+		return nil, mapCatalogError(err, "release publication failed")
+	}
+	tracks := make([]*catalogv1.PublishedTrack, 0, len(result.Tracks))
+	for _, track := range result.Tracks {
+		tracks = append(tracks, &catalogv1.PublishedTrack{
+			ContentTrackId: track.ContentTrackID.String(),
+			CatalogTrackId: track.CatalogTrackID.String(),
+		})
+	}
+	albumID := ""
+	if result.AlbumID != nil {
+		albumID = result.AlbumID.String()
+	}
+	return &catalogv1.PublishReleaseResponse{
+		ArtistId: result.ArtistID.String(), AlbumId: albumID, Tracks: tracks,
+		PublishedAt: timestamppb.New(result.PublishedAt),
+	}, nil
+}
+
+func publicationInput(request *catalogv1.PublishReleaseRequest) (metadata.PublicationInput, error) {
+	if request == nil || request.GetArtist() == nil {
+		return metadata.PublicationInput{}, status.Error(codes.InvalidArgument, "artist is required")
+	}
+	sourceID, err := requiredUUID(request.GetSourceReleaseId(), "source_release_id")
+	if err != nil {
+		return metadata.PublicationInput{}, err
+	}
+	artistID, err := requiredUUID(request.GetArtist().GetId(), "artist.id")
+	if err != nil {
+		return metadata.PublicationInput{}, err
+	}
+	input := metadata.PublicationInput{
+		SourceReleaseID: sourceID,
+		Artist:          metadata.ArtistInput{ID: artistID, Name: request.GetArtist().GetName()},
+	}
+	if album := request.GetAlbum(); album != nil {
+		albumID, parseErr := requiredUUID(album.GetId(), "album.id")
+		if parseErr != nil {
+			return metadata.PublicationInput{}, parseErr
+		}
+		releaseDate, parseErr := publicationDate(album.GetReleaseDate(), "album.release_date")
+		if parseErr != nil {
+			return metadata.PublicationInput{}, parseErr
+		}
+		input.Album = &metadata.AlbumInput{
+			ID: albumID, Title: album.GetTitle(), Type: metadata.AlbumType(album.GetAlbumType()),
+			ReleaseDate: releaseDate, CoverURL: album.GetCoverUrl(),
+			Artists: []metadata.ArtistPositionInput{{ArtistID: artistID, Position: 1}},
+		}
+	}
+	if len(request.GetTracks()) == 0 {
+		return metadata.PublicationInput{}, status.Error(codes.InvalidArgument, "tracks must not be empty")
+	}
+	input.Tracks = make([]metadata.TrackInput, 0, len(request.GetTracks()))
+	for index, track := range request.GetTracks() {
+		if track == nil {
+			return metadata.PublicationInput{}, status.Errorf(codes.InvalidArgument, "tracks[%d] is required", index)
+		}
+		if track.GetTrackNumber() < 1 || track.GetTrackNumber() > 32767 ||
+			track.GetDiscNumber() < 1 || track.GetDiscNumber() > 32767 {
+			return metadata.PublicationInput{}, status.Errorf(
+				codes.InvalidArgument, "tracks[%d] track and disc numbers must be from 1 to 32767", index,
+			)
+		}
+		trackID, parseErr := requiredUUID(track.GetId(), fmt.Sprintf("tracks[%d].id", index))
+		if parseErr != nil {
+			return metadata.PublicationInput{}, parseErr
+		}
+		contentID, parseErr := requiredUUID(track.GetContentTrackId(), fmt.Sprintf("tracks[%d].content_track_id", index))
+		if parseErr != nil {
+			return metadata.PublicationInput{}, parseErr
+		}
+		mediaID, parseErr := requiredUUID(track.GetMediaAssetId(), fmt.Sprintf("tracks[%d].media_asset_id", index))
+		if parseErr != nil {
+			return metadata.PublicationInput{}, parseErr
+		}
+		releaseDate, parseErr := publicationDate(track.GetReleaseDate(), fmt.Sprintf("tracks[%d].release_date", index))
+		if parseErr != nil {
+			return metadata.PublicationInput{}, parseErr
+		}
+		var albumID *uuid.UUID
+		if input.Album != nil {
+			value := input.Album.ID
+			albumID = &value
+		}
+		input.Tracks = append(input.Tracks, metadata.TrackInput{
+			ID: trackID, AlbumID: albumID, Title: track.GetTitle(),
+			DurationMS: int(track.GetDurationMs()), TrackNumber: int16(track.GetTrackNumber()),
+			DiscNumber: int16(track.GetDiscNumber()), Explicit: track.GetExplicit(),
+			ReleaseDate: releaseDate, MediaAssetID: mediaID, ContentID: contentID,
+			Artists: []metadata.TrackArtistInput{{
+				ArtistID: artistID, Role: metadata.ArtistRolePrimary, Position: 1,
+			}},
+		})
+	}
+	return input, nil
+}
+
+func requiredUUID(value, field string) (uuid.UUID, error) {
+	id, err := uuid.Parse(value)
+	if err != nil || id == uuid.Nil {
+		return uuid.Nil, status.Errorf(codes.InvalidArgument, "%s must be a UUID", field)
+	}
+	return id, nil
+}
+
+func publicationDate(value *catalogv1.Date, field string) (time.Time, error) {
+	if value == nil || value.GetYear() < 1 || value.GetYear() > 9999 ||
+		value.GetMonth() < 1 || value.GetMonth() > 12 || value.GetDay() < 1 || value.GetDay() > 31 {
+		return time.Time{}, status.Errorf(codes.InvalidArgument, "%s is invalid", field)
+	}
+	result := time.Date(
+		int(value.GetYear()), time.Month(value.GetMonth()), int(value.GetDay()), 0, 0, 0, 0, time.UTC,
+	)
+	if result.Year() != int(value.GetYear()) || result.Month() != time.Month(value.GetMonth()) ||
+		result.Day() != int(value.GetDay()) {
+		return time.Time{}, status.Errorf(codes.InvalidArgument, "%s is invalid", field)
+	}
+	return result, nil
 }
 
 type CatalogServer struct {
@@ -406,6 +540,10 @@ func mapCatalogError(err error, internalMessage string) error {
 		return status.Error(codes.Canceled, "catalog request was canceled")
 	case errors.Is(err, metadata.ErrInvalid):
 		return status.Error(codes.InvalidArgument, err.Error())
+	case errors.Is(err, metadata.ErrConflict):
+		return status.Error(codes.AlreadyExists, "release publication conflicts with existing catalog data")
+	case errors.Is(err, metadata.ErrInvalidReference):
+		return status.Error(codes.FailedPrecondition, "release publication references are invalid")
 	case errors.Is(err, metadata.ErrNotFound):
 		return status.Error(codes.NotFound, "one or more tracks were not found")
 	default:

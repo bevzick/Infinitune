@@ -14,14 +14,16 @@ import (
 
 func TestClientLoadsAssetByUpload(t *testing.T) {
 	uploadID, trackID, assetID := uuid.New(), uuid.New(), uuid.New()
+	duration := int32(180000)
 	client := NewClient(mediaClientStub{response: &mediav1.MediaAsset{
 		Id: assetID.String(), SourceUploadId: uploadID.String(),
 		ContentTrackId: trackID.String(),
 		Status:         mediav1.MediaStatus_MEDIA_STATUS_READY,
+		DurationMs:     &duration,
 	}})
 	asset, err := client.AssetByUpload(context.Background(), uploadID)
 	if err != nil || asset.ID != assetID || asset.SourceUploadID != uploadID ||
-		asset.ContentTrackID != trackID || asset.Status != StatusReady {
+		asset.ContentTrackID != trackID || asset.Status != StatusReady || asset.DurationMS != 180000 {
 		t.Fatalf("AssetByUpload() = %+v, %v", asset, err)
 	}
 }
@@ -66,6 +68,10 @@ func TestClientRejectsMalformedOrMismatchedResponse(t *testing.T) {
 		{name: "unspecified status", response: &mediav1.MediaAsset{
 			Id: uuid.NewString(), SourceUploadId: uploadID.String(),
 			ContentTrackId: uuid.NewString(),
+		}},
+		{name: "ready without duration", response: &mediav1.MediaAsset{
+			Id: uuid.NewString(), SourceUploadId: uploadID.String(),
+			ContentTrackId: uuid.NewString(), Status: mediav1.MediaStatus_MEDIA_STATUS_READY,
 		}},
 	}
 	for _, test := range tests {

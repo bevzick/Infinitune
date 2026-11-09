@@ -9,6 +9,7 @@ import (
 
 	"github.com/bevzick/Infinitune/services/content-service/internal/creator"
 	"github.com/bevzick/Infinitune/services/content-service/internal/moderation"
+	"github.com/bevzick/Infinitune/services/content-service/internal/publication"
 	"github.com/bevzick/Infinitune/services/content-service/internal/rights"
 	"github.com/bevzick/Infinitune/services/content-service/internal/submission"
 	"github.com/gin-gonic/gin"
@@ -41,6 +42,24 @@ func decodeJSON(c *gin.Context, destination any) error {
 }
 func writeDomainError(c *gin.Context, logger *slog.Logger, err error) {
 	switch {
+	case errors.Is(err, publication.ErrInvalid):
+		writeError(c, http.StatusUnprocessableEntity, "invalid_release_publication", err.Error())
+	case errors.Is(err, publication.ErrNotFound):
+		writeError(c, http.StatusNotFound, "release_not_found", "Release was not found")
+	case errors.Is(err, publication.ErrNotReady):
+		writeError(c, http.StatusConflict, "release_not_ready", err.Error())
+	case errors.Is(err, publication.ErrConflict):
+		writeError(c, http.StatusConflict, "release_publication_conflict", "Release cannot be published in its current status")
+	case errors.Is(err, publication.ErrMediaUnavailable):
+		writeError(c, http.StatusServiceUnavailable, "media_unavailable", "Release media could not be loaded")
+	case errors.Is(err, publication.ErrCatalogUnavailable):
+		writeError(c, http.StatusServiceUnavailable, "catalog_unavailable", "Catalog publication is temporarily unavailable")
+	case errors.Is(err, publication.ErrInconsistentMedia):
+		logger.Error("release media association is inconsistent", "error", err)
+		writeError(c, http.StatusInternalServerError, "inconsistent_media", "Release media association is inconsistent")
+	case errors.Is(err, publication.ErrInconsistentCatalog):
+		logger.Error("catalog publication response is inconsistent", "error", err)
+		writeError(c, http.StatusInternalServerError, "inconsistent_catalog", "Catalog publication response is inconsistent")
 	case errors.Is(err, moderation.ErrInvalid):
 		writeError(c, http.StatusUnprocessableEntity, "invalid_moderation_review", err.Error())
 	case errors.Is(err, moderation.ErrNotFound):
@@ -91,7 +110,7 @@ func writeDomainError(c *gin.Context, logger *slog.Logger, err error) {
 	case errors.Is(err, creator.ErrUserDirectoryUnavailable):
 		writeError(c, http.StatusServiceUnavailable, "user_service_unavailable", "User service is unavailable")
 	default:
-		logger.Error("creator request failed", "error", err)
+		logger.Error("content request failed", "error", err)
 		writeError(c, http.StatusInternalServerError, "internal_error", "Request could not be completed")
 	}
 }

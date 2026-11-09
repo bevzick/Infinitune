@@ -24,6 +24,7 @@ enum MediaStatus {
 message MediaAsset {
   string id = 1;
   string source_upload_id = 3;
+  optional int32 duration_ms = 6;
   MediaStatus status = 7;
   string content_track_id = 11;
 }

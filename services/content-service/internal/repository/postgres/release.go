@@ -14,7 +14,8 @@ import (
 
 const releaseColumns = `
 	id, creator_id, title, release_type, release_date, status,
-	cover_object_key, catalog_album_id, submitted_at, reviewed_at, created_at, updated_at
+	cover_object_key, catalog_album_id, submitted_at, reviewed_at, published_at,
+	created_at, updated_at
 `
 
 const releaseTrackColumns = `
@@ -134,7 +135,7 @@ func scanRelease(row pgx.Row) (release.Release, error) {
 		&result.ID, &result.CreatorID, &result.Title, &releaseType,
 		&result.ReleaseDate, &status, &result.CoverObjectKey,
 		&result.CatalogAlbumID, &result.SubmittedAt, &result.ReviewedAt,
-		&result.CreatedAt, &result.UpdatedAt,
+		&result.PublishedAt, &result.CreatedAt, &result.UpdatedAt,
 	)
 	result.Type = release.Type(releaseType)
 	result.Status = release.Status(status)

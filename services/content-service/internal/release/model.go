@@ -45,6 +45,7 @@ type Release struct {
 	CatalogAlbumID *uuid.UUID
 	SubmittedAt    *time.Time
 	ReviewedAt     *time.Time
+	PublishedAt    *time.Time
 	CreatedAt      time.Time
 	UpdatedAt      time.Time
 }

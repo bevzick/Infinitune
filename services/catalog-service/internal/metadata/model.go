@@ -158,6 +158,26 @@ type TrackInput struct {
 	Moods        []TrackMoodInput
 }
 
+type PublicationInput struct {
+	SourceReleaseID uuid.UUID
+	Artist          ArtistInput
+	Album           *AlbumInput
+	Tracks          []TrackInput
+}
+
+type PublishedTrack struct {
+	ContentTrackID uuid.UUID
+	CatalogTrackID uuid.UUID
+}
+
+type Publication struct {
+	SourceReleaseID uuid.UUID
+	ArtistID        uuid.UUID
+	AlbumID         *uuid.UUID
+	Tracks          []PublishedTrack
+	PublishedAt     time.Time
+}
+
 type PageRequest struct {
 	Limit  int
 	Offset int

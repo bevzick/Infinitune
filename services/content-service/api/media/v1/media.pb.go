@@ -124,6 +124,7 @@ type MediaAsset struct {
 	state          protoimpl.MessageState `protogen:"open.v1"`
 	Id             string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	SourceUploadId string                 `protobuf:"bytes,3,opt,name=source_upload_id,json=sourceUploadId,proto3" json:"source_upload_id,omitempty"`
+	DurationMs     *int32                 `protobuf:"varint,6,opt,name=duration_ms,json=durationMs,proto3,oneof" json:"duration_ms,omitempty"`
 	Status         MediaStatus            `protobuf:"varint,7,opt,name=status,proto3,enum=infinitune.media.v1.MediaStatus" json:"status,omitempty"`
 	ContentTrackId string                 `protobuf:"bytes,11,opt,name=content_track_id,json=contentTrackId,proto3" json:"content_track_id,omitempty"`
 	unknownFields  protoimpl.UnknownFields
@@ -174,6 +175,13 @@ func (x *MediaAsset) GetSourceUploadId() string {
 	return ""
 }
 
+func (x *MediaAsset) GetDurationMs() int32 {
+	if x != nil && x.DurationMs != nil {
+		return *x.DurationMs
+	}
+	return 0
+}
+
 func (x *MediaAsset) GetStatus() MediaStatus {
 	if x != nil {
 		return x.Status
@@ -194,13 +202,16 @@ const file_api_media_v1_media_proto_rawDesc = "" +
 	"\n" +
 	"\x18api/media/v1/media.proto\x12\x13infinitune.media.v1\";\n" +
 	"\x1cGetMediaAssetByUploadRequest\x12\x1b\n" +
-	"\tupload_id\x18\x01 \x01(\tR\buploadId\"\xaa\x01\n" +
+	"\tupload_id\x18\x01 \x01(\tR\buploadId\"\xe0\x01\n" +
 	"\n" +
 	"MediaAsset\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12(\n" +
-	"\x10source_upload_id\x18\x03 \x01(\tR\x0esourceUploadId\x128\n" +
+	"\x10source_upload_id\x18\x03 \x01(\tR\x0esourceUploadId\x12$\n" +
+	"\vduration_ms\x18\x06 \x01(\x05H\x00R\n" +
+	"durationMs\x88\x01\x01\x128\n" +
 	"\x06status\x18\a \x01(\x0e2 .infinitune.media.v1.MediaStatusR\x06status\x12(\n" +
-	"\x10content_track_id\x18\v \x01(\tR\x0econtentTrackId*\x94\x01\n" +
+	"\x10content_track_id\x18\v \x01(\tR\x0econtentTrackIdB\x0e\n" +
+	"\f_duration_ms*\x94\x01\n" +
 	"\vMediaStatus\x12\x1c\n" +
 	"\x18MEDIA_STATUS_UNSPECIFIED\x10\x00\x12\x19\n" +
 	"\x15MEDIA_STATUS_UPLOADED\x10\x01\x12\x1b\n" +
@@ -245,6 +256,7 @@ func file_api_media_v1_media_proto_init() {
 	if File_api_media_v1_media_proto != nil {
 		return
 	}
+	file_api_media_v1_media_proto_msgTypes[1].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{

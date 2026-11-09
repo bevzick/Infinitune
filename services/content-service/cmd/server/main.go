@@ -13,9 +13,11 @@ import (
 	"syscall"
 	"time"
 
+	catalogv1 "github.com/bevzick/Infinitune/services/content-service/api/catalog/v1"
 	contentv1 "github.com/bevzick/Infinitune/services/content-service/api/content/v1"
 	mediav1 "github.com/bevzick/Infinitune/services/content-service/api/media/v1"
 	userv1 "github.com/bevzick/Infinitune/services/content-service/api/user/v1"
+	content_catalog "github.com/bevzick/Infinitune/services/content-service/internal/catalog"
 	"github.com/bevzick/Infinitune/services/content-service/internal/config"
 	"github.com/bevzick/Infinitune/services/content-service/internal/creator"
 	"github.com/bevzick/Infinitune/services/content-service/internal/database"
@@ -24,6 +26,7 @@ import (
 	"github.com/bevzick/Infinitune/services/content-service/internal/identity"
 	content_media "github.com/bevzick/Infinitune/services/content-service/internal/media"
 	"github.com/bevzick/Infinitune/services/content-service/internal/moderation"
+	"github.com/bevzick/Infinitune/services/content-service/internal/publication"
 	postgres_repository "github.com/bevzick/Infinitune/services/content-service/internal/repository/postgres"
 	"github.com/bevzick/Infinitune/services/content-service/internal/rights"
 	"github.com/bevzick/Infinitune/services/content-service/internal/submission"
@@ -84,6 +87,14 @@ func main() {
 		os.Exit(1)
 	}
 	defer mediaConnection.Close()
+	catalogConnection, err := grpc.NewClient(
+		cfg.CatalogAddress, grpc.WithTransportCredentials(insecure.NewCredentials()),
+	)
+	if err != nil {
+		logger.Error("failed to initialize catalog service client", "error", err)
+		os.Exit(1)
+	}
+	defer catalogConnection.Close()
 	memberService := creator.NewMemberService(repository,
 		user.NewDirectory(userv1.NewUserServiceClient(userConnection)))
 	accessService := creator.NewAccessService(repository)
@@ -97,6 +108,11 @@ func main() {
 	moderationService := moderation.NewService(
 		postgres_repository.NewModerationRepository(databasePool),
 	)
+	publicationService := publication.NewService(
+		postgres_repository.NewPublicationRepository(databasePool), accessService,
+		content_media.NewClient(mediav1.NewMediaServiceClient(mediaConnection)),
+		content_catalog.NewClient(catalogv1.NewCatalogServiceClient(catalogConnection)),
+	)
 	uploadService := upload.NewService(
 		postgres_repository.NewUploadRepository(databasePool), memberService,
 	)
@@ -106,9 +122,10 @@ func main() {
 		Handler: httpapi.NewRouter(httpapi.Dependencies{
 			Database: databasePool, Tokens: tokenVerifier, Creators: creatorService,
 			Members: memberService, Rights: rightsService,
-			Submissions: submissionService,
-			Moderation:  moderationService,
-			Origins:     cfg.Origins, Logger: logger,
+			Submissions:  submissionService,
+			Moderation:   moderationService,
+			Publications: publicationService,
+			Origins:      cfg.Origins, Logger: logger,
 		}),
 		ReadHeaderTimeout: readHeaderTimeout,
 	}

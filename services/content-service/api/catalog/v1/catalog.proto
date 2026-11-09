@@ -1,0 +1,62 @@
+syntax = "proto3";
+
+package infinitune.catalog.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/bevzick/Infinitune/services/content-service/api/catalog/v1;catalogv1";
+
+// Consumer-owned subset of the Catalog contract used for approved releases.
+service CatalogService {
+  rpc PublishRelease(PublishReleaseRequest) returns (PublishReleaseResponse);
+}
+
+message PublishReleaseRequest {
+  string source_release_id = 1;
+  PublishArtist artist = 2;
+  optional PublishAlbum album = 3;
+  repeated PublishTrack tracks = 4;
+}
+
+message PublishArtist {
+  string id = 1;
+  string name = 2;
+}
+
+message PublishAlbum {
+  string id = 1;
+  string title = 2;
+  string album_type = 3;
+  Date release_date = 4;
+  string cover_url = 5;
+}
+
+message PublishTrack {
+  string id = 1;
+  string content_track_id = 2;
+  string title = 3;
+  int32 duration_ms = 4;
+  int32 track_number = 5;
+  int32 disc_number = 6;
+  bool explicit = 7;
+  Date release_date = 8;
+  string media_asset_id = 9;
+}
+
+message PublishReleaseResponse {
+  string artist_id = 1;
+  string album_id = 2;
+  repeated PublishedTrack tracks = 3;
+  google.protobuf.Timestamp published_at = 4;
+}
+
+message PublishedTrack {
+  string content_track_id = 1;
+  string catalog_track_id = 2;
+}
+
+message Date {
+  int32 year = 1;
+  int32 month = 2;
+  int32 day = 3;
+}

@@ -11,6 +11,8 @@ func TestLoadUsesContentDatabase(t *testing.T) {
 	t.Setenv("USER_GRPC_PORT", "9092")
 	t.Setenv("MEDIA_GRPC_HOST", "media")
 	t.Setenv("MEDIA_GRPC_PORT", "9093")
+	t.Setenv("CATALOG_GRPC_HOST", "catalog")
+	t.Setenv("CATALOG_GRPC_PORT", "9094")
 	t.Setenv("CONTENT_ALLOWED_ORIGINS", "https://studio.example")
 	t.Setenv("POSTGRES_HOST", "postgres")
 	t.Setenv("POSTGRES_PORT", "5433")
@@ -30,6 +32,9 @@ func TestLoadUsesContentDatabase(t *testing.T) {
 	}
 	if config.MediaAddress != "media:9093" {
 		t.Errorf("MediaAddress = %q", config.MediaAddress)
+	}
+	if config.CatalogAddress != "catalog:9094" {
+		t.Errorf("CatalogAddress = %q", config.CatalogAddress)
 	}
 	if len(config.Origins) != 1 || config.Origins[0] != "https://studio.example" {
 		t.Errorf("Origins = %v", config.Origins)
@@ -52,6 +57,7 @@ func TestLoadRejectsInvalidConfiguration(t *testing.T) {
 		{name: "invalid gRPC port", key: "CONTENT_GRPC_PORT", value: "0"},
 		{name: "invalid user gRPC port", key: "USER_GRPC_PORT", value: "70000"},
 		{name: "invalid media gRPC port", key: "MEDIA_GRPC_PORT", value: "0"},
+		{name: "invalid catalog gRPC port", key: "CATALOG_GRPC_PORT", value: "0"},
 		{name: "invalid allowed origin", key: "CONTENT_ALLOWED_ORIGINS", value: "localhost:5173"},
 		{name: "invalid database port", key: "POSTGRES_PORT", value: "0"},
 		{name: "missing database user", key: "POSTGRES_USER", value: ""},

@@ -47,16 +47,20 @@ type ReleaseSubmissions interface {
 type ReleaseModeration interface {
 	Review(context.Context, creator.Actor, moderation.Input) (moderation.Review, error)
 }
+type ReleasePublications interface {
+	Publish(context.Context, uuid.UUID, uuid.UUID) (release.Release, error)
+}
 type Dependencies struct {
-	Database    DatabaseCheck
-	Tokens      IdentityVerifier
-	Creators    CreatorAccounts
-	Members     CreatorMembers
-	Rights      TrackRights
-	Submissions ReleaseSubmissions
-	Moderation  ReleaseModeration
-	Origins     []string
-	Logger      *slog.Logger
+	Database     DatabaseCheck
+	Tokens       IdentityVerifier
+	Creators     CreatorAccounts
+	Members      CreatorMembers
+	Rights       TrackRights
+	Submissions  ReleaseSubmissions
+	Moderation   ReleaseModeration
+	Publications ReleasePublications
+	Origins      []string
+	Logger       *slog.Logger
 }
 
 func NewRouter(dependencies Dependencies) http.Handler {
@@ -86,6 +90,7 @@ func NewRouter(dependencies Dependencies) http.Handler {
 	content.DELETE("/track-rights/:right_id", deleteTrackRights(dependencies.Rights, dependencies.Logger))
 	content.POST("/releases/:release_id/submissions", submitRelease(dependencies.Submissions, dependencies.Logger))
 	content.POST("/releases/:release_id/moderation-reviews", reviewRelease(dependencies.Moderation, dependencies.Logger))
+	content.POST("/releases/:release_id/publications", publishRelease(dependencies.Publications, dependencies.Logger))
 	return router
 }
 
