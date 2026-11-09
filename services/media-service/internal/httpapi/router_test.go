@@ -275,6 +275,8 @@ func TestPlaybackRejectsUnavailableMedia(t *testing.T) {
 	}{
 		{name: "missing", err: media.ErrNotFound, wantStatus: http.StatusNotFound},
 		{name: "not ready", err: media.ErrNotReady, wantStatus: http.StatusConflict},
+		{name: "not published", err: media.ErrNotPlayable, wantStatus: http.StatusNotFound},
+		{name: "access unavailable", err: media.ErrAccessUnavailable, wantStatus: http.StatusServiceUnavailable},
 		{name: "repository unavailable", err: errors.New("database"), wantStatus: http.StatusInternalServerError},
 	}
 	for _, test := range tests {

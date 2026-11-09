@@ -42,6 +42,25 @@ func TestClientMapsForbiddenUpload(t *testing.T) {
 	}
 }
 
+func TestClientChecksTrackPlaybackAccess(t *testing.T) {
+	trackID := uuid.New()
+	stub := &grpcClientStub{playbackResponse: &contentv1.CheckTrackPlaybackResponse{
+		Allowed: true,
+	}}
+	allowed, err := NewClient(stub).CanStream(context.Background(), trackID)
+	if err != nil || !allowed || stub.playbackRequest.GetReleaseTrackId() != trackID.String() {
+		t.Fatalf("CanStream() = %v, %v; request = %+v", allowed, err, stub.playbackRequest)
+	}
+}
+
+func TestClientMapsPlaybackAccessFailure(t *testing.T) {
+	client := NewClient(&grpcClientStub{err: status.Error(codes.Internal, "database")})
+	allowed, err := client.CanStream(context.Background(), uuid.New())
+	if allowed || !errors.Is(err, ErrUnavailable) {
+		t.Fatalf("CanStream() = %v, %v", allowed, err)
+	}
+}
+
 func TestClientRejectsMalformedContentResponse(t *testing.T) {
 	client := NewClient(&grpcClientStub{response: &contentv1.UploadSession{
 		Id: uuid.NewString(), ReleaseTrackId: "invalid", RequestedByUserId: uuid.NewString(),
@@ -56,8 +75,10 @@ func TestClientRejectsMalformedContentResponse(t *testing.T) {
 
 type grpcClientStub struct {
 	response          *contentv1.UploadSession
+	playbackResponse  *contentv1.CheckTrackPlaybackResponse
 	err               error
 	transitionRequest *contentv1.TransitionUploadRequest
+	playbackRequest   *contentv1.CheckTrackPlaybackRequest
 }
 
 func (stub *grpcClientStub) GetUploadSession(
@@ -75,4 +96,13 @@ func (stub *grpcClientStub) TransitionUpload(
 ) (*contentv1.UploadSession, error) {
 	stub.transitionRequest = request
 	return stub.response, stub.err
+}
+
+func (stub *grpcClientStub) CheckTrackPlayback(
+	_ context.Context,
+	request *contentv1.CheckTrackPlaybackRequest,
+	_ ...grpc.CallOption,
+) (*contentv1.CheckTrackPlaybackResponse, error) {
+	stub.playbackRequest = request
+	return stub.playbackResponse, stub.err
 }

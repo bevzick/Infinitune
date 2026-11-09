@@ -6,6 +6,7 @@ import (
 
 	contentv1 "github.com/bevzick/Infinitune/services/content-service/api/content/v1"
 	"github.com/bevzick/Infinitune/services/content-service/internal/creator"
+	"github.com/bevzick/Infinitune/services/content-service/internal/playback"
 	"github.com/bevzick/Infinitune/services/content-service/internal/upload"
 	"github.com/google/uuid"
 	"google.golang.org/grpc/codes"
@@ -21,14 +22,44 @@ type UploadSessions interface {
 	Transition(context.Context, uuid.UUID, upload.Status) (upload.Session, error)
 }
 
-type ContentServer struct {
-	contentv1.UnimplementedContentServiceServer
-	access  AccessChecker
-	uploads UploadSessions
+type PlaybackAccess interface {
+	IsTrackPlayable(context.Context, uuid.UUID) (bool, error)
 }
 
-func NewContentServer(access AccessChecker, uploads UploadSessions) *ContentServer {
-	return &ContentServer{access: access, uploads: uploads}
+type ContentServer struct {
+	contentv1.UnimplementedContentServiceServer
+	access   AccessChecker
+	uploads  UploadSessions
+	playback PlaybackAccess
+}
+
+func NewContentServer(
+	access AccessChecker,
+	uploads UploadSessions,
+	playback PlaybackAccess,
+) *ContentServer {
+	return &ContentServer{access: access, uploads: uploads, playback: playback}
+}
+
+func (server *ContentServer) CheckTrackPlayback(
+	ctx context.Context,
+	request *contentv1.CheckTrackPlaybackRequest,
+) (*contentv1.CheckTrackPlaybackResponse, error) {
+	if request == nil || server.playback == nil {
+		return nil, status.Error(codes.InvalidArgument, "request is required")
+	}
+	trackID, err := parseUUID(request.GetReleaseTrackId(), "release_track_id")
+	if err != nil {
+		return nil, err
+	}
+	allowed, err := server.playback.IsTrackPlayable(ctx, trackID)
+	if err != nil {
+		if errors.Is(err, playback.ErrInvalid) {
+			return nil, status.Error(codes.InvalidArgument, err.Error())
+		}
+		return nil, status.Error(codes.Internal, "playback access could not be checked")
+	}
+	return &contentv1.CheckTrackPlaybackResponse{Allowed: allowed}, nil
 }
 
 func (server *ContentServer) GetUploadSession(

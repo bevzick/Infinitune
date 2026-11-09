@@ -88,9 +88,10 @@ func main() {
 	}
 	defer contentConnection.Close()
 	mediaRepository := postgres_repository.NewMediaRepository(databasePool)
-	metadataService := media.NewService(mediaRepository)
+	contentClient := content_client.NewClient(contentv1.NewContentServiceClient(contentConnection))
+	metadataService := media.NewService(mediaRepository, contentClient)
 	ingestService := ingest.NewService(
-		content_client.NewClient(contentv1.NewContentServiceClient(contentConnection)),
+		contentClient,
 		mediaRepository, objectStorage,
 	)
 	processingWorker := processing.NewWorker(

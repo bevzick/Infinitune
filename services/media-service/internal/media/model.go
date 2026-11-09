@@ -10,9 +10,11 @@ import (
 )
 
 var (
-	ErrInvalid  = errors.New("invalid media request")
-	ErrNotFound = errors.New("media asset not found")
-	ErrNotReady = errors.New("media asset is not ready")
+	ErrInvalid           = errors.New("invalid media request")
+	ErrNotFound          = errors.New("media asset not found")
+	ErrNotReady          = errors.New("media asset is not ready")
+	ErrNotPlayable       = errors.New("media asset is not available for playback")
+	ErrAccessUnavailable = errors.New("media playback access check is unavailable")
 )
 
 type Status string
@@ -55,6 +57,10 @@ type Store interface {
 	AssetBySourceUpload(context.Context, uuid.UUID) (Asset, error)
 }
 
+type PlaybackAuthorizer interface {
+	CanStream(context.Context, uuid.UUID) (bool, error)
+}
+
 func (service *Service) AssetByUpload(
 	ctx context.Context,
 	uploadID uuid.UUID,
@@ -66,11 +72,12 @@ func (service *Service) AssetByUpload(
 }
 
 type Service struct {
-	store Store
+	store      Store
+	authorizer PlaybackAuthorizer
 }
 
-func NewService(store Store) *Service {
-	return &Service{store: store}
+func NewService(store Store, authorizer PlaybackAuthorizer) *Service {
+	return &Service{store: store, authorizer: authorizer}
 }
 
 func (service *Service) Asset(ctx context.Context, id uuid.UUID) (Asset, error) {
@@ -95,9 +102,28 @@ func (service *Service) PlaybackVariant(
 	ctx context.Context,
 	id uuid.UUID,
 ) (Asset, AudioVariant, error) {
-	asset, err := service.ReadyAsset(ctx, id)
+	asset, err := service.Asset(ctx, id)
 	if err != nil {
 		return Asset{}, AudioVariant{}, err
+	}
+	if asset.ContentTrackID != uuid.Nil {
+		if service.authorizer == nil {
+			return Asset{}, AudioVariant{}, ErrAccessUnavailable
+		}
+		allowed, accessErr := service.authorizer.CanStream(ctx, asset.ContentTrackID)
+		if accessErr != nil {
+			return Asset{}, AudioVariant{}, fmt.Errorf(
+				"authorize content track playback: %w: %v", ErrAccessUnavailable, accessErr,
+			)
+		}
+		if !allowed {
+			return Asset{}, AudioVariant{}, ErrNotPlayable
+		}
+	} else if asset.TrackID == uuid.Nil {
+		return Asset{}, AudioVariant{}, ErrNotPlayable
+	}
+	if asset.Status != StatusReady {
+		return Asset{}, AudioVariant{}, fmt.Errorf("media asset status is %q: %w", asset.Status, ErrNotReady)
 	}
 	if len(asset.Variants) == 0 {
 		return Asset{}, AudioVariant{}, fmt.Errorf("media asset has no audio variants: %w", ErrNotReady)

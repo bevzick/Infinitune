@@ -4,10 +4,11 @@ package infinitune.content.v1;
 
 option go_package = "github.com/bevzick/Infinitune/services/media-service/api/content/v1;contentv1";
 
-// Consumer-owned subset of the Content service contract used by Media ingest.
+// Consumer-owned subset of the Content service contract used by Media.
 service ContentService {
   rpc GetUploadSession(GetUploadSessionRequest) returns (UploadSession);
   rpc TransitionUpload(TransitionUploadRequest) returns (UploadSession);
+  rpc CheckTrackPlayback(CheckTrackPlaybackRequest) returns (CheckTrackPlaybackResponse);
 }
 
 message GetUploadSessionRequest {
@@ -29,4 +30,12 @@ message UploadSession {
   string mime_type = 6;
   int64 size_bytes = 7;
   string status = 8;
+}
+
+message CheckTrackPlaybackRequest {
+  string release_track_id = 1;
+}
+
+message CheckTrackPlaybackResponse {
+  bool allowed = 1;
 }

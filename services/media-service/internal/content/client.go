@@ -48,11 +48,33 @@ type Session struct {
 type grpcClient interface {
 	GetUploadSession(context.Context, *contentv1.GetUploadSessionRequest, ...grpc.CallOption) (*contentv1.UploadSession, error)
 	TransitionUpload(context.Context, *contentv1.TransitionUploadRequest, ...grpc.CallOption) (*contentv1.UploadSession, error)
+	CheckTrackPlayback(context.Context, *contentv1.CheckTrackPlaybackRequest, ...grpc.CallOption) (*contentv1.CheckTrackPlaybackResponse, error)
 }
 
 type Client struct{ client grpcClient }
 
 func NewClient(client grpcClient) *Client { return &Client{client: client} }
+
+func (client *Client) CanStream(
+	ctx context.Context,
+	trackID uuid.UUID,
+) (bool, error) {
+	if trackID == uuid.Nil {
+		return false, ErrInvalid
+	}
+	callCtx, cancel := context.WithTimeout(ctx, requestTimeout)
+	defer cancel()
+	response, err := client.client.CheckTrackPlayback(
+		callCtx, &contentv1.CheckTrackPlaybackRequest{ReleaseTrackId: trackID.String()},
+	)
+	if err != nil {
+		return false, mapError(ctx, err)
+	}
+	if response == nil {
+		return false, fmt.Errorf("%w: empty playback access response", ErrUnavailable)
+	}
+	return response.GetAllowed(), nil
+}
 
 func (client *Client) Session(
 	ctx context.Context,

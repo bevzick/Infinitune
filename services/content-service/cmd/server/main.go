@@ -26,6 +26,7 @@ import (
 	"github.com/bevzick/Infinitune/services/content-service/internal/identity"
 	content_media "github.com/bevzick/Infinitune/services/content-service/internal/media"
 	"github.com/bevzick/Infinitune/services/content-service/internal/moderation"
+	"github.com/bevzick/Infinitune/services/content-service/internal/playback"
 	"github.com/bevzick/Infinitune/services/content-service/internal/publication"
 	postgres_repository "github.com/bevzick/Infinitune/services/content-service/internal/repository/postgres"
 	"github.com/bevzick/Infinitune/services/content-service/internal/rights"
@@ -116,6 +117,9 @@ func main() {
 	uploadService := upload.NewService(
 		postgres_repository.NewUploadRepository(databasePool), memberService,
 	)
+	playbackService := playback.NewService(
+		postgres_repository.NewPlaybackRepository(databasePool),
+	)
 
 	httpServer := &http.Server{
 		Addr: cfg.HTTPAddress,
@@ -136,7 +140,7 @@ func main() {
 	}
 	grpcServer := grpc.NewServer()
 	contentv1.RegisterContentServiceServer(
-		grpcServer, grpcapi.NewContentServer(accessService, uploadService),
+		grpcServer, grpcapi.NewContentServer(accessService, uploadService, playbackService),
 	)
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()

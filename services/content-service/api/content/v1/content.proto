@@ -8,6 +8,7 @@ service ContentService {
   rpc CheckPermission(CheckPermissionRequest) returns (CheckPermissionResponse);
   rpc GetUploadSession(GetUploadSessionRequest) returns (UploadSession);
   rpc TransitionUpload(TransitionUploadRequest) returns (UploadSession);
+  rpc CheckTrackPlayback(CheckTrackPlaybackRequest) returns (CheckTrackPlaybackResponse);
 }
 
 message CheckPermissionRequest {
@@ -41,4 +42,12 @@ message UploadSession {
   string mime_type = 6;
   int64 size_bytes = 7;
   string status = 8;
+}
+
+message CheckTrackPlaybackRequest {
+  string release_track_id = 1;
+}
+
+message CheckTrackPlaybackResponse {
+  bool allowed = 1;
 }

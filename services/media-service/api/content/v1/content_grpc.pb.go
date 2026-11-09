@@ -19,18 +19,20 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	ContentService_GetUploadSession_FullMethodName = "/infinitune.content.v1.ContentService/GetUploadSession"
-	ContentService_TransitionUpload_FullMethodName = "/infinitune.content.v1.ContentService/TransitionUpload"
+	ContentService_GetUploadSession_FullMethodName   = "/infinitune.content.v1.ContentService/GetUploadSession"
+	ContentService_TransitionUpload_FullMethodName   = "/infinitune.content.v1.ContentService/TransitionUpload"
+	ContentService_CheckTrackPlayback_FullMethodName = "/infinitune.content.v1.ContentService/CheckTrackPlayback"
 )
 
 // ContentServiceClient is the client API for ContentService service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 //
-// Consumer-owned subset of the Content service contract used by Media ingest.
+// Consumer-owned subset of the Content service contract used by Media.
 type ContentServiceClient interface {
 	GetUploadSession(ctx context.Context, in *GetUploadSessionRequest, opts ...grpc.CallOption) (*UploadSession, error)
 	TransitionUpload(ctx context.Context, in *TransitionUploadRequest, opts ...grpc.CallOption) (*UploadSession, error)
+	CheckTrackPlayback(ctx context.Context, in *CheckTrackPlaybackRequest, opts ...grpc.CallOption) (*CheckTrackPlaybackResponse, error)
 }
 
 type contentServiceClient struct {
@@ -61,14 +63,25 @@ func (c *contentServiceClient) TransitionUpload(ctx context.Context, in *Transit
 	return out, nil
 }
 
+func (c *contentServiceClient) CheckTrackPlayback(ctx context.Context, in *CheckTrackPlaybackRequest, opts ...grpc.CallOption) (*CheckTrackPlaybackResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CheckTrackPlaybackResponse)
+	err := c.cc.Invoke(ctx, ContentService_CheckTrackPlayback_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ContentServiceServer is the server API for ContentService service.
 // All implementations must embed UnimplementedContentServiceServer
 // for forward compatibility.
 //
-// Consumer-owned subset of the Content service contract used by Media ingest.
+// Consumer-owned subset of the Content service contract used by Media.
 type ContentServiceServer interface {
 	GetUploadSession(context.Context, *GetUploadSessionRequest) (*UploadSession, error)
 	TransitionUpload(context.Context, *TransitionUploadRequest) (*UploadSession, error)
+	CheckTrackPlayback(context.Context, *CheckTrackPlaybackRequest) (*CheckTrackPlaybackResponse, error)
 	mustEmbedUnimplementedContentServiceServer()
 }
 
@@ -84,6 +97,9 @@ func (UnimplementedContentServiceServer) GetUploadSession(context.Context, *GetU
 }
 func (UnimplementedContentServiceServer) TransitionUpload(context.Context, *TransitionUploadRequest) (*UploadSession, error) {
 	return nil, status.Error(codes.Unimplemented, "method TransitionUpload not implemented")
+}
+func (UnimplementedContentServiceServer) CheckTrackPlayback(context.Context, *CheckTrackPlaybackRequest) (*CheckTrackPlaybackResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CheckTrackPlayback not implemented")
 }
 func (UnimplementedContentServiceServer) mustEmbedUnimplementedContentServiceServer() {}
 func (UnimplementedContentServiceServer) testEmbeddedByValue()                        {}
@@ -142,6 +158,24 @@ func _ContentService_TransitionUpload_Handler(srv interface{}, ctx context.Conte
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ContentService_CheckTrackPlayback_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CheckTrackPlaybackRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ContentServiceServer).CheckTrackPlayback(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ContentService_CheckTrackPlayback_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ContentServiceServer).CheckTrackPlayback(ctx, req.(*CheckTrackPlaybackRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // ContentService_ServiceDesc is the grpc.ServiceDesc for ContentService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -156,6 +190,10 @@ var ContentService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "TransitionUpload",
 			Handler:    _ContentService_TransitionUpload_Handler,
+		},
+		{
+			MethodName: "CheckTrackPlayback",
+			Handler:    _ContentService_CheckTrackPlayback_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

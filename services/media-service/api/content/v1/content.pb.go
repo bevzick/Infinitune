@@ -225,6 +225,94 @@ func (x *UploadSession) GetStatus() string {
 	return ""
 }
 
+type CheckTrackPlaybackRequest struct {
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	ReleaseTrackId string                 `protobuf:"bytes,1,opt,name=release_track_id,json=releaseTrackId,proto3" json:"release_track_id,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *CheckTrackPlaybackRequest) Reset() {
+	*x = CheckTrackPlaybackRequest{}
+	mi := &file_api_content_v1_content_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CheckTrackPlaybackRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CheckTrackPlaybackRequest) ProtoMessage() {}
+
+func (x *CheckTrackPlaybackRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_api_content_v1_content_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CheckTrackPlaybackRequest.ProtoReflect.Descriptor instead.
+func (*CheckTrackPlaybackRequest) Descriptor() ([]byte, []int) {
+	return file_api_content_v1_content_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *CheckTrackPlaybackRequest) GetReleaseTrackId() string {
+	if x != nil {
+		return x.ReleaseTrackId
+	}
+	return ""
+}
+
+type CheckTrackPlaybackResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Allowed       bool                   `protobuf:"varint,1,opt,name=allowed,proto3" json:"allowed,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CheckTrackPlaybackResponse) Reset() {
+	*x = CheckTrackPlaybackResponse{}
+	mi := &file_api_content_v1_content_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CheckTrackPlaybackResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CheckTrackPlaybackResponse) ProtoMessage() {}
+
+func (x *CheckTrackPlaybackResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_api_content_v1_content_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CheckTrackPlaybackResponse.ProtoReflect.Descriptor instead.
+func (*CheckTrackPlaybackResponse) Descriptor() ([]byte, []int) {
+	return file_api_content_v1_content_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *CheckTrackPlaybackResponse) GetAllowed() bool {
+	if x != nil {
+		return x.Allowed
+	}
+	return false
+}
+
 var File_api_content_v1_content_proto protoreflect.FileDescriptor
 
 const file_api_content_v1_content_proto_rawDesc = "" +
@@ -246,10 +334,15 @@ const file_api_content_v1_content_proto_rawDesc = "" +
 	"\tmime_type\x18\x06 \x01(\tR\bmimeType\x12\x1d\n" +
 	"\n" +
 	"size_bytes\x18\a \x01(\x03R\tsizeBytes\x12\x16\n" +
-	"\x06status\x18\b \x01(\tR\x06status2\xe4\x01\n" +
+	"\x06status\x18\b \x01(\tR\x06status\"E\n" +
+	"\x19CheckTrackPlaybackRequest\x12(\n" +
+	"\x10release_track_id\x18\x01 \x01(\tR\x0ereleaseTrackId\"6\n" +
+	"\x1aCheckTrackPlaybackResponse\x12\x18\n" +
+	"\aallowed\x18\x01 \x01(\bR\aallowed2\xdf\x02\n" +
 	"\x0eContentService\x12h\n" +
 	"\x10GetUploadSession\x12..infinitune.content.v1.GetUploadSessionRequest\x1a$.infinitune.content.v1.UploadSession\x12h\n" +
-	"\x10TransitionUpload\x12..infinitune.content.v1.TransitionUploadRequest\x1a$.infinitune.content.v1.UploadSessionBOZMgithub.com/bevzick/Infinitune/services/media-service/api/content/v1;contentv1b\x06proto3"
+	"\x10TransitionUpload\x12..infinitune.content.v1.TransitionUploadRequest\x1a$.infinitune.content.v1.UploadSession\x12y\n" +
+	"\x12CheckTrackPlayback\x120.infinitune.content.v1.CheckTrackPlaybackRequest\x1a1.infinitune.content.v1.CheckTrackPlaybackResponseBOZMgithub.com/bevzick/Infinitune/services/media-service/api/content/v1;contentv1b\x06proto3"
 
 var (
 	file_api_content_v1_content_proto_rawDescOnce sync.Once
@@ -263,19 +356,23 @@ func file_api_content_v1_content_proto_rawDescGZIP() []byte {
 	return file_api_content_v1_content_proto_rawDescData
 }
 
-var file_api_content_v1_content_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
+var file_api_content_v1_content_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
 var file_api_content_v1_content_proto_goTypes = []any{
-	(*GetUploadSessionRequest)(nil), // 0: infinitune.content.v1.GetUploadSessionRequest
-	(*TransitionUploadRequest)(nil), // 1: infinitune.content.v1.TransitionUploadRequest
-	(*UploadSession)(nil),           // 2: infinitune.content.v1.UploadSession
+	(*GetUploadSessionRequest)(nil),    // 0: infinitune.content.v1.GetUploadSessionRequest
+	(*TransitionUploadRequest)(nil),    // 1: infinitune.content.v1.TransitionUploadRequest
+	(*UploadSession)(nil),              // 2: infinitune.content.v1.UploadSession
+	(*CheckTrackPlaybackRequest)(nil),  // 3: infinitune.content.v1.CheckTrackPlaybackRequest
+	(*CheckTrackPlaybackResponse)(nil), // 4: infinitune.content.v1.CheckTrackPlaybackResponse
 }
 var file_api_content_v1_content_proto_depIdxs = []int32{
 	0, // 0: infinitune.content.v1.ContentService.GetUploadSession:input_type -> infinitune.content.v1.GetUploadSessionRequest
 	1, // 1: infinitune.content.v1.ContentService.TransitionUpload:input_type -> infinitune.content.v1.TransitionUploadRequest
-	2, // 2: infinitune.content.v1.ContentService.GetUploadSession:output_type -> infinitune.content.v1.UploadSession
-	2, // 3: infinitune.content.v1.ContentService.TransitionUpload:output_type -> infinitune.content.v1.UploadSession
-	2, // [2:4] is the sub-list for method output_type
-	0, // [0:2] is the sub-list for method input_type
+	3, // 2: infinitune.content.v1.ContentService.CheckTrackPlayback:input_type -> infinitune.content.v1.CheckTrackPlaybackRequest
+	2, // 3: infinitune.content.v1.ContentService.GetUploadSession:output_type -> infinitune.content.v1.UploadSession
+	2, // 4: infinitune.content.v1.ContentService.TransitionUpload:output_type -> infinitune.content.v1.UploadSession
+	4, // 5: infinitune.content.v1.ContentService.CheckTrackPlayback:output_type -> infinitune.content.v1.CheckTrackPlaybackResponse
+	3, // [3:6] is the sub-list for method output_type
+	0, // [0:3] is the sub-list for method input_type
 	0, // [0:0] is the sub-list for extension type_name
 	0, // [0:0] is the sub-list for extension extendee
 	0, // [0:0] is the sub-list for field type_name
@@ -292,7 +389,7 @@ func file_api_content_v1_content_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_api_content_v1_content_proto_rawDesc), len(file_api_content_v1_content_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   3,
+			NumMessages:   5,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
