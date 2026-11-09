@@ -322,6 +322,16 @@ type TrackIDValidation struct {
 	MissingIDs []uuid.UUID
 }
 
+type AlbumIDValidation struct {
+	ValidIDs   []uuid.UUID
+	MissingIDs []uuid.UUID
+}
+
+type ArtistIDValidation struct {
+	ValidIDs   []uuid.UUID
+	MissingIDs []uuid.UUID
+}
+
 type ValidationError struct {
 	Field  string
 	Reason string

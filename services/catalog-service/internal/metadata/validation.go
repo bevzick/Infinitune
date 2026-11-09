@@ -308,19 +308,23 @@ func filterValueKindError(path string, expected TrackFilterValueKind) error {
 }
 
 func validateTrackIDs(ids []uuid.UUID) error {
+	return validateIDBatch("track_ids", ids)
+}
+
+func validateIDBatch(field string, ids []uuid.UUID) error {
 	if len(ids) == 0 {
-		return validationError("track_ids", "must contain at least one id")
+		return validationError(field, "must contain at least one id")
 	}
 	if len(ids) > maximumTrackIDBatchSize {
-		return validationError("track_ids", "must not contain more than 100 ids")
+		return validationError(field, "must not contain more than 100 ids")
 	}
 	seen := make(map[uuid.UUID]struct{}, len(ids))
 	for _, id := range ids {
 		if id == uuid.Nil {
-			return validationError("track_ids", "contains an empty id")
+			return validationError(field, "contains an empty id")
 		}
 		if _, exists := seen[id]; exists {
-			return validationError("track_ids", "contains a duplicate id")
+			return validationError(field, "contains a duplicate id")
 		}
 		seen[id] = struct{}{}
 	}

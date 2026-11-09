@@ -1,0 +1,39 @@
+syntax = "proto3";
+
+package infinitune.catalog.v1;
+
+option go_package = "github.com/bevzick/Infinitune/services/interaction-service/api/catalog/v1;catalogv1";
+
+// Consumer-side subset of Catalog used to validate interaction targets.
+service CatalogService {
+  rpc ValidateTrackIds(ValidateTrackIdsRequest) returns (ValidateTrackIdsResponse);
+  rpc ValidateAlbumIds(ValidateAlbumIdsRequest) returns (ValidateAlbumIdsResponse);
+  rpc ValidateArtistIds(ValidateArtistIdsRequest) returns (ValidateArtistIdsResponse);
+}
+
+message ValidateTrackIdsRequest {
+  repeated string track_ids = 1;
+}
+
+message ValidateTrackIdsResponse {
+  repeated string valid_track_ids = 1;
+  repeated string missing_track_ids = 2;
+}
+
+message ValidateAlbumIdsRequest {
+  repeated string album_ids = 1;
+}
+
+message ValidateAlbumIdsResponse {
+  repeated string valid_album_ids = 1;
+  repeated string missing_album_ids = 2;
+}
+
+message ValidateArtistIdsRequest {
+  repeated string artist_ids = 1;
+}
+
+message ValidateArtistIdsResponse {
+  repeated string valid_artist_ids = 1;
+  repeated string missing_artist_ids = 2;
+}

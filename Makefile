@@ -1,8 +1,8 @@
 .DEFAULT_GOAL := help
 
-.PHONY: help config ps up stop down down-volumes restart logs smoke media-storage-init media-storage-test media-test media-test-integration media-migrate-up media-migrate-version media-seed playlist-test playlist-test-integration playlist-migrate-up playlist-migrate-version content-test content-test-integration content-migrate-up content-migrate-version auth-test auth-test-integration auth-migrate-up auth-migrate-version user-test user-test-integration user-migrate-up user-migrate-version catalog-test catalog-test-integration catalog-migrate-up catalog-migrate-version catalog-seed
+.PHONY: help config ps up stop down down-volumes restart logs smoke media-storage-init media-storage-test media-test media-test-integration media-migrate-up media-migrate-version media-seed playlist-test playlist-test-integration playlist-migrate-up playlist-migrate-version content-test content-test-integration content-migrate-up content-migrate-version interaction-test interaction-test-integration interaction-migrate-up interaction-migrate-version auth-test auth-test-integration auth-migrate-up auth-migrate-version user-test user-test-integration user-migrate-up user-migrate-version catalog-test catalog-test-integration catalog-migrate-up catalog-migrate-version catalog-seed
 
-COMPOSE := docker compose -f compose.yml -f compose.auth.yml -f compose.user.yml -f compose.catalog.yml -f compose.media.yml -f compose.media-service.yml -f compose.playlist.yml -f compose.content.yml
+COMPOSE := docker compose -f compose.yml -f compose.auth.yml -f compose.user.yml -f compose.catalog.yml -f compose.media.yml -f compose.media-service.yml -f compose.playlist.yml -f compose.content.yml -f compose.interaction.yml
 MEDIA_COMPOSE := docker compose -f compose.media.yml
 
 help:
@@ -34,6 +34,10 @@ help:
 	@echo "  content-test-integration - Run Content integration tests"
 	@echo "  content-migrate-up       - Apply pending Content database migrations"
 	@echo "  content-migrate-version  - Show the current Content migration version"
+	@echo "  interaction-test             - Run Interaction Service unit tests"
+	@echo "  interaction-test-integration - Run Interaction integration tests"
+	@echo "  interaction-migrate-up       - Apply pending Interaction database migrations"
+	@echo "  interaction-migrate-version  - Show the current Interaction migration version"
 	@echo "  auth-test   - Run Auth Service unit tests"
 	@echo "  auth-test-integration - Run Auth repository integration tests"
 	@echo "  auth-migrate-up      - Apply pending Auth database migrations"
@@ -54,7 +58,7 @@ config:
 ps:
 	@$(COMPOSE) ps
 
-up: auth-migrate-up user-migrate-up catalog-migrate-up media-migrate-up playlist-migrate-up content-migrate-up media-storage-init
+up: auth-migrate-up user-migrate-up catalog-migrate-up media-migrate-up playlist-migrate-up content-migrate-up interaction-migrate-up media-storage-init
 	@$(COMPOSE) up --detach
 
 stop:
@@ -123,6 +127,19 @@ content-migrate-up:
 
 content-migrate-version:
 	@$(COMPOSE) --profile tools run --rm content-migrate version
+
+interaction-test:
+	@cd services/interaction-service && go test ./...
+
+interaction-test-integration: interaction-migrate-up
+	@$(COMPOSE) up --detach --build interaction-service
+	@$(COMPOSE) --profile tools run --rm --build interaction-integration-test
+
+interaction-migrate-up:
+	@$(COMPOSE) --profile tools run --rm interaction-migrate up
+
+interaction-migrate-version:
+	@$(COMPOSE) --profile tools run --rm interaction-migrate version
 
 auth-test:
 	@cd services/auth-service && go test ./...

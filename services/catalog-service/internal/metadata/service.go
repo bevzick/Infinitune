@@ -10,9 +10,11 @@ import (
 type Store interface {
 	ArtistByID(context.Context, uuid.UUID) (Artist, error)
 	ListArtists(context.Context, PageRequest) (Page[Artist], error)
+	ExistingArtistIDs(context.Context, []uuid.UUID) (map[uuid.UUID]struct{}, error)
 	SaveArtist(context.Context, ArtistInput) (Artist, error)
 	AlbumByID(context.Context, uuid.UUID) (Album, error)
 	ListAlbums(context.Context, PageRequest) (Page[Album], error)
+	ExistingAlbumIDs(context.Context, []uuid.UUID) (map[uuid.UUID]struct{}, error)
 	SaveAlbum(context.Context, AlbumInput) (Album, error)
 	TrackByID(context.Context, uuid.UUID) (Track, error)
 	TracksByIDs(context.Context, []uuid.UUID) ([]Track, error)
@@ -89,6 +91,30 @@ func (service *Service) Artists(ctx context.Context, page PageRequest) (Page[Art
 	return result, nil
 }
 
+func (service *Service) ValidateArtistIDs(
+	ctx context.Context,
+	ids []uuid.UUID,
+) (ArtistIDValidation, error) {
+	if err := validateIDBatch("artist_ids", ids); err != nil {
+		return ArtistIDValidation{}, err
+	}
+	existing, err := service.store.ExistingArtistIDs(ctx, ids)
+	if err != nil {
+		return ArtistIDValidation{}, fmt.Errorf("validate artist ids: %w", err)
+	}
+	result := ArtistIDValidation{
+		ValidIDs: make([]uuid.UUID, 0, len(ids)), MissingIDs: make([]uuid.UUID, 0),
+	}
+	for _, id := range ids {
+		if _, exists := existing[id]; exists {
+			result.ValidIDs = append(result.ValidIDs, id)
+		} else {
+			result.MissingIDs = append(result.MissingIDs, id)
+		}
+	}
+	return result, nil
+}
+
 func (service *Service) Album(ctx context.Context, id uuid.UUID) (Album, error) {
 	if err := validateID("album_id", id); err != nil {
 		return Album{}, err
@@ -107,6 +133,30 @@ func (service *Service) Albums(ctx context.Context, page PageRequest) (Page[Albu
 	result, err := service.store.ListAlbums(ctx, page)
 	if err != nil {
 		return Page[Album]{}, fmt.Errorf("list albums: %w", err)
+	}
+	return result, nil
+}
+
+func (service *Service) ValidateAlbumIDs(
+	ctx context.Context,
+	ids []uuid.UUID,
+) (AlbumIDValidation, error) {
+	if err := validateIDBatch("album_ids", ids); err != nil {
+		return AlbumIDValidation{}, err
+	}
+	existing, err := service.store.ExistingAlbumIDs(ctx, ids)
+	if err != nil {
+		return AlbumIDValidation{}, fmt.Errorf("validate album ids: %w", err)
+	}
+	result := AlbumIDValidation{
+		ValidIDs: make([]uuid.UUID, 0, len(ids)), MissingIDs: make([]uuid.UUID, 0),
+	}
+	for _, id := range ids {
+		if _, exists := existing[id]; exists {
+			result.ValidIDs = append(result.ValidIDs, id)
+		} else {
+			result.MissingIDs = append(result.MissingIDs, id)
+		}
 	}
 	return result, nil
 }

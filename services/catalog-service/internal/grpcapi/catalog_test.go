@@ -130,6 +130,46 @@ func TestValidateTrackIdsSeparatesValidAndMissing(t *testing.T) {
 	}
 }
 
+func TestValidateAlbumIdsSeparatesValidAndMissing(t *testing.T) {
+	t.Parallel()
+
+	validID, missingID := uuid.New(), uuid.New()
+	server := NewCatalogServer(&catalogStub{albumValidation: metadata.AlbumIDValidation{
+		ValidIDs: []uuid.UUID{validID}, MissingIDs: []uuid.UUID{missingID},
+	}})
+	response, err := server.ValidateAlbumIds(
+		context.Background(),
+		&catalogv1.ValidateAlbumIdsRequest{AlbumIds: []string{validID.String(), missingID.String()}},
+	)
+	if err != nil {
+		t.Fatalf("ValidateAlbumIds() error = %v", err)
+	}
+	if len(response.GetValidAlbumIds()) != 1 || response.GetValidAlbumIds()[0] != validID.String() ||
+		len(response.GetMissingAlbumIds()) != 1 || response.GetMissingAlbumIds()[0] != missingID.String() {
+		t.Fatalf("ValidateAlbumIds() = %+v", response)
+	}
+}
+
+func TestValidateArtistIdsSeparatesValidAndMissing(t *testing.T) {
+	t.Parallel()
+
+	validID, missingID := uuid.New(), uuid.New()
+	server := NewCatalogServer(&catalogStub{artistValidation: metadata.ArtistIDValidation{
+		ValidIDs: []uuid.UUID{validID}, MissingIDs: []uuid.UUID{missingID},
+	}})
+	response, err := server.ValidateArtistIds(
+		context.Background(),
+		&catalogv1.ValidateArtistIdsRequest{ArtistIds: []string{validID.String(), missingID.String()}},
+	)
+	if err != nil {
+		t.Fatalf("ValidateArtistIds() error = %v", err)
+	}
+	if len(response.GetValidArtistIds()) != 1 || response.GetValidArtistIds()[0] != validID.String() ||
+		len(response.GetMissingArtistIds()) != 1 || response.GetMissingArtistIds()[0] != missingID.String() {
+		t.Fatalf("ValidateArtistIds() = %+v", response)
+	}
+}
+
 func TestFilterTracksMapsFiltersAndPagination(t *testing.T) {
 	t.Parallel()
 
@@ -367,6 +407,8 @@ type catalogStub struct {
 	publicationInput metadata.PublicationInput
 	tracks           []metadata.Track
 	validation       metadata.TrackIDValidation
+	albumValidation  metadata.AlbumIDValidation
+	artistValidation metadata.ArtistIDValidation
 	page             metadata.Page[metadata.Track]
 	err              error
 	lastQuery        metadata.TrackQuery
@@ -397,6 +439,20 @@ func (stub *catalogStub) ValidateTrackIDs(
 	[]uuid.UUID,
 ) (metadata.TrackIDValidation, error) {
 	return stub.validation, stub.err
+}
+
+func (stub *catalogStub) ValidateAlbumIDs(
+	context.Context,
+	[]uuid.UUID,
+) (metadata.AlbumIDValidation, error) {
+	return stub.albumValidation, stub.err
+}
+
+func (stub *catalogStub) ValidateArtistIDs(
+	context.Context,
+	[]uuid.UUID,
+) (metadata.ArtistIDValidation, error) {
+	return stub.artistValidation, stub.err
 }
 
 func (stub *catalogStub) Tracks(
@@ -444,6 +500,22 @@ func (blockingCatalogStub) ValidateTrackIDs(
 ) (metadata.TrackIDValidation, error) {
 	<-ctx.Done()
 	return metadata.TrackIDValidation{}, ctx.Err()
+}
+
+func (blockingCatalogStub) ValidateAlbumIDs(
+	ctx context.Context,
+	_ []uuid.UUID,
+) (metadata.AlbumIDValidation, error) {
+	<-ctx.Done()
+	return metadata.AlbumIDValidation{}, ctx.Err()
+}
+
+func (blockingCatalogStub) ValidateArtistIDs(
+	ctx context.Context,
+	_ []uuid.UUID,
+) (metadata.ArtistIDValidation, error) {
+	<-ctx.Done()
+	return metadata.ArtistIDValidation{}, ctx.Err()
 }
 
 func (blockingCatalogStub) Tracks(
