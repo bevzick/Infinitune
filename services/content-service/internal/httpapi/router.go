@@ -9,6 +9,7 @@ import (
 
 	"github.com/bevzick/Infinitune/services/content-service/internal/creator"
 	"github.com/bevzick/Infinitune/services/content-service/internal/identity"
+	"github.com/bevzick/Infinitune/services/content-service/internal/release"
 	"github.com/bevzick/Infinitune/services/content-service/internal/rights"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -39,14 +40,18 @@ type TrackRights interface {
 	List(context.Context, uuid.UUID, uuid.UUID) ([]rights.Right, error)
 	Delete(context.Context, uuid.UUID, uuid.UUID) error
 }
+type ReleaseSubmissions interface {
+	Submit(context.Context, uuid.UUID, uuid.UUID) (release.Release, error)
+}
 type Dependencies struct {
-	Database DatabaseCheck
-	Tokens   IdentityVerifier
-	Creators CreatorAccounts
-	Members  CreatorMembers
-	Rights   TrackRights
-	Origins  []string
-	Logger   *slog.Logger
+	Database    DatabaseCheck
+	Tokens      IdentityVerifier
+	Creators    CreatorAccounts
+	Members     CreatorMembers
+	Rights      TrackRights
+	Submissions ReleaseSubmissions
+	Origins     []string
+	Logger      *slog.Logger
 }
 
 func NewRouter(dependencies Dependencies) http.Handler {
@@ -74,6 +79,7 @@ func NewRouter(dependencies Dependencies) http.Handler {
 	content.PUT("/release-tracks/:release_track_id/rights", setTrackRights(dependencies.Rights, dependencies.Logger))
 	content.GET("/release-tracks/:release_track_id/rights", listTrackRights(dependencies.Rights, dependencies.Logger))
 	content.DELETE("/track-rights/:right_id", deleteTrackRights(dependencies.Rights, dependencies.Logger))
+	content.POST("/releases/:release_id/submissions", submitRelease(dependencies.Submissions, dependencies.Logger))
 	return router
 }
 

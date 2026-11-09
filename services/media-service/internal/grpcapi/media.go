@@ -18,6 +18,7 @@ const defaultRequestTimeout = 3 * time.Second
 type Metadata interface {
 	Asset(context.Context, uuid.UUID) (media.Asset, error)
 	ReadyAsset(context.Context, uuid.UUID) (media.Asset, error)
+	AssetByUpload(context.Context, uuid.UUID) (media.Asset, error)
 }
 
 type MediaServer struct {
@@ -28,6 +29,23 @@ type MediaServer struct {
 
 func NewMediaServer(metadata Metadata) *MediaServer {
 	return &MediaServer{metadata: metadata, timeout: defaultRequestTimeout}
+}
+
+func (server *MediaServer) GetMediaAssetByUpload(
+	ctx context.Context,
+	request *mediav1.GetMediaAssetByUploadRequest,
+) (*mediav1.MediaAsset, error) {
+	uploadID, err := uuid.Parse(request.GetUploadId())
+	if err != nil || uploadID == uuid.Nil {
+		return nil, status.Error(codes.InvalidArgument, "upload_id must be a UUID")
+	}
+	callCtx, cancel := context.WithTimeout(ctx, server.timeout)
+	defer cancel()
+	asset, err := server.metadata.AssetByUpload(callCtx, uploadID)
+	if err != nil {
+		return nil, mapMediaError(err)
+	}
+	return assetResponse(asset), nil
 }
 
 func (server *MediaServer) GetMediaAsset(

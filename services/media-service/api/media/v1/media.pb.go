@@ -165,6 +165,50 @@ func (x *GetReadyMediaAssetRequest) GetMediaAssetId() string {
 	return ""
 }
 
+type GetMediaAssetByUploadRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	UploadId      string                 `protobuf:"bytes,1,opt,name=upload_id,json=uploadId,proto3" json:"upload_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetMediaAssetByUploadRequest) Reset() {
+	*x = GetMediaAssetByUploadRequest{}
+	mi := &file_api_media_v1_media_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetMediaAssetByUploadRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetMediaAssetByUploadRequest) ProtoMessage() {}
+
+func (x *GetMediaAssetByUploadRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_api_media_v1_media_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetMediaAssetByUploadRequest.ProtoReflect.Descriptor instead.
+func (*GetMediaAssetByUploadRequest) Descriptor() ([]byte, []int) {
+	return file_api_media_v1_media_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *GetMediaAssetByUploadRequest) GetUploadId() string {
+	if x != nil {
+		return x.UploadId
+	}
+	return ""
+}
+
 type MediaAsset struct {
 	state             protoimpl.MessageState `protogen:"open.v1"`
 	Id                string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
@@ -184,7 +228,7 @@ type MediaAsset struct {
 
 func (x *MediaAsset) Reset() {
 	*x = MediaAsset{}
-	mi := &file_api_media_v1_media_proto_msgTypes[2]
+	mi := &file_api_media_v1_media_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -196,7 +240,7 @@ func (x *MediaAsset) String() string {
 func (*MediaAsset) ProtoMessage() {}
 
 func (x *MediaAsset) ProtoReflect() protoreflect.Message {
-	mi := &file_api_media_v1_media_proto_msgTypes[2]
+	mi := &file_api_media_v1_media_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -209,7 +253,7 @@ func (x *MediaAsset) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MediaAsset.ProtoReflect.Descriptor instead.
 func (*MediaAsset) Descriptor() ([]byte, []int) {
-	return file_api_media_v1_media_proto_rawDescGZIP(), []int{2}
+	return file_api_media_v1_media_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *MediaAsset) GetId() string {
@@ -306,7 +350,7 @@ type AudioVariant struct {
 
 func (x *AudioVariant) Reset() {
 	*x = AudioVariant{}
-	mi := &file_api_media_v1_media_proto_msgTypes[3]
+	mi := &file_api_media_v1_media_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -318,7 +362,7 @@ func (x *AudioVariant) String() string {
 func (*AudioVariant) ProtoMessage() {}
 
 func (x *AudioVariant) ProtoReflect() protoreflect.Message {
-	mi := &file_api_media_v1_media_proto_msgTypes[3]
+	mi := &file_api_media_v1_media_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -331,7 +375,7 @@ func (x *AudioVariant) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AudioVariant.ProtoReflect.Descriptor instead.
 func (*AudioVariant) Descriptor() ([]byte, []int) {
-	return file_api_media_v1_media_proto_rawDescGZIP(), []int{3}
+	return file_api_media_v1_media_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *AudioVariant) GetId() string {
@@ -405,7 +449,9 @@ const file_api_media_v1_media_proto_rawDesc = "" +
 	"\x14GetMediaAssetRequest\x12$\n" +
 	"\x0emedia_asset_id\x18\x01 \x01(\tR\fmediaAssetId\"A\n" +
 	"\x19GetReadyMediaAssetRequest\x12$\n" +
-	"\x0emedia_asset_id\x18\x01 \x01(\tR\fmediaAssetId\"\x8d\x04\n" +
+	"\x0emedia_asset_id\x18\x01 \x01(\tR\fmediaAssetId\";\n" +
+	"\x1cGetMediaAssetByUploadRequest\x12\x1b\n" +
+	"\tupload_id\x18\x01 \x01(\tR\buploadId\"\x8d\x04\n" +
 	"\n" +
 	"MediaAsset\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x19\n" +
@@ -443,10 +489,11 @@ const file_api_media_v1_media_proto_rawDesc = "" +
 	"\x15MEDIA_STATUS_UPLOADED\x10\x01\x12\x1b\n" +
 	"\x17MEDIA_STATUS_PROCESSING\x10\x02\x12\x16\n" +
 	"\x12MEDIA_STATUS_READY\x10\x03\x12\x17\n" +
-	"\x13MEDIA_STATUS_FAILED\x10\x042\xd2\x01\n" +
+	"\x13MEDIA_STATUS_FAILED\x10\x042\xbf\x02\n" +
 	"\fMediaService\x12[\n" +
 	"\rGetMediaAsset\x12).infinitune.media.v1.GetMediaAssetRequest\x1a\x1f.infinitune.media.v1.MediaAsset\x12e\n" +
-	"\x12GetReadyMediaAsset\x12..infinitune.media.v1.GetReadyMediaAssetRequest\x1a\x1f.infinitune.media.v1.MediaAssetBKZIgithub.com/bevzick/Infinitune/services/media-service/api/media/v1;mediav1b\x06proto3"
+	"\x12GetReadyMediaAsset\x12..infinitune.media.v1.GetReadyMediaAssetRequest\x1a\x1f.infinitune.media.v1.MediaAsset\x12k\n" +
+	"\x15GetMediaAssetByUpload\x121.infinitune.media.v1.GetMediaAssetByUploadRequest\x1a\x1f.infinitune.media.v1.MediaAssetBKZIgithub.com/bevzick/Infinitune/services/media-service/api/media/v1;mediav1b\x06proto3"
 
 var (
 	file_api_media_v1_media_proto_rawDescOnce sync.Once
@@ -461,27 +508,30 @@ func file_api_media_v1_media_proto_rawDescGZIP() []byte {
 }
 
 var file_api_media_v1_media_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_api_media_v1_media_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
+var file_api_media_v1_media_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
 var file_api_media_v1_media_proto_goTypes = []any{
-	(MediaStatus)(0),                  // 0: infinitune.media.v1.MediaStatus
-	(*GetMediaAssetRequest)(nil),      // 1: infinitune.media.v1.GetMediaAssetRequest
-	(*GetReadyMediaAssetRequest)(nil), // 2: infinitune.media.v1.GetReadyMediaAssetRequest
-	(*MediaAsset)(nil),                // 3: infinitune.media.v1.MediaAsset
-	(*AudioVariant)(nil),              // 4: infinitune.media.v1.AudioVariant
-	(*timestamppb.Timestamp)(nil),     // 5: google.protobuf.Timestamp
+	(MediaStatus)(0),                     // 0: infinitune.media.v1.MediaStatus
+	(*GetMediaAssetRequest)(nil),         // 1: infinitune.media.v1.GetMediaAssetRequest
+	(*GetReadyMediaAssetRequest)(nil),    // 2: infinitune.media.v1.GetReadyMediaAssetRequest
+	(*GetMediaAssetByUploadRequest)(nil), // 3: infinitune.media.v1.GetMediaAssetByUploadRequest
+	(*MediaAsset)(nil),                   // 4: infinitune.media.v1.MediaAsset
+	(*AudioVariant)(nil),                 // 5: infinitune.media.v1.AudioVariant
+	(*timestamppb.Timestamp)(nil),        // 6: google.protobuf.Timestamp
 }
 var file_api_media_v1_media_proto_depIdxs = []int32{
 	0, // 0: infinitune.media.v1.MediaAsset.status:type_name -> infinitune.media.v1.MediaStatus
-	4, // 1: infinitune.media.v1.MediaAsset.variants:type_name -> infinitune.media.v1.AudioVariant
-	5, // 2: infinitune.media.v1.MediaAsset.created_at:type_name -> google.protobuf.Timestamp
-	5, // 3: infinitune.media.v1.MediaAsset.updated_at:type_name -> google.protobuf.Timestamp
-	5, // 4: infinitune.media.v1.AudioVariant.created_at:type_name -> google.protobuf.Timestamp
+	5, // 1: infinitune.media.v1.MediaAsset.variants:type_name -> infinitune.media.v1.AudioVariant
+	6, // 2: infinitune.media.v1.MediaAsset.created_at:type_name -> google.protobuf.Timestamp
+	6, // 3: infinitune.media.v1.MediaAsset.updated_at:type_name -> google.protobuf.Timestamp
+	6, // 4: infinitune.media.v1.AudioVariant.created_at:type_name -> google.protobuf.Timestamp
 	1, // 5: infinitune.media.v1.MediaService.GetMediaAsset:input_type -> infinitune.media.v1.GetMediaAssetRequest
 	2, // 6: infinitune.media.v1.MediaService.GetReadyMediaAsset:input_type -> infinitune.media.v1.GetReadyMediaAssetRequest
-	3, // 7: infinitune.media.v1.MediaService.GetMediaAsset:output_type -> infinitune.media.v1.MediaAsset
-	3, // 8: infinitune.media.v1.MediaService.GetReadyMediaAsset:output_type -> infinitune.media.v1.MediaAsset
-	7, // [7:9] is the sub-list for method output_type
-	5, // [5:7] is the sub-list for method input_type
+	3, // 7: infinitune.media.v1.MediaService.GetMediaAssetByUpload:input_type -> infinitune.media.v1.GetMediaAssetByUploadRequest
+	4, // 8: infinitune.media.v1.MediaService.GetMediaAsset:output_type -> infinitune.media.v1.MediaAsset
+	4, // 9: infinitune.media.v1.MediaService.GetReadyMediaAsset:output_type -> infinitune.media.v1.MediaAsset
+	4, // 10: infinitune.media.v1.MediaService.GetMediaAssetByUpload:output_type -> infinitune.media.v1.MediaAsset
+	8, // [8:11] is the sub-list for method output_type
+	5, // [5:8] is the sub-list for method input_type
 	5, // [5:5] is the sub-list for extension type_name
 	5, // [5:5] is the sub-list for extension extendee
 	0, // [0:5] is the sub-list for field type_name
@@ -492,14 +542,14 @@ func file_api_media_v1_media_proto_init() {
 	if File_api_media_v1_media_proto != nil {
 		return
 	}
-	file_api_media_v1_media_proto_msgTypes[2].OneofWrappers = []any{}
+	file_api_media_v1_media_proto_msgTypes[3].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_api_media_v1_media_proto_rawDesc), len(file_api_media_v1_media_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   4,
+			NumMessages:   5,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

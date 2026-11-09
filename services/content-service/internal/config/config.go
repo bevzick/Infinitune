@@ -20,6 +20,8 @@ const (
 	defaultGRPCPort     = "9090"
 	defaultUserHost     = "127.0.0.1"
 	defaultUserPort     = "9090"
+	defaultMediaHost    = "127.0.0.1"
+	defaultMediaPort    = "9090"
 	defaultPostgresHost = "127.0.0.1"
 	defaultPostgresPort = "5432"
 	defaultJWKSURL      = "http://auth-service:8080/v1/auth/jwks"
@@ -30,12 +32,13 @@ const (
 )
 
 type Config struct {
-	HTTPAddress string
-	GRPCAddress string
-	UserAddress string
-	Database    database.Config
-	Identity    identity.Config
-	Origins     []string
+	HTTPAddress  string
+	GRPCAddress  string
+	UserAddress  string
+	MediaAddress string
+	Database     database.Config
+	Identity     identity.Config
+	Origins      []string
 }
 
 func Load() (Config, error) {
@@ -51,6 +54,10 @@ func Load() (Config, error) {
 	if _, err := parsePort("USER_GRPC_PORT", userPort); err != nil {
 		return Config{}, err
 	}
+	mediaPort := envOrDefault("MEDIA_GRPC_PORT", defaultMediaPort)
+	if _, err := parsePort("MEDIA_GRPC_PORT", mediaPort); err != nil {
+		return Config{}, err
+	}
 	databaseConfig, err := loadDatabaseConfig()
 	if err != nil {
 		return Config{}, err
@@ -60,10 +67,11 @@ func Load() (Config, error) {
 		return Config{}, err
 	}
 	return Config{
-		HTTPAddress: net.JoinHostPort(envOrDefault("CONTENT_HTTP_HOST", defaultHTTPHost), httpPort),
-		GRPCAddress: net.JoinHostPort(envOrDefault("CONTENT_GRPC_HOST", defaultGRPCHost), grpcPort),
-		UserAddress: net.JoinHostPort(envOrDefault("USER_GRPC_HOST", defaultUserHost), userPort),
-		Database:    databaseConfig,
+		HTTPAddress:  net.JoinHostPort(envOrDefault("CONTENT_HTTP_HOST", defaultHTTPHost), httpPort),
+		GRPCAddress:  net.JoinHostPort(envOrDefault("CONTENT_GRPC_HOST", defaultGRPCHost), grpcPort),
+		UserAddress:  net.JoinHostPort(envOrDefault("USER_GRPC_HOST", defaultUserHost), userPort),
+		MediaAddress: net.JoinHostPort(envOrDefault("MEDIA_GRPC_HOST", defaultMediaHost), mediaPort),
+		Database:     databaseConfig,
 		Identity: identity.Config{
 			JWKSURL:         envOrDefault("CONTENT_AUTH_JWKS_URL", defaultJWKSURL),
 			Issuer:          envOrDefault("AUTH_JWT_ISSUER", defaultJWTIssuer),

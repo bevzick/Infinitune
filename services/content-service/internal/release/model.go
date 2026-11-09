@@ -42,6 +42,7 @@ type Release struct {
 	Status         Status
 	CoverObjectKey *string
 	CatalogAlbumID *uuid.UUID
+	SubmittedAt    *time.Time
 	CreatedAt      time.Time
 	UpdatedAt      time.Time
 }

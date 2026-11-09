@@ -14,6 +14,11 @@ type storeStub struct {
 	calls int
 }
 
+func (stub *storeStub) AssetBySourceUpload(context.Context, uuid.UUID) (Asset, error) {
+	stub.calls++
+	return stub.asset, stub.err
+}
+
 func (stub *storeStub) AssetByID(context.Context, uuid.UUID) (Asset, error) {
 	stub.calls++
 	return stub.asset, stub.err
@@ -24,6 +29,19 @@ func TestServiceRejectsNilAssetID(t *testing.T) {
 	_, err := NewService(store).Asset(context.Background(), uuid.Nil)
 	if !errors.Is(err, ErrInvalid) || store.calls != 0 {
 		t.Fatalf("Asset() error = %v, calls = %d", err, store.calls)
+	}
+}
+
+func TestServiceLoadsAssetByUpload(t *testing.T) {
+	uploadID := uuid.New()
+	store := &storeStub{asset: Asset{ID: uuid.New(), SourceUploadID: uploadID}}
+	asset, err := NewService(store).AssetByUpload(context.Background(), uploadID)
+	if err != nil || asset.SourceUploadID != uploadID || store.calls != 1 {
+		t.Fatalf("AssetByUpload() = %+v, %v, calls %d", asset, err, store.calls)
+	}
+	_, err = NewService(store).AssetByUpload(context.Background(), uuid.Nil)
+	if !errors.Is(err, ErrInvalid) || store.calls != 1 {
+		t.Fatalf("AssetByUpload(nil) error = %v, calls %d", err, store.calls)
 	}
 }
 

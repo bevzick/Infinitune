@@ -173,7 +173,7 @@ services:
     routes:
       - name: content-options
         paths:
-          - ~/v1/(?:creators|release-tracks|track-rights)(?:/|$)
+          - ~/v1/(?:creators|releases|release-tracks|track-rights)(?:/|$)
         methods:
           - OPTIONS
         regex_priority: 110
@@ -181,7 +181,7 @@ services:
 
       - name: content-protected
         paths:
-          - ~/v1/(?:creators|release-tracks|track-rights)(?:/|$)
+          - ~/v1/(?:creators|releases|release-tracks|track-rights)(?:/|$)
         methods:
           - GET
           - POST

@@ -20,6 +20,8 @@ services:
       CONTENT_AUTH_JWKS_URL: ${CONTENT_AUTH_JWKS_URL:-http://auth-service:8080/v1/auth/jwks}
       USER_GRPC_HOST: user-service
       USER_GRPC_PORT: 9090
+      MEDIA_GRPC_HOST: media-service
+      MEDIA_GRPC_PORT: 9090
       AUTH_JWT_ISSUER: ${AUTH_JWT_ISSUER:-infinitune-auth}
       AUTH_JWT_AUDIENCE: ${AUTH_JWT_AUDIENCE:-infinitune-api}
       AUTH_JWT_KEY_ID: ${AUTH_JWT_KEY_ID:-auth-key-1}

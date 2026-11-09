@@ -12,6 +12,9 @@ service MediaService {
 
   // Returns metadata only when the asset is ready for playback.
   rpc GetReadyMediaAsset(GetReadyMediaAssetRequest) returns (MediaAsset);
+
+  // Returns metadata for the asset created from a Content upload session.
+  rpc GetMediaAssetByUpload(GetMediaAssetByUploadRequest) returns (MediaAsset);
 }
 
 message GetMediaAssetRequest {
@@ -20,6 +23,10 @@ message GetMediaAssetRequest {
 
 message GetReadyMediaAssetRequest {
   string media_asset_id = 1;
+}
+
+message GetMediaAssetByUploadRequest {
+  string upload_id = 1;
 }
 
 enum MediaStatus {

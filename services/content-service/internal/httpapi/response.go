@@ -9,6 +9,7 @@ import (
 
 	"github.com/bevzick/Infinitune/services/content-service/internal/creator"
 	"github.com/bevzick/Infinitune/services/content-service/internal/rights"
+	"github.com/bevzick/Infinitune/services/content-service/internal/submission"
 	"github.com/gin-gonic/gin"
 )
 
@@ -51,6 +52,19 @@ func writeDomainError(c *gin.Context, logger *slog.Logger, err error) {
 		writeError(c, http.StatusNotFound, "track_rights_not_found", "Track or track rights were not found")
 	case errors.Is(err, rights.ErrImmutable):
 		writeError(c, http.StatusConflict, "track_rights_immutable", "Track rights cannot be changed in the current release status")
+	case errors.Is(err, submission.ErrInvalid):
+		writeError(c, http.StatusUnprocessableEntity, "invalid_release_submission", err.Error())
+	case errors.Is(err, submission.ErrNotFound):
+		writeError(c, http.StatusNotFound, "release_not_found", "Release was not found")
+	case errors.Is(err, submission.ErrNotReady):
+		writeError(c, http.StatusConflict, "release_not_ready", err.Error())
+	case errors.Is(err, submission.ErrConflict):
+		writeError(c, http.StatusConflict, "release_submission_conflict", "Release cannot be submitted in its current status")
+	case errors.Is(err, submission.ErrMediaUnavailable):
+		writeError(c, http.StatusServiceUnavailable, "media_unavailable", "Media readiness could not be checked")
+	case errors.Is(err, submission.ErrInconsistentMedia):
+		logger.Error("release media association is inconsistent", "error", err)
+		writeError(c, http.StatusInternalServerError, "inconsistent_media", "Release media association is inconsistent")
 	case errors.Is(err, creator.ErrTargetUserNotFound):
 		writeError(c, http.StatusNotFound, "user_not_found", "User was not found")
 	case errors.Is(err, creator.ErrNotFound):

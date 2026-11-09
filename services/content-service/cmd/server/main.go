@@ -14,6 +14,7 @@ import (
 	"time"
 
 	contentv1 "github.com/bevzick/Infinitune/services/content-service/api/content/v1"
+	mediav1 "github.com/bevzick/Infinitune/services/content-service/api/media/v1"
 	userv1 "github.com/bevzick/Infinitune/services/content-service/api/user/v1"
 	"github.com/bevzick/Infinitune/services/content-service/internal/config"
 	"github.com/bevzick/Infinitune/services/content-service/internal/creator"
@@ -21,8 +22,10 @@ import (
 	"github.com/bevzick/Infinitune/services/content-service/internal/grpcapi"
 	"github.com/bevzick/Infinitune/services/content-service/internal/httpapi"
 	"github.com/bevzick/Infinitune/services/content-service/internal/identity"
+	content_media "github.com/bevzick/Infinitune/services/content-service/internal/media"
 	postgres_repository "github.com/bevzick/Infinitune/services/content-service/internal/repository/postgres"
 	"github.com/bevzick/Infinitune/services/content-service/internal/rights"
+	"github.com/bevzick/Infinitune/services/content-service/internal/submission"
 	"github.com/bevzick/Infinitune/services/content-service/internal/upload"
 	"github.com/bevzick/Infinitune/services/content-service/internal/user"
 	"google.golang.org/grpc"
@@ -72,11 +75,23 @@ func main() {
 		os.Exit(1)
 	}
 	defer userConnection.Close()
+	mediaConnection, err := grpc.NewClient(
+		cfg.MediaAddress, grpc.WithTransportCredentials(insecure.NewCredentials()),
+	)
+	if err != nil {
+		logger.Error("failed to initialize media service client", "error", err)
+		os.Exit(1)
+	}
+	defer mediaConnection.Close()
 	memberService := creator.NewMemberService(repository,
 		user.NewDirectory(userv1.NewUserServiceClient(userConnection)))
 	accessService := creator.NewAccessService(repository)
 	rightsService := rights.NewService(
 		postgres_repository.NewRightsRepository(databasePool), accessService,
+	)
+	submissionService := submission.NewService(
+		postgres_repository.NewSubmissionRepository(databasePool), accessService,
+		content_media.NewClient(mediav1.NewMediaServiceClient(mediaConnection)),
 	)
 	uploadService := upload.NewService(
 		postgres_repository.NewUploadRepository(databasePool), memberService,
@@ -87,7 +102,8 @@ func main() {
 		Handler: httpapi.NewRouter(httpapi.Dependencies{
 			Database: databasePool, Tokens: tokenVerifier, Creators: creatorService,
 			Members: memberService, Rights: rightsService,
-			Origins: cfg.Origins, Logger: logger,
+			Submissions: submissionService,
+			Origins:     cfg.Origins, Logger: logger,
 		}),
 		ReadHeaderTimeout: readHeaderTimeout,
 	}

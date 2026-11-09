@@ -1,0 +1,30 @@
+syntax = "proto3";
+
+package infinitune.media.v1;
+
+option go_package = "github.com/bevzick/Infinitune/services/content-service/api/media/v1;mediav1";
+
+// Consumer-owned subset of the Media contract used for release submission.
+service MediaService {
+  rpc GetMediaAssetByUpload(GetMediaAssetByUploadRequest) returns (MediaAsset);
+}
+
+message GetMediaAssetByUploadRequest {
+  string upload_id = 1;
+}
+
+enum MediaStatus {
+  MEDIA_STATUS_UNSPECIFIED = 0;
+  MEDIA_STATUS_UPLOADED = 1;
+  MEDIA_STATUS_PROCESSING = 2;
+  MEDIA_STATUS_READY = 3;
+  MEDIA_STATUS_FAILED = 4;
+}
+
+message MediaAsset {
+  string id = 1;
+  string source_upload_id = 3;
+  MediaStatus status = 7;
+  string content_track_id = 11;
+}
+

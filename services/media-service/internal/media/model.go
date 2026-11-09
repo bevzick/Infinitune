@@ -52,6 +52,17 @@ type AudioVariant struct {
 
 type Store interface {
 	AssetByID(context.Context, uuid.UUID) (Asset, error)
+	AssetBySourceUpload(context.Context, uuid.UUID) (Asset, error)
+}
+
+func (service *Service) AssetByUpload(
+	ctx context.Context,
+	uploadID uuid.UUID,
+) (Asset, error) {
+	if uploadID == uuid.Nil {
+		return Asset{}, fmt.Errorf("upload_id must not be nil: %w", ErrInvalid)
+	}
+	return service.store.AssetBySourceUpload(ctx, uploadID)
 }
 
 type Service struct {
