@@ -82,6 +82,37 @@ func TestServiceListValidatesTrackAndPagination(t *testing.T) {
 	}
 }
 
+func TestServiceReportsCommentForVerifiedReporter(t *testing.T) {
+	reporterID, commentID := uuid.New(), uuid.New()
+	store := &storeStub{}
+	service := NewService(store, &trackValidatorStub{})
+	created, err := service.Report(context.Background(), reporterID, commentID, ReportInput{
+		Reason: ReportReasonHarassment, Description: "  Personal attack  ",
+	})
+	if err != nil || created.ReporterUserID != reporterID || created.CommentID != commentID ||
+		created.Description != "Personal attack" || created.Status != ReportStatusPending {
+		t.Fatalf("Report() = %+v, %v", created, err)
+	}
+}
+
+func TestServiceRejectsInvalidReportBeforeStorage(t *testing.T) {
+	tests := []ReportInput{
+		{Reason: "invented", Description: "Details"},
+		{Reason: ReportReasonSpam, Description: "  "},
+		{Reason: ReportReasonOther, Description: strings.Repeat("x", 2001)},
+	}
+	for _, input := range tests {
+		store := &storeStub{}
+		service := NewService(store, &trackValidatorStub{})
+		if _, err := service.Report(context.Background(), uuid.New(), uuid.New(), input); !errors.Is(err, ErrInvalidArgument) {
+			t.Fatalf("Report(%+v) error = %v", input, err)
+		}
+		if store.reportCalls != 0 {
+			t.Fatalf("Report(%+v) store calls = %d", input, store.reportCalls)
+		}
+	}
+}
+
 type trackValidatorStub struct {
 	trackID uuid.UUID
 	err     error
@@ -98,6 +129,7 @@ type storeStub struct {
 	commentID   uuid.UUID
 	page        PageRequest
 	createCalls int
+	reportCalls int
 }
 
 func (stub *storeStub) Create(_ context.Context, value Comment) (Comment, error) {
@@ -119,4 +151,10 @@ func (stub *storeStub) UpdateOwned(_ context.Context, id, userID uuid.UUID, cont
 func (stub *storeStub) DeleteOwned(_ context.Context, id, userID uuid.UUID) error {
 	stub.commentID, stub.userID = id, userID
 	return nil
+}
+func (stub *storeStub) CreateReport(_ context.Context, value Report) (Report, error) {
+	stub.reportCalls++
+	value.Status = ReportStatusPending
+	value.CreatedAt = time.Now()
+	return value, nil
 }

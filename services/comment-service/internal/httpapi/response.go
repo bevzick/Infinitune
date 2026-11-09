@@ -36,6 +36,13 @@ func writeDomainError(c *gin.Context, logger *slog.Logger, err error) {
 	case errors.Is(err, comment.ErrRateLimited):
 		c.Header("Retry-After", "60")
 		writeError(c, http.StatusTooManyRequests, "comment_rate_limited", "Too many comments; retry later")
+	case errors.Is(err, comment.ErrReportDuplicate):
+		writeError(c, http.StatusConflict, "comment_already_reported", "Comment was already reported")
+	case errors.Is(err, comment.ErrReportRateLimited):
+		c.Header("Retry-After", "3600")
+		writeError(c, http.StatusTooManyRequests, "report_rate_limited", "Too many reports; retry later")
+	case errors.Is(err, comment.ErrOwnCommentReport):
+		writeError(c, http.StatusUnprocessableEntity, "own_comment_report", "Own comment cannot be reported")
 	case errors.Is(err, comment.ErrTrackNotFound):
 		writeError(c, http.StatusNotFound, "track_not_found", "Track was not found")
 	case errors.Is(err, comment.ErrCatalogTimeout):

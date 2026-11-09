@@ -27,6 +27,7 @@ type Comments interface {
 	List(context.Context, uuid.UUID, comment.PageRequest) (comment.Page, error)
 	Update(context.Context, uuid.UUID, uuid.UUID, string) (comment.Comment, error)
 	Delete(context.Context, uuid.UUID, uuid.UUID) error
+	Report(context.Context, uuid.UUID, uuid.UUID, comment.ReportInput) (comment.Report, error)
 }
 type Dependencies struct {
 	Database DatabaseCheck
@@ -51,6 +52,7 @@ func NewRouter(dependencies Dependencies) http.Handler {
 		protected.POST("", createComment(dependencies.Comments, dependencies.Logger))
 		protected.PATCH("/:comment_id", updateComment(dependencies.Comments, dependencies.Logger))
 		protected.DELETE("/:comment_id", deleteComment(dependencies.Comments, dependencies.Logger))
+		protected.POST("/:comment_id/reports", reportComment(dependencies.Comments, dependencies.Logger))
 	}
 	return router
 }

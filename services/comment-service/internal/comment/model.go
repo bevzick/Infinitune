@@ -15,6 +15,9 @@ var (
 	ErrNotEditable        = errors.New("comment is not editable")
 	ErrParentInvalid      = errors.New("comment parent is invalid")
 	ErrRateLimited        = errors.New("comment rate limit exceeded")
+	ErrReportDuplicate    = errors.New("comment was already reported by this user")
+	ErrReportRateLimited  = errors.New("comment report rate limit exceeded")
+	ErrOwnCommentReport   = errors.New("own comment cannot be reported")
 	ErrTrackNotFound      = errors.New("catalog track not found")
 	ErrCatalogUnavailable = errors.New("catalog service unavailable")
 	ErrCatalogTimeout     = errors.New("catalog request timed out")
@@ -38,6 +41,43 @@ type Comment struct {
 	CreatedAt time.Time
 	UpdatedAt time.Time
 	DeletedAt *time.Time
+}
+
+type ReportStatus string
+
+const (
+	ReportStatusPending   ReportStatus = "pending"
+	ReportStatusReviewing ReportStatus = "reviewing"
+	ReportStatusResolved  ReportStatus = "resolved"
+	ReportStatusRejected  ReportStatus = "rejected"
+)
+
+type ReportReason string
+
+const (
+	ReportReasonSpam           ReportReason = "spam"
+	ReportReasonHarassment     ReportReason = "harassment"
+	ReportReasonHateSpeech     ReportReason = "hate_speech"
+	ReportReasonSexualContent  ReportReason = "sexual_content"
+	ReportReasonViolence       ReportReason = "violence"
+	ReportReasonMisinformation ReportReason = "misinformation"
+	ReportReasonOther          ReportReason = "other"
+)
+
+type Report struct {
+	ID             uuid.UUID
+	CommentID      uuid.UUID
+	ReporterUserID uuid.UUID
+	Reason         ReportReason
+	Description    string
+	Status         ReportStatus
+	CreatedAt      time.Time
+	UpdatedAt      *time.Time
+}
+
+type ReportInput struct {
+	Reason      ReportReason
+	Description string
 }
 
 type CreateInput struct {

@@ -10,9 +10,10 @@ import (
 )
 
 const (
-	maximumContentLength = 2000
-	defaultPageLimit     = 50
-	maximumPageLimit     = 100
+	maximumContentLength           = 2000
+	maximumReportDescriptionLength = 2000
+	defaultPageLimit               = 50
+	maximumPageLimit               = 100
 )
 
 type Store interface {
@@ -20,6 +21,7 @@ type Store interface {
 	List(context.Context, uuid.UUID, PageRequest) (Page, error)
 	UpdateOwned(context.Context, uuid.UUID, uuid.UUID, string) (Comment, error)
 	DeleteOwned(context.Context, uuid.UUID, uuid.UUID) error
+	CreateReport(context.Context, Report) (Report, error)
 }
 
 type TrackValidator interface {
@@ -120,6 +122,46 @@ func (service *Service) Delete(
 		return fmt.Errorf("delete comment: %w", err)
 	}
 	return nil
+}
+
+func (service *Service) Report(
+	ctx context.Context,
+	userID uuid.UUID,
+	commentID uuid.UUID,
+	input ReportInput,
+) (Report, error) {
+	if userID == uuid.Nil || commentID == uuid.Nil {
+		return Report{}, invalidArgument("user id and comment id are required")
+	}
+	if !validReportReason(input.Reason) {
+		return Report{}, invalidArgument("report reason is invalid")
+	}
+	description := strings.TrimSpace(input.Description)
+	if description == "" {
+		return Report{}, invalidArgument("report description must not be blank")
+	}
+	if !utf8.ValidString(description) || utf8.RuneCountInString(description) > maximumReportDescriptionLength {
+		return Report{}, invalidArgument("report description must contain at most 2000 characters")
+	}
+	created, err := service.store.CreateReport(ctx, Report{
+		ID: uuid.New(), CommentID: commentID, ReporterUserID: userID,
+		Reason: input.Reason, Description: description,
+	})
+	if err != nil {
+		return Report{}, fmt.Errorf("report comment: %w", err)
+	}
+	return created, nil
+}
+
+func validReportReason(reason ReportReason) bool {
+	switch reason {
+	case ReportReasonSpam, ReportReasonHarassment, ReportReasonHateSpeech,
+		ReportReasonSexualContent, ReportReasonViolence, ReportReasonMisinformation,
+		ReportReasonOther:
+		return true
+	default:
+		return false
+	}
 }
 
 func validateContent(value string) (string, error) {

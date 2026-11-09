@@ -54,6 +54,25 @@ func TestCommentRepositoryManagesOwnedCommentsAndReplies(t *testing.T) {
 	if err = repository.DeleteOwned(ctx, rootID, strangerID); !errors.Is(err, comment.ErrForbidden) {
 		t.Fatalf("DeleteOwned(stranger) error = %v", err)
 	}
+	report, err := repository.CreateReport(ctx, comment.Report{
+		ID: uuid.New(), CommentID: rootID, ReporterUserID: replyUserID,
+		Reason: comment.ReportReasonHarassment, Description: "Personal attack",
+	})
+	if err != nil || report.Status != comment.ReportStatusPending || report.CreatedAt.IsZero() {
+		t.Fatalf("CreateReport() = %+v, %v", report, err)
+	}
+	if _, err = repository.CreateReport(ctx, comment.Report{
+		ID: uuid.New(), CommentID: rootID, ReporterUserID: replyUserID,
+		Reason: comment.ReportReasonOther, Description: "Duplicate",
+	}); !errors.Is(err, comment.ErrReportDuplicate) {
+		t.Fatalf("CreateReport(duplicate) error = %v, want %v", err, comment.ErrReportDuplicate)
+	}
+	if _, err = repository.CreateReport(ctx, comment.Report{
+		ID: uuid.New(), CommentID: rootID, ReporterUserID: ownerID,
+		Reason: comment.ReportReasonOther, Description: "Own comment",
+	}); !errors.Is(err, comment.ErrOwnCommentReport) {
+		t.Fatalf("CreateReport(own) error = %v, want %v", err, comment.ErrOwnCommentReport)
+	}
 	for range 2 {
 		if err = repository.DeleteOwned(ctx, rootID, ownerID); err != nil {
 			t.Fatalf("DeleteOwned(owner) error = %v", err)
@@ -62,9 +81,42 @@ func TestCommentRepositoryManagesOwnedCommentsAndReplies(t *testing.T) {
 	if _, err = repository.UpdateOwned(ctx, rootID, ownerID, "Resurrected"); !errors.Is(err, comment.ErrNotEditable) {
 		t.Fatalf("UpdateOwned(deleted) error = %v, want %v", err, comment.ErrNotEditable)
 	}
+	if _, err = repository.CreateReport(ctx, comment.Report{
+		ID: uuid.New(), CommentID: rootID, ReporterUserID: strangerID,
+		Reason: comment.ReportReasonOther, Description: "Deleted comment",
+	}); !errors.Is(err, comment.ErrNotFound) {
+		t.Fatalf("CreateReport(deleted) error = %v, want %v", err, comment.ErrNotFound)
+	}
 	page, err = repository.List(ctx, trackID, comment.PageRequest{Limit: 10})
 	if err != nil || page.Total != 0 || len(page.Items) != 0 {
 		t.Fatalf("List(after root delete) = %+v, %v", page, err)
+	}
+}
+
+func TestCommentRepositoryRateLimitsReporter(t *testing.T) {
+	pool := openIntegrationDatabase(t)
+	repository := NewCommentRepository(pool)
+	ctx := context.Background()
+	ownerID, reporterID, trackID := uuid.New(), uuid.New(), uuid.New()
+	cleanupUsers(t, pool, ownerID, reporterID)
+	for index := range maximumReportsPerHour + 1 {
+		commentID := uuid.New()
+		if _, err := pool.Exec(ctx, `
+			INSERT INTO comment.comments (id, user_id, track_id, content)
+			VALUES ($1, $2, $3, $4)
+		`, commentID, ownerID, trackID, "Reported comment "+strconv.Itoa(index)); err != nil {
+			t.Fatalf("insert comment %d: %v", index, err)
+		}
+		_, err := repository.CreateReport(ctx, comment.Report{
+			ID: uuid.New(), CommentID: commentID, ReporterUserID: reporterID,
+			Reason: comment.ReportReasonSpam, Description: "Repeated spam",
+		})
+		if index < maximumReportsPerHour && err != nil {
+			t.Fatalf("CreateReport(%d) error = %v", index, err)
+		}
+		if index == maximumReportsPerHour && !errors.Is(err, comment.ErrReportRateLimited) {
+			t.Fatalf("CreateReport(over limit) error = %v, want %v", err, comment.ErrReportRateLimited)
+		}
 	}
 }
 
@@ -95,6 +147,13 @@ func cleanupUsers(t *testing.T, pool *pgxpool.Pool, userIDs ...uuid.UUID) {
 	t.Cleanup(func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
+		_, _ = pool.Exec(ctx, `
+			DELETE FROM comment.comment_reports
+			WHERE reporter_user_id = ANY($1::uuid[])
+			   OR comment_id IN (
+			       SELECT id FROM comment.comments WHERE user_id = ANY($1::uuid[])
+			   )
+		`, userIDs)
 		_, _ = pool.Exec(ctx, `DELETE FROM comment.comments WHERE user_id = ANY($1::uuid[])`, userIDs)
 	})
 }

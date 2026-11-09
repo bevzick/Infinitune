@@ -89,6 +89,56 @@ func TestProtectedCommentMutationMapsOwnershipAndRateLimit(t *testing.T) {
 	}
 }
 
+func TestReportCommentUsesVerifiedIdentityAndHidesReporter(t *testing.T) {
+	userID, commentID := uuid.New(), uuid.New()
+	comments := &commentsStub{}
+	router := NewRouter(Dependencies{
+		Database: databaseStub{}, Tokens: tokenStub{identity: identity.Identity{UserID: userID}}, Comments: comments,
+	})
+	request := httptest.NewRequest(http.MethodPost, "/v1/comments/"+commentID.String()+"/reports",
+		strings.NewReader(`{"reason":"spam","description":"Repeated links"}`))
+	request.Header.Set("Authorization", "Bearer token")
+	response := httptest.NewRecorder()
+	router.ServeHTTP(response, request)
+	if response.Code != http.StatusCreated || comments.userID != userID || comments.commentID != commentID {
+		t.Fatalf("status = %d, reporter/id = %s/%s; body = %s", response.Code, comments.userID, comments.commentID, response.Body.String())
+	}
+	if strings.Contains(response.Body.String(), "reporter_user_id") || comments.reportInput.Reason != comment.ReportReasonSpam {
+		t.Fatalf("response leaks reporter or request was not forwarded: %s", response.Body.String())
+	}
+}
+
+func TestReportCommentMapsAbuseGuards(t *testing.T) {
+	userID, commentID := uuid.New(), uuid.New()
+	tests := []struct {
+		name       string
+		domainErr  error
+		wantStatus int
+		wantRetry  string
+	}{
+		{name: "duplicate", domainErr: comment.ErrReportDuplicate, wantStatus: http.StatusConflict},
+		{name: "rate limited", domainErr: comment.ErrReportRateLimited, wantStatus: http.StatusTooManyRequests, wantRetry: "3600"},
+		{name: "own comment", domainErr: comment.ErrOwnCommentReport, wantStatus: http.StatusUnprocessableEntity},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			comments := &commentsStub{err: test.domainErr}
+			router := NewRouter(Dependencies{
+				Database: databaseStub{}, Tokens: tokenStub{identity: identity.Identity{UserID: userID}}, Comments: comments,
+			})
+			request := httptest.NewRequest(http.MethodPost, "/v1/comments/"+commentID.String()+"/reports",
+				strings.NewReader(`{"reason":"other","description":"Details"}`))
+			request.Header.Set("Authorization", "Bearer token")
+			response := httptest.NewRecorder()
+			router.ServeHTTP(response, request)
+			if response.Code != test.wantStatus || response.Header().Get("Retry-After") != test.wantRetry {
+				t.Fatalf("status/retry = %d/%q, want %d/%q; body = %s",
+					response.Code, response.Header().Get("Retry-After"), test.wantStatus, test.wantRetry, response.Body.String())
+			}
+		})
+	}
+}
+
 type tokenStub struct {
 	identity identity.Identity
 	err      error
@@ -105,13 +155,14 @@ func (stub tokenStub) Verify(context.Context, string, time.Time) (identity.Ident
 }
 
 type commentsStub struct {
-	userID    uuid.UUID
-	trackID   uuid.UUID
-	commentID uuid.UUID
-	input     comment.CreateInput
-	page      comment.PageRequest
-	err       error
-	calls     int
+	userID      uuid.UUID
+	trackID     uuid.UUID
+	commentID   uuid.UUID
+	input       comment.CreateInput
+	page        comment.PageRequest
+	reportInput comment.ReportInput
+	err         error
+	calls       int
 }
 
 func (stub *commentsStub) Create(_ context.Context, userID uuid.UUID, input comment.CreateInput) (comment.Comment, error) {
@@ -132,4 +183,11 @@ func (stub *commentsStub) Update(_ context.Context, userID, id uuid.UUID, conten
 func (stub *commentsStub) Delete(_ context.Context, userID, id uuid.UUID) error {
 	stub.userID, stub.commentID, stub.calls = userID, id, stub.calls+1
 	return stub.err
+}
+func (stub *commentsStub) Report(_ context.Context, userID, id uuid.UUID, input comment.ReportInput) (comment.Report, error) {
+	stub.userID, stub.commentID, stub.reportInput, stub.calls = userID, id, input, stub.calls+1
+	return comment.Report{
+		ID: uuid.New(), CommentID: id, ReporterUserID: userID, Reason: input.Reason,
+		Description: input.Description, Status: comment.ReportStatusPending, CreatedAt: time.Now(),
+	}, stub.err
 }
