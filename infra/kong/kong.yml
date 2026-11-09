@@ -197,3 +197,31 @@ services:
               claims_to_verify:
                 - exp
               run_on_preflight: false
+
+  - name: interaction-service
+    url: http://interaction-service:8080
+    routes:
+      - name: interaction-options
+        paths:
+          - ~/v1/interactions(?:/|$)
+        methods:
+          - OPTIONS
+        regex_priority: 110
+        strip_path: false
+
+      - name: interaction-protected
+        paths:
+          - ~/v1/interactions/(?:(?:tracks|albums)/likes|artists/follows|(?:tracks|albums)/[0-9a-fA-F-]+/like|artists/[0-9a-fA-F-]+/follow)$
+        methods:
+          - GET
+          - PUT
+          - DELETE
+        regex_priority: 100
+        strip_path: false
+        plugins:
+          - name: jwt
+            config:
+              key_claim_name: iss
+              claims_to_verify:
+                - exp
+              run_on_preflight: false
