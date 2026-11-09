@@ -79,20 +79,100 @@ func (repository *CreatorRepository) Member(
 	creatorID uuid.UUID,
 	userID uuid.UUID,
 ) (creator.Member, error) {
-	var member creator.Member
-	var role string
-	err := repository.database.QueryRow(ctx, `
+	member, err := scanMember(repository.database.QueryRow(ctx, `
 		SELECT creator_id, user_id, member_role, created_at
 		FROM content.creator_members
 		WHERE creator_id = $1 AND user_id = $2
-	`, creatorID, userID).Scan(
-		&member.CreatorID, &member.UserID, &role, &member.CreatedAt,
-	)
+	`, creatorID, userID))
 	if err != nil {
 		return creator.Member{}, fmt.Errorf("find creator member: %w", mapError(err))
 	}
-	member.Role = creator.MemberRole(role)
 	return member, nil
+}
+
+func (repository *CreatorRepository) ListMembers(
+	ctx context.Context,
+	creatorID uuid.UUID,
+) ([]creator.Member, error) {
+	rows, err := repository.database.Query(ctx, `
+		SELECT creator_id, user_id, member_role, created_at
+		FROM content.creator_members
+		WHERE creator_id = $1
+		ORDER BY created_at, user_id
+	`, creatorID)
+	if err != nil {
+		return nil, fmt.Errorf("query creator members: %w", err)
+	}
+	defer rows.Close()
+
+	members := make([]creator.Member, 0)
+	for rows.Next() {
+		member, scanErr := scanMember(rows)
+		if scanErr != nil {
+			return nil, fmt.Errorf("scan creator member: %w", scanErr)
+		}
+		members = append(members, member)
+	}
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate creator members: %w", err)
+	}
+	return members, nil
+}
+
+func (repository *CreatorRepository) AddMember(
+	ctx context.Context,
+	member creator.Member,
+) (creator.Member, error) {
+	added, err := scanMember(repository.database.QueryRow(ctx, `
+		INSERT INTO content.creator_members (creator_id, user_id, member_role)
+		VALUES ($1, $2, $3)
+		RETURNING creator_id, user_id, member_role, created_at
+	`, member.CreatorID, member.UserID, member.Role))
+	if err != nil {
+		return creator.Member{}, fmt.Errorf("insert creator member: %w", mapError(err))
+	}
+	return added, nil
+}
+
+func (repository *CreatorRepository) UpdateMemberRole(
+	ctx context.Context,
+	creatorID uuid.UUID,
+	userID uuid.UUID,
+	expected creator.MemberRole,
+	target creator.MemberRole,
+) (creator.Member, error) {
+	updated, err := scanMember(repository.database.QueryRow(ctx, `
+		UPDATE content.creator_members
+		SET member_role = $4
+		WHERE creator_id = $1 AND user_id = $2 AND member_role = $3
+		RETURNING creator_id, user_id, member_role, created_at
+	`, creatorID, userID, expected, target))
+	if errors.Is(err, pgx.ErrNoRows) {
+		return creator.Member{}, creator.ErrConflict
+	}
+	if err != nil {
+		return creator.Member{}, fmt.Errorf("update creator member role: %w", mapError(err))
+	}
+	return updated, nil
+}
+
+func (repository *CreatorRepository) RemoveMember(
+	ctx context.Context,
+	creatorID uuid.UUID,
+	userID uuid.UUID,
+	expected creator.MemberRole,
+) error {
+	result, err := repository.database.Exec(ctx, `
+		DELETE FROM content.creator_members
+		WHERE creator_id = $1 AND user_id = $2 AND member_role = $3
+	`, creatorID, userID, expected)
+	if err != nil {
+		return fmt.Errorf("delete creator member: %w", err)
+	}
+	if result.RowsAffected() == 0 {
+		return creator.ErrConflict
+	}
+	return nil
 }
 
 func (repository *CreatorRepository) Update(
@@ -159,15 +239,29 @@ func scanAccount(row pgx.Row) (creator.Account, error) {
 	return account, err
 }
 
+func scanMember(row pgx.Row) (creator.Member, error) {
+	var member creator.Member
+	var role string
+	err := row.Scan(&member.CreatorID, &member.UserID, &role, &member.CreatedAt)
+	member.Role = creator.MemberRole(role)
+	return member, err
+}
+
 func mapError(err error) error {
 	if errors.Is(err, pgx.ErrNoRows) {
 		return creator.ErrNotFound
 	}
 	var postgresError *pgconn.PgError
 	if errors.As(err, &postgresError) && postgresError.Code == "23505" {
+		if postgresError.ConstraintName == "creator_members_pkey" {
+			return creator.ErrMemberExists
+		}
 		return creator.ErrConflict
 	}
 	return err
 }
 
-var _ creator.Store = (*CreatorRepository)(nil)
+var (
+	_ creator.Store           = (*CreatorRepository)(nil)
+	_ creator.MembershipStore = (*CreatorRepository)(nil)
+)

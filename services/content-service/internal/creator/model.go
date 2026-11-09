@@ -12,6 +12,9 @@ var (
 	ErrNotFound             = errors.New("creator account not found")
 	ErrForbidden            = errors.New("creator account operation forbidden")
 	ErrConflict             = errors.New("creator account changed concurrently")
+	ErrMemberExists         = errors.New("creator member already exists")
+	ErrOwnerProtected       = errors.New("creator account owner is protected")
+	ErrTargetUserNotFound   = errors.New("creator member user not found")
 	ErrInvalidTransition    = errors.New("invalid verification status transition")
 	ErrVerificationRequired = errors.New("verified creator account required")
 )
@@ -40,6 +43,19 @@ const (
 	RoleManager  MemberRole = "manager"
 	RoleEditor   MemberRole = "editor"
 	RoleUploader MemberRole = "uploader"
+)
+
+type Permission string
+
+const (
+	PermissionAccountRead        Permission = "creator.account.read"
+	PermissionAccountUpdate      Permission = "creator.account.update"
+	PermissionVerificationSubmit Permission = "creator.verification.submit"
+	PermissionMembersRead        Permission = "creator.members.read"
+	PermissionMembersManage      Permission = "creator.members.manage"
+	PermissionContentEdit        Permission = "creator.content.edit"
+	PermissionContentUpload      Permission = "creator.content.upload"
+	PermissionContentPublish     Permission = "creator.content.publish"
 )
 
 const (

@@ -150,6 +150,111 @@ func TestCreatorVerificationWorkflowIntegration(t *testing.T) {
 	}
 }
 
+func TestCreatorRepositoryManagesMembersWithRoleConcurrency(t *testing.T) {
+	pool := openIntegrationDatabase(t)
+	repository := NewCreatorRepository(pool)
+	ctx := context.Background()
+	accountID := uuid.New()
+	ownerID := uuid.New()
+	memberID := uuid.New()
+	t.Cleanup(func() { cleanupCreatorAccount(t, pool, accountID) })
+
+	if _, err := repository.Create(ctx, creator.Account{
+		ID: accountID, Type: creator.TypeLabel, DisplayName: "Member Repository Label",
+		VerificationStatus: creator.VerificationUnverified,
+	}, creator.Member{
+		CreatorID: accountID, UserID: ownerID, Role: creator.RoleOwner,
+	}); err != nil {
+		t.Fatalf("Create() error = %v", err)
+	}
+	added, err := repository.AddMember(ctx, creator.Member{
+		CreatorID: accountID, UserID: memberID, Role: creator.RoleEditor,
+	})
+	if err != nil || added.Role != creator.RoleEditor || added.CreatedAt.IsZero() {
+		t.Fatalf("AddMember() = %+v, %v", added, err)
+	}
+	if _, err = repository.AddMember(ctx, creator.Member{
+		CreatorID: accountID, UserID: memberID, Role: creator.RoleUploader,
+	}); !errors.Is(err, creator.ErrMemberExists) {
+		t.Fatalf("AddMember(duplicate) error = %v, want %v", err, creator.ErrMemberExists)
+	}
+	members, err := repository.ListMembers(ctx, accountID)
+	if err != nil || len(members) != 2 {
+		t.Fatalf("ListMembers() = %+v, %v", members, err)
+	}
+	updated, err := repository.UpdateMemberRole(
+		ctx, accountID, memberID, creator.RoleEditor, creator.RoleUploader,
+	)
+	if err != nil || updated.Role != creator.RoleUploader {
+		t.Fatalf("UpdateMemberRole() = %+v, %v", updated, err)
+	}
+	if _, err = repository.UpdateMemberRole(
+		ctx, accountID, memberID, creator.RoleEditor, creator.RoleManager,
+	); !errors.Is(err, creator.ErrConflict) {
+		t.Fatalf("UpdateMemberRole(stale) error = %v, want %v", err, creator.ErrConflict)
+	}
+	if err = repository.RemoveMember(
+		ctx, accountID, memberID, creator.RoleUploader,
+	); err != nil {
+		t.Fatalf("RemoveMember() error = %v", err)
+	}
+	if err = repository.RemoveMember(
+		ctx, accountID, memberID, creator.RoleUploader,
+	); !errors.Is(err, creator.ErrConflict) {
+		t.Fatalf("RemoveMember(stale) error = %v, want %v", err, creator.ErrConflict)
+	}
+}
+
+func TestCreatorMemberPermissionWorkflowIntegration(t *testing.T) {
+	pool := openIntegrationDatabase(t)
+	repository := NewCreatorRepository(pool)
+	members := creator.NewMemberService(repository, acceptingUserDirectory{})
+	ctx := context.Background()
+	accountID := uuid.New()
+	ownerID := uuid.New()
+	managerID := uuid.New()
+	uploaderID := uuid.New()
+	t.Cleanup(func() { cleanupCreatorAccount(t, pool, accountID) })
+
+	if _, err := repository.Create(ctx, creator.Account{
+		ID: accountID, Type: creator.TypeDistributor, DisplayName: "Permission Distributor",
+		VerificationStatus: creator.VerificationUnverified,
+	}, creator.Member{
+		CreatorID: accountID, UserID: ownerID, Role: creator.RoleOwner,
+	}); err != nil {
+		t.Fatalf("Create() error = %v", err)
+	}
+	if _, err := members.Add(
+		ctx, ownerID, accountID, managerID, creator.RoleManager,
+	); err != nil {
+		t.Fatalf("owner Add(manager) error = %v", err)
+	}
+	if _, err := members.Add(
+		ctx, managerID, accountID, uploaderID, creator.RoleUploader,
+	); err != nil {
+		t.Fatalf("manager Add(uploader) error = %v", err)
+	}
+	if err := members.Authorize(
+		ctx, uploaderID, accountID, creator.PermissionContentUpload,
+	); err != nil {
+		t.Fatalf("Authorize(upload) error = %v", err)
+	}
+	if err := members.Authorize(
+		ctx, uploaderID, accountID, creator.PermissionContentPublish,
+	); !errors.Is(err, creator.ErrForbidden) {
+		t.Fatalf("Authorize(publish) error = %v, want %v", err, creator.ErrForbidden)
+	}
+	if _, err := members.Add(
+		ctx, managerID, accountID, uuid.New(), creator.RoleManager,
+	); !errors.Is(err, creator.ErrForbidden) {
+		t.Fatalf("manager Add(manager) error = %v, want %v", err, creator.ErrForbidden)
+	}
+}
+
+type acceptingUserDirectory struct{}
+
+func (acceptingUserDirectory) RequireUser(context.Context, uuid.UUID) error { return nil }
+
 func openIntegrationDatabase(t *testing.T) *pgxpool.Pool {
 	t.Helper()
 	if os.Getenv("INFINITUNE_INTEGRATION_TESTS") != "1" {
