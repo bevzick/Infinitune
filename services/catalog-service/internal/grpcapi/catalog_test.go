@@ -43,6 +43,72 @@ func TestGetTracksReturnsInternalDTOs(t *testing.T) {
 	}
 }
 
+func TestPublishReleaseMapsApprovedMetadata(t *testing.T) {
+	t.Parallel()
+	sourceID, artistID, albumID := uuid.New(), uuid.New(), uuid.New()
+	contentTrackID, catalogTrackID, mediaID := uuid.New(), uuid.New(), uuid.New()
+	now := time.Now().UTC()
+	stub := &catalogStub{publication: metadata.Publication{
+		SourceReleaseID: sourceID, ArtistID: artistID, AlbumID: &albumID,
+		Tracks: []metadata.PublishedTrack{{
+			ContentTrackID: contentTrackID, CatalogTrackID: catalogTrackID,
+		}}, PublishedAt: now,
+	}}
+	response, err := NewCatalogServer(stub).PublishRelease(
+		context.Background(), &catalogv1.PublishReleaseRequest{
+			SourceReleaseId: sourceID.String(),
+			Artist:          &catalogv1.PublishArtist{Id: artistID.String(), Name: "Artist"},
+			Album: &catalogv1.PublishAlbum{
+				Id: albumID.String(), Title: "Release", AlbumType: "album",
+				ReleaseDate: &catalogv1.Date{Year: 2027, Month: 2, Day: 3},
+			},
+			Tracks: []*catalogv1.PublishTrack{{
+				Id: catalogTrackID.String(), ContentTrackId: contentTrackID.String(),
+				Title: "Track", DurationMs: 180000, TrackNumber: 1, DiscNumber: 1,
+				ReleaseDate:  &catalogv1.Date{Year: 2027, Month: 2, Day: 3},
+				MediaAssetId: mediaID.String(),
+			}},
+		},
+	)
+	if err != nil || response.GetAlbumId() != albumID.String() ||
+		len(response.GetTracks()) != 1 ||
+		response.GetTracks()[0].GetCatalogTrackId() != catalogTrackID.String() {
+		t.Fatalf("PublishRelease() = %+v, %v", response, err)
+	}
+	input := stub.publicationInput
+	if input.SourceReleaseID != sourceID || input.Artist.ID != artistID ||
+		input.Album == nil || input.Album.ID != albumID || len(input.Tracks) != 1 ||
+		input.Tracks[0].ContentID != contentTrackID || input.Tracks[0].MediaAssetID != mediaID {
+		t.Fatalf("publication input = %+v", input)
+	}
+}
+
+func TestArchiveReleaseReturnsTimestamp(t *testing.T) {
+	releaseID := uuid.New()
+	now := time.Now().UTC()
+	stub := &catalogStub{archive: metadata.Archive{
+		SourceReleaseID: releaseID, ArchivedAt: now,
+	}}
+	response, err := NewCatalogServer(stub).ArchiveRelease(
+		context.Background(), &catalogv1.ArchiveReleaseRequest{
+			SourceReleaseId: releaseID.String(),
+		},
+	)
+	if err != nil || !response.GetArchivedAt().AsTime().Equal(now) {
+		t.Fatalf("ArchiveRelease() = %+v, %v", response, err)
+	}
+}
+
+func TestPublishReleaseRejectsInvalidContract(t *testing.T) {
+	t.Parallel()
+	_, err := NewCatalogServer(&catalogStub{}).PublishRelease(
+		context.Background(), &catalogv1.PublishReleaseRequest{},
+	)
+	if status.Code(err) != codes.InvalidArgument {
+		t.Fatalf("PublishRelease() code = %s; error = %v", status.Code(err), err)
+	}
+}
+
 func TestValidateTrackIdsSeparatesValidAndMissing(t *testing.T) {
 	t.Parallel()
 
@@ -296,12 +362,30 @@ func grpcTestTrack() metadata.Track {
 }
 
 type catalogStub struct {
+	publication      metadata.Publication
+	archive          metadata.Archive
+	publicationInput metadata.PublicationInput
 	tracks           []metadata.Track
 	validation       metadata.TrackIDValidation
 	page             metadata.Page[metadata.Track]
 	err              error
 	lastQuery        metadata.TrackQuery
 	lastDynamicQuery metadata.DynamicTrackQuery
+}
+
+func (stub *catalogStub) ArchivePublishedRelease(
+	context.Context,
+	uuid.UUID,
+) (metadata.Archive, error) {
+	return stub.archive, stub.err
+}
+
+func (stub *catalogStub) PublishApprovedRelease(
+	_ context.Context,
+	input metadata.PublicationInput,
+) (metadata.Publication, error) {
+	stub.publicationInput = input
+	return stub.publication, stub.err
 }
 
 func (stub *catalogStub) BatchTracks(context.Context, []uuid.UUID) ([]metadata.Track, error) {
@@ -332,6 +416,22 @@ func (stub *catalogStub) EvaluateTrackFilters(
 }
 
 type blockingCatalogStub struct{}
+
+func (blockingCatalogStub) ArchivePublishedRelease(
+	ctx context.Context,
+	_ uuid.UUID,
+) (metadata.Archive, error) {
+	<-ctx.Done()
+	return metadata.Archive{}, ctx.Err()
+}
+
+func (blockingCatalogStub) PublishApprovedRelease(
+	ctx context.Context,
+	_ metadata.PublicationInput,
+) (metadata.Publication, error) {
+	<-ctx.Done()
+	return metadata.Publication{}, ctx.Err()
+}
 
 func (blockingCatalogStub) BatchTracks(ctx context.Context, _ []uuid.UUID) ([]metadata.Track, error) {
 	<-ctx.Done()

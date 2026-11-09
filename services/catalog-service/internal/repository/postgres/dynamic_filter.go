@@ -23,7 +23,7 @@ func (repository *MetadataRepository) EvaluateTrackFilters(
 	}
 	return repository.filteredTrackPage(
 		ctx,
-		" FROM catalog.tracks AS t WHERE "+predicate,
+		" FROM catalog.tracks AS t WHERE "+activeTrackPredicate+" AND ("+predicate+")",
 		arguments,
 		query.Page,
 		orderBy,

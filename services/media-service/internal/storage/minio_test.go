@@ -47,6 +47,17 @@ func (stub *bucketClientStub) GetObject(
 	return nil, errors.New("not implemented")
 }
 
+func (stub *bucketClientStub) RemoveObject(
+	_ context.Context,
+	bucket string,
+	key string,
+	_ minio.RemoveObjectOptions,
+) error {
+	stub.bucket = bucket
+	stub.key = key
+	return stub.err
+}
+
 func TestCheckRequiresExistingBucket(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -83,5 +94,17 @@ func TestPutStoresObjectInConfiguredBucket(t *testing.T) {
 	}
 	if stub.bucket != "media" || stub.key != "demo/track.wav" || string(stub.data) != "audio" {
 		t.Fatalf("PutObject() = bucket %q, key %q, data %q", stub.bucket, stub.key, stub.data)
+	}
+}
+
+func TestDeleteRemovesObjectFromConfiguredBucket(t *testing.T) {
+	stub := &bucketClientStub{}
+	if err := NewClient(stub, "media").Delete(
+		context.Background(), "creator/source.wav",
+	); err != nil {
+		t.Fatalf("Delete() error = %v", err)
+	}
+	if stub.bucket != "media" || stub.key != "creator/source.wav" {
+		t.Fatalf("RemoveObject() = bucket %q, key %q", stub.bucket, stub.key)
 	}
 }

@@ -9,6 +9,9 @@ import (
 
 	"github.com/bevzick/Infinitune/services/content-service/internal/creator"
 	"github.com/bevzick/Infinitune/services/content-service/internal/identity"
+	"github.com/bevzick/Infinitune/services/content-service/internal/moderation"
+	"github.com/bevzick/Infinitune/services/content-service/internal/release"
+	"github.com/bevzick/Infinitune/services/content-service/internal/rights"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
@@ -33,13 +36,39 @@ type CreatorMembers interface {
 	ChangeRole(context.Context, uuid.UUID, uuid.UUID, uuid.UUID, creator.MemberRole) (creator.Member, error)
 	Remove(context.Context, uuid.UUID, uuid.UUID, uuid.UUID) error
 }
+type TrackRights interface {
+	Set(context.Context, uuid.UUID, rights.SetInput) (rights.Right, error)
+	List(context.Context, uuid.UUID, uuid.UUID) ([]rights.Right, error)
+	Delete(context.Context, uuid.UUID, uuid.UUID) error
+}
+type ReleaseSubmissions interface {
+	Submit(context.Context, uuid.UUID, uuid.UUID) (release.Release, error)
+}
+type ReleaseModeration interface {
+	Review(context.Context, creator.Actor, moderation.Input) (moderation.Review, error)
+}
+type ReleasePublications interface {
+	Publish(context.Context, uuid.UUID, uuid.UUID) (release.Release, error)
+}
+type Releases interface {
+	CreateDraft(context.Context, uuid.UUID, release.CreateDraftInput) (release.Draft, error)
+	ByID(context.Context, uuid.UUID, uuid.UUID) (release.Draft, error)
+	Update(context.Context, uuid.UUID, uuid.UUID, release.UpdateInput) (release.Draft, error)
+	Withdraw(context.Context, uuid.UUID, uuid.UUID) (release.Release, error)
+	Archive(context.Context, uuid.UUID, uuid.UUID) (release.Release, error)
+}
 type Dependencies struct {
-	Database DatabaseCheck
-	Tokens   IdentityVerifier
-	Creators CreatorAccounts
-	Members  CreatorMembers
-	Origins  []string
-	Logger   *slog.Logger
+	Database     DatabaseCheck
+	Tokens       IdentityVerifier
+	Creators     CreatorAccounts
+	Members      CreatorMembers
+	Rights       TrackRights
+	Submissions  ReleaseSubmissions
+	Moderation   ReleaseModeration
+	Publications ReleasePublications
+	Releases     Releases
+	Origins      []string
+	Logger       *slog.Logger
 }
 
 func NewRouter(dependencies Dependencies) http.Handler {
@@ -62,6 +91,19 @@ func NewRouter(dependencies Dependencies) http.Handler {
 	protected.POST("/:creator_id/members", addMember(dependencies.Members, dependencies.Logger))
 	protected.PATCH("/:creator_id/members/:user_id", changeMemberRole(dependencies.Members, dependencies.Logger))
 	protected.DELETE("/:creator_id/members/:user_id", removeMember(dependencies.Members, dependencies.Logger))
+	content := router.Group("/v1")
+	content.Use(authenticate(dependencies.Tokens, dependencies.Logger))
+	content.PUT("/release-tracks/:release_track_id/rights", setTrackRights(dependencies.Rights, dependencies.Logger))
+	content.GET("/release-tracks/:release_track_id/rights", listTrackRights(dependencies.Rights, dependencies.Logger))
+	content.DELETE("/track-rights/:right_id", deleteTrackRights(dependencies.Rights, dependencies.Logger))
+	content.POST("/releases", createRelease(dependencies.Releases, dependencies.Logger))
+	content.GET("/releases/:release_id", getRelease(dependencies.Releases, dependencies.Logger))
+	content.PUT("/releases/:release_id", updateRelease(dependencies.Releases, dependencies.Logger))
+	content.POST("/releases/:release_id/withdrawals", withdrawRelease(dependencies.Releases, dependencies.Logger))
+	content.DELETE("/releases/:release_id", archiveRelease(dependencies.Releases, dependencies.Logger))
+	content.POST("/releases/:release_id/submissions", submitRelease(dependencies.Submissions, dependencies.Logger))
+	content.POST("/releases/:release_id/moderation-reviews", reviewRelease(dependencies.Moderation, dependencies.Logger))
+	content.POST("/releases/:release_id/publications", publishRelease(dependencies.Publications, dependencies.Logger))
 	return router
 }
 

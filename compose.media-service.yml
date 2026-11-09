@@ -14,6 +14,8 @@ services:
       MEDIA_HTTP_PORT: 8080
       MEDIA_GRPC_HOST: 0.0.0.0
       MEDIA_GRPC_PORT: 9090
+      CONTENT_GRPC_HOST: content-service
+      CONTENT_GRPC_PORT: 9090
       MEDIA_AUTH_JWKS_URL: ${MEDIA_AUTH_JWKS_URL:-http://auth-service:8080/v1/auth/jwks}
       MEDIA_ALLOWED_ORIGINS: ${MEDIA_ALLOWED_ORIGINS:-http://localhost:5173}
       AUTH_JWT_ISSUER: ${AUTH_JWT_ISSUER:-infinitune-auth}

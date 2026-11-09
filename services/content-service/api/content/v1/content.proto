@@ -6,6 +6,9 @@ option go_package = "github.com/bevzick/Infinitune/services/content-service/api/
 
 service ContentService {
   rpc CheckPermission(CheckPermissionRequest) returns (CheckPermissionResponse);
+  rpc GetUploadSession(GetUploadSessionRequest) returns (UploadSession);
+  rpc TransitionUpload(TransitionUploadRequest) returns (UploadSession);
+  rpc CheckTrackPlayback(CheckTrackPlaybackRequest) returns (CheckTrackPlaybackResponse);
 }
 
 message CheckPermissionRequest {
@@ -18,4 +21,33 @@ message CheckPermissionResponse {
   bool allowed = 1;
   string member_role = 2;
   string verification_status = 3;
+}
+
+message GetUploadSessionRequest {
+  string upload_id = 1;
+  string user_id = 2;
+}
+
+message TransitionUploadRequest {
+  string upload_id = 1;
+  string target_status = 2;
+}
+
+message UploadSession {
+  string id = 1;
+  string release_track_id = 2;
+  string requested_by_user_id = 3;
+  string object_key = 4;
+  string original_name = 5;
+  string mime_type = 6;
+  int64 size_bytes = 7;
+  string status = 8;
+}
+
+message CheckTrackPlaybackRequest {
+  string release_track_id = 1;
+}
+
+message CheckTrackPlaybackResponse {
+  bool allowed = 1;
 }

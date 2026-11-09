@@ -14,6 +14,27 @@ type storeStub struct {
 	calls int
 }
 
+type authorizerStub struct {
+	allowed bool
+	err     error
+	trackID uuid.UUID
+	calls   int
+}
+
+func (stub *authorizerStub) CanStream(
+	_ context.Context,
+	trackID uuid.UUID,
+) (bool, error) {
+	stub.calls++
+	stub.trackID = trackID
+	return stub.allowed, stub.err
+}
+
+func (stub *storeStub) AssetBySourceUpload(context.Context, uuid.UUID) (Asset, error) {
+	stub.calls++
+	return stub.asset, stub.err
+}
+
 func (stub *storeStub) AssetByID(context.Context, uuid.UUID) (Asset, error) {
 	stub.calls++
 	return stub.asset, stub.err
@@ -21,22 +42,35 @@ func (stub *storeStub) AssetByID(context.Context, uuid.UUID) (Asset, error) {
 
 func TestServiceRejectsNilAssetID(t *testing.T) {
 	store := &storeStub{}
-	_, err := NewService(store).Asset(context.Background(), uuid.Nil)
+	_, err := NewService(store, nil).Asset(context.Background(), uuid.Nil)
 	if !errors.Is(err, ErrInvalid) || store.calls != 0 {
 		t.Fatalf("Asset() error = %v, calls = %d", err, store.calls)
+	}
+}
+
+func TestServiceLoadsAssetByUpload(t *testing.T) {
+	uploadID := uuid.New()
+	store := &storeStub{asset: Asset{ID: uuid.New(), SourceUploadID: uploadID}}
+	asset, err := NewService(store, nil).AssetByUpload(context.Background(), uploadID)
+	if err != nil || asset.SourceUploadID != uploadID || store.calls != 1 {
+		t.Fatalf("AssetByUpload() = %+v, %v, calls %d", asset, err, store.calls)
+	}
+	_, err = NewService(store, nil).AssetByUpload(context.Background(), uuid.Nil)
+	if !errors.Is(err, ErrInvalid) || store.calls != 1 {
+		t.Fatalf("AssetByUpload(nil) error = %v, calls %d", err, store.calls)
 	}
 }
 
 func TestServiceReturnsOnlyReadyAssetForPlayback(t *testing.T) {
 	id := uuid.New()
 	ready := &storeStub{asset: Asset{ID: id, Status: StatusReady}}
-	asset, err := NewService(ready).ReadyAsset(context.Background(), id)
+	asset, err := NewService(ready, nil).ReadyAsset(context.Background(), id)
 	if err != nil || asset.ID != id {
 		t.Fatalf("ReadyAsset() = %+v, %v", asset, err)
 	}
 
 	notReady := &storeStub{asset: Asset{ID: id, Status: StatusProcessing}}
-	_, err = NewService(notReady).ReadyAsset(context.Background(), id)
+	_, err = NewService(notReady, nil).ReadyAsset(context.Background(), id)
 	if !errors.Is(err, ErrNotReady) {
 		t.Fatalf("ReadyAsset() error = %v, want %v", err, ErrNotReady)
 	}
@@ -44,7 +78,7 @@ func TestServiceReturnsOnlyReadyAssetForPlayback(t *testing.T) {
 
 func TestServicePreservesMissingAssetError(t *testing.T) {
 	store := &storeStub{err: ErrNotFound}
-	_, err := NewService(store).ReadyAsset(context.Background(), uuid.New())
+	_, err := NewService(store, nil).ReadyAsset(context.Background(), uuid.New())
 	if !errors.Is(err, ErrNotFound) {
 		t.Fatalf("ReadyAsset() error = %v, want %v", err, ErrNotFound)
 	}
@@ -52,24 +86,76 @@ func TestServicePreservesMissingAssetError(t *testing.T) {
 
 func TestServiceSelectsHighestBitratePlaybackVariant(t *testing.T) {
 	id := uuid.New()
+	contentTrackID := uuid.New()
 	store := &storeStub{asset: Asset{
-		ID: id, Status: StatusReady,
+		ID: id, ContentTrackID: contentTrackID, Status: StatusReady,
 		Variants: []AudioVariant{
 			{ID: uuid.New(), BitrateKbps: 128},
 			{ID: uuid.New(), BitrateKbps: 320},
 			{ID: uuid.New(), BitrateKbps: 256},
 		},
 	}}
-	_, variant, err := NewService(store).PlaybackVariant(context.Background(), id)
-	if err != nil || variant.BitrateKbps != 320 {
-		t.Fatalf("PlaybackVariant() = %+v, %v", variant, err)
+	authorizer := &authorizerStub{allowed: true}
+	_, variant, err := NewService(store, authorizer).PlaybackVariant(context.Background(), id)
+	if err != nil || variant.BitrateKbps != 320 || authorizer.trackID != contentTrackID {
+		t.Fatalf("PlaybackVariant() = %+v, %v; authorizer = %+v", variant, err, authorizer)
 	}
 }
 
 func TestServiceRejectsReadyAssetWithoutVariant(t *testing.T) {
-	store := &storeStub{asset: Asset{ID: uuid.New(), Status: StatusReady}}
-	_, _, err := NewService(store).PlaybackVariant(context.Background(), store.asset.ID)
+	store := &storeStub{asset: Asset{ID: uuid.New(), TrackID: uuid.New(), Status: StatusReady}}
+	_, _, err := NewService(store, nil).PlaybackVariant(context.Background(), store.asset.ID)
 	if !errors.Is(err, ErrNotReady) {
 		t.Fatalf("PlaybackVariant() error = %v, want %v", err, ErrNotReady)
+	}
+}
+
+func TestServiceHidesUnpublishedContentBeforeReadinessCheck(t *testing.T) {
+	store := &storeStub{asset: Asset{
+		ID: uuid.New(), ContentTrackID: uuid.New(), Status: StatusProcessing,
+	}}
+	_, _, err := NewService(store, &authorizerStub{allowed: false}).PlaybackVariant(
+		context.Background(), store.asset.ID,
+	)
+	if !errors.Is(err, ErrNotPlayable) {
+		t.Fatalf("PlaybackVariant() error = %v, want %v", err, ErrNotPlayable)
+	}
+}
+
+func TestServiceHidesUnpublishedContentAsset(t *testing.T) {
+	trackID := uuid.New()
+	store := &storeStub{asset: Asset{
+		ID: uuid.New(), ContentTrackID: trackID, Status: StatusReady,
+		Variants: []AudioVariant{{ID: uuid.New(), BitrateKbps: 320}},
+	}}
+	authorizer := &authorizerStub{allowed: false}
+	_, _, err := NewService(store, authorizer).PlaybackVariant(
+		context.Background(), store.asset.ID,
+	)
+	if !errors.Is(err, ErrNotPlayable) || authorizer.calls != 1 || authorizer.trackID != trackID {
+		t.Fatalf("PlaybackVariant() error = %v; authorizer = %+v", err, authorizer)
+	}
+}
+
+func TestServiceFailsClosedWhenContentAccessIsUnavailable(t *testing.T) {
+	store := &storeStub{asset: Asset{
+		ID: uuid.New(), ContentTrackID: uuid.New(), Status: StatusReady,
+		Variants: []AudioVariant{{ID: uuid.New(), BitrateKbps: 320}},
+	}}
+	_, _, err := NewService(store, &authorizerStub{err: errors.New("content unavailable")}).
+		PlaybackVariant(context.Background(), store.asset.ID)
+	if !errors.Is(err, ErrAccessUnavailable) {
+		t.Fatalf("PlaybackVariant() error = %v, want %v", err, ErrAccessUnavailable)
+	}
+}
+
+func TestServiceAllowsLegacyCatalogLinkedAsset(t *testing.T) {
+	store := &storeStub{asset: Asset{
+		ID: uuid.New(), TrackID: uuid.New(), Status: StatusReady,
+		Variants: []AudioVariant{{ID: uuid.New(), BitrateKbps: 320}},
+	}}
+	_, _, err := NewService(store, nil).PlaybackVariant(context.Background(), store.asset.ID)
+	if err != nil {
+		t.Fatalf("PlaybackVariant() error = %v", err)
 	}
 }

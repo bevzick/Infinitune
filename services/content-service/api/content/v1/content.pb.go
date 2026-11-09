@@ -141,6 +141,298 @@ func (x *CheckPermissionResponse) GetVerificationStatus() string {
 	return ""
 }
 
+type GetUploadSessionRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	UploadId      string                 `protobuf:"bytes,1,opt,name=upload_id,json=uploadId,proto3" json:"upload_id,omitempty"`
+	UserId        string                 `protobuf:"bytes,2,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetUploadSessionRequest) Reset() {
+	*x = GetUploadSessionRequest{}
+	mi := &file_api_content_v1_content_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetUploadSessionRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetUploadSessionRequest) ProtoMessage() {}
+
+func (x *GetUploadSessionRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_api_content_v1_content_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetUploadSessionRequest.ProtoReflect.Descriptor instead.
+func (*GetUploadSessionRequest) Descriptor() ([]byte, []int) {
+	return file_api_content_v1_content_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *GetUploadSessionRequest) GetUploadId() string {
+	if x != nil {
+		return x.UploadId
+	}
+	return ""
+}
+
+func (x *GetUploadSessionRequest) GetUserId() string {
+	if x != nil {
+		return x.UserId
+	}
+	return ""
+}
+
+type TransitionUploadRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	UploadId      string                 `protobuf:"bytes,1,opt,name=upload_id,json=uploadId,proto3" json:"upload_id,omitempty"`
+	TargetStatus  string                 `protobuf:"bytes,2,opt,name=target_status,json=targetStatus,proto3" json:"target_status,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *TransitionUploadRequest) Reset() {
+	*x = TransitionUploadRequest{}
+	mi := &file_api_content_v1_content_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TransitionUploadRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TransitionUploadRequest) ProtoMessage() {}
+
+func (x *TransitionUploadRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_api_content_v1_content_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TransitionUploadRequest.ProtoReflect.Descriptor instead.
+func (*TransitionUploadRequest) Descriptor() ([]byte, []int) {
+	return file_api_content_v1_content_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *TransitionUploadRequest) GetUploadId() string {
+	if x != nil {
+		return x.UploadId
+	}
+	return ""
+}
+
+func (x *TransitionUploadRequest) GetTargetStatus() string {
+	if x != nil {
+		return x.TargetStatus
+	}
+	return ""
+}
+
+type UploadSession struct {
+	state             protoimpl.MessageState `protogen:"open.v1"`
+	Id                string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	ReleaseTrackId    string                 `protobuf:"bytes,2,opt,name=release_track_id,json=releaseTrackId,proto3" json:"release_track_id,omitempty"`
+	RequestedByUserId string                 `protobuf:"bytes,3,opt,name=requested_by_user_id,json=requestedByUserId,proto3" json:"requested_by_user_id,omitempty"`
+	ObjectKey         string                 `protobuf:"bytes,4,opt,name=object_key,json=objectKey,proto3" json:"object_key,omitempty"`
+	OriginalName      string                 `protobuf:"bytes,5,opt,name=original_name,json=originalName,proto3" json:"original_name,omitempty"`
+	MimeType          string                 `protobuf:"bytes,6,opt,name=mime_type,json=mimeType,proto3" json:"mime_type,omitempty"`
+	SizeBytes         int64                  `protobuf:"varint,7,opt,name=size_bytes,json=sizeBytes,proto3" json:"size_bytes,omitempty"`
+	Status            string                 `protobuf:"bytes,8,opt,name=status,proto3" json:"status,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
+}
+
+func (x *UploadSession) Reset() {
+	*x = UploadSession{}
+	mi := &file_api_content_v1_content_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UploadSession) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UploadSession) ProtoMessage() {}
+
+func (x *UploadSession) ProtoReflect() protoreflect.Message {
+	mi := &file_api_content_v1_content_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UploadSession.ProtoReflect.Descriptor instead.
+func (*UploadSession) Descriptor() ([]byte, []int) {
+	return file_api_content_v1_content_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *UploadSession) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *UploadSession) GetReleaseTrackId() string {
+	if x != nil {
+		return x.ReleaseTrackId
+	}
+	return ""
+}
+
+func (x *UploadSession) GetRequestedByUserId() string {
+	if x != nil {
+		return x.RequestedByUserId
+	}
+	return ""
+}
+
+func (x *UploadSession) GetObjectKey() string {
+	if x != nil {
+		return x.ObjectKey
+	}
+	return ""
+}
+
+func (x *UploadSession) GetOriginalName() string {
+	if x != nil {
+		return x.OriginalName
+	}
+	return ""
+}
+
+func (x *UploadSession) GetMimeType() string {
+	if x != nil {
+		return x.MimeType
+	}
+	return ""
+}
+
+func (x *UploadSession) GetSizeBytes() int64 {
+	if x != nil {
+		return x.SizeBytes
+	}
+	return 0
+}
+
+func (x *UploadSession) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
+
+type CheckTrackPlaybackRequest struct {
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	ReleaseTrackId string                 `protobuf:"bytes,1,opt,name=release_track_id,json=releaseTrackId,proto3" json:"release_track_id,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *CheckTrackPlaybackRequest) Reset() {
+	*x = CheckTrackPlaybackRequest{}
+	mi := &file_api_content_v1_content_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CheckTrackPlaybackRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CheckTrackPlaybackRequest) ProtoMessage() {}
+
+func (x *CheckTrackPlaybackRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_api_content_v1_content_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CheckTrackPlaybackRequest.ProtoReflect.Descriptor instead.
+func (*CheckTrackPlaybackRequest) Descriptor() ([]byte, []int) {
+	return file_api_content_v1_content_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *CheckTrackPlaybackRequest) GetReleaseTrackId() string {
+	if x != nil {
+		return x.ReleaseTrackId
+	}
+	return ""
+}
+
+type CheckTrackPlaybackResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Allowed       bool                   `protobuf:"varint,1,opt,name=allowed,proto3" json:"allowed,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CheckTrackPlaybackResponse) Reset() {
+	*x = CheckTrackPlaybackResponse{}
+	mi := &file_api_content_v1_content_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CheckTrackPlaybackResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CheckTrackPlaybackResponse) ProtoMessage() {}
+
+func (x *CheckTrackPlaybackResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_api_content_v1_content_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CheckTrackPlaybackResponse.ProtoReflect.Descriptor instead.
+func (*CheckTrackPlaybackResponse) Descriptor() ([]byte, []int) {
+	return file_api_content_v1_content_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *CheckTrackPlaybackResponse) GetAllowed() bool {
+	if x != nil {
+		return x.Allowed
+	}
+	return false
+}
+
 var File_api_content_v1_content_proto protoreflect.FileDescriptor
 
 const file_api_content_v1_content_proto_rawDesc = "" +
@@ -157,9 +449,33 @@ const file_api_content_v1_content_proto_rawDesc = "" +
 	"\aallowed\x18\x01 \x01(\bR\aallowed\x12\x1f\n" +
 	"\vmember_role\x18\x02 \x01(\tR\n" +
 	"memberRole\x12/\n" +
-	"\x13verification_status\x18\x03 \x01(\tR\x12verificationStatus2\x82\x01\n" +
+	"\x13verification_status\x18\x03 \x01(\tR\x12verificationStatus\"O\n" +
+	"\x17GetUploadSessionRequest\x12\x1b\n" +
+	"\tupload_id\x18\x01 \x01(\tR\buploadId\x12\x17\n" +
+	"\auser_id\x18\x02 \x01(\tR\x06userId\"[\n" +
+	"\x17TransitionUploadRequest\x12\x1b\n" +
+	"\tupload_id\x18\x01 \x01(\tR\buploadId\x12#\n" +
+	"\rtarget_status\x18\x02 \x01(\tR\ftargetStatus\"\x92\x02\n" +
+	"\rUploadSession\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12(\n" +
+	"\x10release_track_id\x18\x02 \x01(\tR\x0ereleaseTrackId\x12/\n" +
+	"\x14requested_by_user_id\x18\x03 \x01(\tR\x11requestedByUserId\x12\x1d\n" +
+	"\n" +
+	"object_key\x18\x04 \x01(\tR\tobjectKey\x12#\n" +
+	"\roriginal_name\x18\x05 \x01(\tR\foriginalName\x12\x1b\n" +
+	"\tmime_type\x18\x06 \x01(\tR\bmimeType\x12\x1d\n" +
+	"\n" +
+	"size_bytes\x18\a \x01(\x03R\tsizeBytes\x12\x16\n" +
+	"\x06status\x18\b \x01(\tR\x06status\"E\n" +
+	"\x19CheckTrackPlaybackRequest\x12(\n" +
+	"\x10release_track_id\x18\x01 \x01(\tR\x0ereleaseTrackId\"6\n" +
+	"\x1aCheckTrackPlaybackResponse\x12\x18\n" +
+	"\aallowed\x18\x01 \x01(\bR\aallowed2\xd1\x03\n" +
 	"\x0eContentService\x12p\n" +
-	"\x0fCheckPermission\x12-.infinitune.content.v1.CheckPermissionRequest\x1a..infinitune.content.v1.CheckPermissionResponseBQZOgithub.com/bevzick/Infinitune/services/content-service/api/content/v1;contentv1b\x06proto3"
+	"\x0fCheckPermission\x12-.infinitune.content.v1.CheckPermissionRequest\x1a..infinitune.content.v1.CheckPermissionResponse\x12h\n" +
+	"\x10GetUploadSession\x12..infinitune.content.v1.GetUploadSessionRequest\x1a$.infinitune.content.v1.UploadSession\x12h\n" +
+	"\x10TransitionUpload\x12..infinitune.content.v1.TransitionUploadRequest\x1a$.infinitune.content.v1.UploadSession\x12y\n" +
+	"\x12CheckTrackPlayback\x120.infinitune.content.v1.CheckTrackPlaybackRequest\x1a1.infinitune.content.v1.CheckTrackPlaybackResponseBQZOgithub.com/bevzick/Infinitune/services/content-service/api/content/v1;contentv1b\x06proto3"
 
 var (
 	file_api_content_v1_content_proto_rawDescOnce sync.Once
@@ -173,16 +489,27 @@ func file_api_content_v1_content_proto_rawDescGZIP() []byte {
 	return file_api_content_v1_content_proto_rawDescData
 }
 
-var file_api_content_v1_content_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
+var file_api_content_v1_content_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
 var file_api_content_v1_content_proto_goTypes = []any{
-	(*CheckPermissionRequest)(nil),  // 0: infinitune.content.v1.CheckPermissionRequest
-	(*CheckPermissionResponse)(nil), // 1: infinitune.content.v1.CheckPermissionResponse
+	(*CheckPermissionRequest)(nil),     // 0: infinitune.content.v1.CheckPermissionRequest
+	(*CheckPermissionResponse)(nil),    // 1: infinitune.content.v1.CheckPermissionResponse
+	(*GetUploadSessionRequest)(nil),    // 2: infinitune.content.v1.GetUploadSessionRequest
+	(*TransitionUploadRequest)(nil),    // 3: infinitune.content.v1.TransitionUploadRequest
+	(*UploadSession)(nil),              // 4: infinitune.content.v1.UploadSession
+	(*CheckTrackPlaybackRequest)(nil),  // 5: infinitune.content.v1.CheckTrackPlaybackRequest
+	(*CheckTrackPlaybackResponse)(nil), // 6: infinitune.content.v1.CheckTrackPlaybackResponse
 }
 var file_api_content_v1_content_proto_depIdxs = []int32{
 	0, // 0: infinitune.content.v1.ContentService.CheckPermission:input_type -> infinitune.content.v1.CheckPermissionRequest
-	1, // 1: infinitune.content.v1.ContentService.CheckPermission:output_type -> infinitune.content.v1.CheckPermissionResponse
-	1, // [1:2] is the sub-list for method output_type
-	0, // [0:1] is the sub-list for method input_type
+	2, // 1: infinitune.content.v1.ContentService.GetUploadSession:input_type -> infinitune.content.v1.GetUploadSessionRequest
+	3, // 2: infinitune.content.v1.ContentService.TransitionUpload:input_type -> infinitune.content.v1.TransitionUploadRequest
+	5, // 3: infinitune.content.v1.ContentService.CheckTrackPlayback:input_type -> infinitune.content.v1.CheckTrackPlaybackRequest
+	1, // 4: infinitune.content.v1.ContentService.CheckPermission:output_type -> infinitune.content.v1.CheckPermissionResponse
+	4, // 5: infinitune.content.v1.ContentService.GetUploadSession:output_type -> infinitune.content.v1.UploadSession
+	4, // 6: infinitune.content.v1.ContentService.TransitionUpload:output_type -> infinitune.content.v1.UploadSession
+	6, // 7: infinitune.content.v1.ContentService.CheckTrackPlayback:output_type -> infinitune.content.v1.CheckTrackPlaybackResponse
+	4, // [4:8] is the sub-list for method output_type
+	0, // [0:4] is the sub-list for method input_type
 	0, // [0:0] is the sub-list for extension type_name
 	0, // [0:0] is the sub-list for extension extendee
 	0, // [0:0] is the sub-list for field type_name
@@ -199,7 +526,7 @@ func file_api_content_v1_content_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_api_content_v1_content_proto_rawDesc), len(file_api_content_v1_content_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   2,
+			NumMessages:   7,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

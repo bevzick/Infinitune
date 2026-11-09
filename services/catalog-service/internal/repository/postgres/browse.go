@@ -10,6 +10,21 @@ import (
 	"github.com/google/uuid"
 )
 
+const activeTrackPredicate = `NOT EXISTS (
+	SELECT 1
+	FROM catalog.publication_tracks AS visibility_track
+	JOIN catalog.publications AS visibility_publication
+	  ON visibility_publication.source_release_id = visibility_track.source_release_id
+	WHERE visibility_track.catalog_track_id = t.id
+	  AND visibility_publication.archived_at IS NOT NULL
+)`
+
+const activeAlbumPredicate = `NOT EXISTS (
+	SELECT 1 FROM catalog.publications AS visibility_publication
+	WHERE visibility_publication.album_id = a.id
+	  AND visibility_publication.archived_at IS NOT NULL
+)`
+
 func (repository *MetadataRepository) ListArtists(
 	ctx context.Context,
 	page metadata.PageRequest,
@@ -49,13 +64,15 @@ func (repository *MetadataRepository) ListAlbums(
 	ctx context.Context,
 	page metadata.PageRequest,
 ) (metadata.Page[metadata.Album], error) {
-	total, err := repository.count(ctx, `SELECT count(*) FROM catalog.albums`)
+	total, err := repository.count(ctx, `
+		SELECT count(*) FROM catalog.albums AS a WHERE `+activeAlbumPredicate)
 	if err != nil {
 		return metadata.Page[metadata.Album]{}, fmt.Errorf("count albums: %w", err)
 	}
 	rows, err := repository.database.Query(ctx, `
 		SELECT id, title, album_type, release_date, cover_url, created_at, updated_at
-		FROM catalog.albums
+		FROM catalog.albums AS a
+		WHERE `+activeAlbumPredicate+`
 		ORDER BY release_date DESC, lower(title), id
 		LIMIT $1 OFFSET $2
 	`, page.Limit, page.Offset)
@@ -113,7 +130,8 @@ func (repository *MetadataRepository) SearchTracks(
 	}
 	filterSQL := `
 		FROM catalog.tracks AS t
-		WHERE ($1::text = '' OR t.title ILIKE ('%' || $1 || '%') ESCAPE '\')
+		WHERE ` + activeTrackPredicate + `
+			AND ($1::text = '' OR t.title ILIKE ('%' || $1 || '%') ESCAPE '\')
 			AND ($2::uuid IS NULL OR EXISTS (
 				SELECT 1 FROM catalog.track_artists AS ta
 				WHERE ta.track_id = t.id AND ta.artist_id = $2

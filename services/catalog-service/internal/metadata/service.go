@@ -20,12 +20,43 @@ type Store interface {
 	SearchTracks(context.Context, TrackQuery) (Page[Track], error)
 	EvaluateTrackFilters(context.Context, DynamicTrackQuery) (Page[Track], error)
 	SaveTrack(context.Context, TrackInput) (Track, error)
+	PublishRelease(context.Context, PublicationInput, string) (Publication, error)
+	ArchiveRelease(context.Context, uuid.UUID) (Archive, error)
 	GenreByID(context.Context, uuid.UUID) (Genre, error)
 	ListGenres(context.Context, PageRequest) (Page[Genre], error)
 	SaveGenre(context.Context, GenreInput) (Genre, error)
 	MoodByID(context.Context, uuid.UUID) (Mood, error)
 	ListMoods(context.Context, PageRequest) (Page[Mood], error)
 	SaveMood(context.Context, MoodInput) (Mood, error)
+}
+
+func (service *Service) ArchivePublishedRelease(
+	ctx context.Context,
+	sourceReleaseID uuid.UUID,
+) (Archive, error) {
+	if err := validateID("source_release_id", sourceReleaseID); err != nil {
+		return Archive{}, err
+	}
+	result, err := service.store.ArchiveRelease(ctx, sourceReleaseID)
+	if err != nil {
+		return Archive{}, fmt.Errorf("archive published release: %w", err)
+	}
+	return result, nil
+}
+
+func (service *Service) PublishApprovedRelease(
+	ctx context.Context,
+	input PublicationInput,
+) (Publication, error) {
+	canonical, fingerprint, err := validatePublication(input)
+	if err != nil {
+		return Publication{}, err
+	}
+	result, err := service.store.PublishRelease(ctx, canonical, fingerprint)
+	if err != nil {
+		return Publication{}, fmt.Errorf("publish approved release: %w", err)
+	}
+	return result, nil
 }
 
 type Service struct {

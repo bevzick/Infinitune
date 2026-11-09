@@ -19,8 +19,9 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	MediaService_GetMediaAsset_FullMethodName      = "/infinitune.media.v1.MediaService/GetMediaAsset"
-	MediaService_GetReadyMediaAsset_FullMethodName = "/infinitune.media.v1.MediaService/GetReadyMediaAsset"
+	MediaService_GetMediaAsset_FullMethodName         = "/infinitune.media.v1.MediaService/GetMediaAsset"
+	MediaService_GetReadyMediaAsset_FullMethodName    = "/infinitune.media.v1.MediaService/GetReadyMediaAsset"
+	MediaService_GetMediaAssetByUpload_FullMethodName = "/infinitune.media.v1.MediaService/GetMediaAssetByUpload"
 )
 
 // MediaServiceClient is the client API for MediaService service.
@@ -31,6 +32,8 @@ type MediaServiceClient interface {
 	GetMediaAsset(ctx context.Context, in *GetMediaAssetRequest, opts ...grpc.CallOption) (*MediaAsset, error)
 	// Returns metadata only when the asset is ready for playback.
 	GetReadyMediaAsset(ctx context.Context, in *GetReadyMediaAssetRequest, opts ...grpc.CallOption) (*MediaAsset, error)
+	// Returns metadata for the asset created from a Content upload session.
+	GetMediaAssetByUpload(ctx context.Context, in *GetMediaAssetByUploadRequest, opts ...grpc.CallOption) (*MediaAsset, error)
 }
 
 type mediaServiceClient struct {
@@ -61,6 +64,16 @@ func (c *mediaServiceClient) GetReadyMediaAsset(ctx context.Context, in *GetRead
 	return out, nil
 }
 
+func (c *mediaServiceClient) GetMediaAssetByUpload(ctx context.Context, in *GetMediaAssetByUploadRequest, opts ...grpc.CallOption) (*MediaAsset, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(MediaAsset)
+	err := c.cc.Invoke(ctx, MediaService_GetMediaAssetByUpload_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // MediaServiceServer is the server API for MediaService service.
 // All implementations must embed UnimplementedMediaServiceServer
 // for forward compatibility.
@@ -69,6 +82,8 @@ type MediaServiceServer interface {
 	GetMediaAsset(context.Context, *GetMediaAssetRequest) (*MediaAsset, error)
 	// Returns metadata only when the asset is ready for playback.
 	GetReadyMediaAsset(context.Context, *GetReadyMediaAssetRequest) (*MediaAsset, error)
+	// Returns metadata for the asset created from a Content upload session.
+	GetMediaAssetByUpload(context.Context, *GetMediaAssetByUploadRequest) (*MediaAsset, error)
 	mustEmbedUnimplementedMediaServiceServer()
 }
 
@@ -84,6 +99,9 @@ func (UnimplementedMediaServiceServer) GetMediaAsset(context.Context, *GetMediaA
 }
 func (UnimplementedMediaServiceServer) GetReadyMediaAsset(context.Context, *GetReadyMediaAssetRequest) (*MediaAsset, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetReadyMediaAsset not implemented")
+}
+func (UnimplementedMediaServiceServer) GetMediaAssetByUpload(context.Context, *GetMediaAssetByUploadRequest) (*MediaAsset, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetMediaAssetByUpload not implemented")
 }
 func (UnimplementedMediaServiceServer) mustEmbedUnimplementedMediaServiceServer() {}
 func (UnimplementedMediaServiceServer) testEmbeddedByValue()                      {}
@@ -142,6 +160,24 @@ func _MediaService_GetReadyMediaAsset_Handler(srv interface{}, ctx context.Conte
 	return interceptor(ctx, in, info, handler)
 }
 
+func _MediaService_GetMediaAssetByUpload_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetMediaAssetByUploadRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MediaServiceServer).GetMediaAssetByUpload(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MediaService_GetMediaAssetByUpload_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MediaServiceServer).GetMediaAssetByUpload(ctx, req.(*GetMediaAssetByUploadRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // MediaService_ServiceDesc is the grpc.ServiceDesc for MediaService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -156,6 +192,10 @@ var MediaService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetReadyMediaAsset",
 			Handler:    _MediaService_GetReadyMediaAsset_Handler,
+		},
+		{
+			MethodName: "GetMediaAssetByUpload",
+			Handler:    _MediaService_GetMediaAssetByUpload_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

@@ -13,15 +13,26 @@ import (
 	"syscall"
 	"time"
 
+	catalogv1 "github.com/bevzick/Infinitune/services/content-service/api/catalog/v1"
 	contentv1 "github.com/bevzick/Infinitune/services/content-service/api/content/v1"
+	mediav1 "github.com/bevzick/Infinitune/services/content-service/api/media/v1"
 	userv1 "github.com/bevzick/Infinitune/services/content-service/api/user/v1"
+	content_catalog "github.com/bevzick/Infinitune/services/content-service/internal/catalog"
 	"github.com/bevzick/Infinitune/services/content-service/internal/config"
 	"github.com/bevzick/Infinitune/services/content-service/internal/creator"
 	"github.com/bevzick/Infinitune/services/content-service/internal/database"
 	"github.com/bevzick/Infinitune/services/content-service/internal/grpcapi"
 	"github.com/bevzick/Infinitune/services/content-service/internal/httpapi"
 	"github.com/bevzick/Infinitune/services/content-service/internal/identity"
+	content_media "github.com/bevzick/Infinitune/services/content-service/internal/media"
+	"github.com/bevzick/Infinitune/services/content-service/internal/moderation"
+	"github.com/bevzick/Infinitune/services/content-service/internal/playback"
+	"github.com/bevzick/Infinitune/services/content-service/internal/publication"
+	"github.com/bevzick/Infinitune/services/content-service/internal/release"
 	postgres_repository "github.com/bevzick/Infinitune/services/content-service/internal/repository/postgres"
+	"github.com/bevzick/Infinitune/services/content-service/internal/rights"
+	"github.com/bevzick/Infinitune/services/content-service/internal/submission"
+	"github.com/bevzick/Infinitune/services/content-service/internal/upload"
 	"github.com/bevzick/Infinitune/services/content-service/internal/user"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -70,15 +81,61 @@ func main() {
 		os.Exit(1)
 	}
 	defer userConnection.Close()
+	mediaConnection, err := grpc.NewClient(
+		cfg.MediaAddress, grpc.WithTransportCredentials(insecure.NewCredentials()),
+	)
+	if err != nil {
+		logger.Error("failed to initialize media service client", "error", err)
+		os.Exit(1)
+	}
+	defer mediaConnection.Close()
+	catalogConnection, err := grpc.NewClient(
+		cfg.CatalogAddress, grpc.WithTransportCredentials(insecure.NewCredentials()),
+	)
+	if err != nil {
+		logger.Error("failed to initialize catalog service client", "error", err)
+		os.Exit(1)
+	}
+	defer catalogConnection.Close()
 	memberService := creator.NewMemberService(repository,
 		user.NewDirectory(userv1.NewUserServiceClient(userConnection)))
 	accessService := creator.NewAccessService(repository)
+	rightsService := rights.NewService(
+		postgres_repository.NewRightsRepository(databasePool), accessService,
+	)
+	submissionService := submission.NewService(
+		postgres_repository.NewSubmissionRepository(databasePool), accessService,
+		content_media.NewClient(mediav1.NewMediaServiceClient(mediaConnection)),
+	)
+	moderationService := moderation.NewService(
+		postgres_repository.NewModerationRepository(databasePool),
+	)
+	catalogClient := content_catalog.NewClient(catalogv1.NewCatalogServiceClient(catalogConnection))
+	publicationService := publication.NewService(
+		postgres_repository.NewPublicationRepository(databasePool), accessService,
+		content_media.NewClient(mediav1.NewMediaServiceClient(mediaConnection)),
+		catalogClient,
+	)
+	releaseService := release.NewService(
+		postgres_repository.NewReleaseRepository(databasePool), memberService, catalogClient,
+	)
+	uploadService := upload.NewService(
+		postgres_repository.NewUploadRepository(databasePool), memberService,
+	)
+	playbackService := playback.NewService(
+		postgres_repository.NewPlaybackRepository(databasePool),
+	)
 
 	httpServer := &http.Server{
 		Addr: cfg.HTTPAddress,
 		Handler: httpapi.NewRouter(httpapi.Dependencies{
 			Database: databasePool, Tokens: tokenVerifier, Creators: creatorService,
-			Members: memberService, Origins: cfg.Origins, Logger: logger,
+			Members: memberService, Rights: rightsService,
+			Submissions:  submissionService,
+			Moderation:   moderationService,
+			Publications: publicationService,
+			Releases:     releaseService,
+			Origins:      cfg.Origins, Logger: logger,
 		}),
 		ReadHeaderTimeout: readHeaderTimeout,
 	}
@@ -88,7 +145,9 @@ func main() {
 		os.Exit(1)
 	}
 	grpcServer := grpc.NewServer()
-	contentv1.RegisterContentServiceServer(grpcServer, grpcapi.NewContentServer(accessService))
+	contentv1.RegisterContentServiceServer(
+		grpcServer, grpcapi.NewContentServer(accessService, uploadService, playbackService),
+	)
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	serverErrors := make(chan error, 2)

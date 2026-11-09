@@ -92,6 +92,10 @@ func writePlaybackError(c *gin.Context, err error) {
 		writeError(c, http.StatusNotFound, "media_not_found", "Media asset was not found")
 	case errors.Is(err, media.ErrNotReady):
 		writeError(c, http.StatusConflict, "media_not_ready", "Media asset is not ready for playback")
+	case errors.Is(err, media.ErrNotPlayable):
+		writeError(c, http.StatusNotFound, "media_not_found", "Media asset was not found")
+	case errors.Is(err, media.ErrAccessUnavailable):
+		writeError(c, http.StatusServiceUnavailable, "playback_access_unavailable", "Playback access is temporarily unavailable")
 	case errors.Is(err, storage.ErrObjectNotFound):
 		writeError(c, http.StatusServiceUnavailable, "media_unavailable", "Media is temporarily unavailable")
 	default:

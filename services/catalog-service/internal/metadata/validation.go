@@ -1,6 +1,9 @@
 package metadata
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"math"
 	"net/url"
@@ -17,6 +20,87 @@ var slugPattern = regexp.MustCompile(`^[a-z0-9]+(?:-[a-z0-9]+)*$`)
 const maximumPageSize = 100
 
 const maximumTrackIDBatchSize = 100
+
+const maximumPublicationTracks = 500
+
+func validatePublication(input PublicationInput) (PublicationInput, string, error) {
+	if err := validateID("source_release_id", input.SourceReleaseID); err != nil {
+		return PublicationInput{}, "", err
+	}
+	artist, err := validateArtist(input.Artist)
+	if err != nil {
+		return PublicationInput{}, "", err
+	}
+	input.Artist = artist
+	if len(input.Tracks) == 0 || len(input.Tracks) > maximumPublicationTracks {
+		return PublicationInput{}, "", validationError("tracks", "must contain from 1 to 500 tracks")
+	}
+	var albumID *uuid.UUID
+	if input.Album != nil {
+		album, albumErr := validateAlbum(*input.Album)
+		if albumErr != nil {
+			return PublicationInput{}, "", albumErr
+		}
+		if len(album.Artists) != 1 || album.Artists[0].ArtistID != artist.ID ||
+			album.Artists[0].Position != 1 {
+			return PublicationInput{}, "", validationError("album.artists", "must contain the publishing artist at position 1")
+		}
+		input.Album = &album
+		albumID = &album.ID
+	}
+	trackIDs := make(map[uuid.UUID]struct{}, len(input.Tracks))
+	contentIDs := make(map[uuid.UUID]struct{}, len(input.Tracks))
+	mediaIDs := make(map[uuid.UUID]struct{}, len(input.Tracks))
+	tracks := make([]TrackInput, 0, len(input.Tracks))
+	for index, track := range input.Tracks {
+		canonical, trackErr := validateTrack(track)
+		if trackErr != nil {
+			return PublicationInput{}, "", fmt.Errorf("tracks[%d]: %w", index, trackErr)
+		}
+		if !sameOptionalUUID(canonical.AlbumID, albumID) {
+			return PublicationInput{}, "", validationError(
+				fmt.Sprintf("tracks[%d].album_id", index), "must match the published album",
+			)
+		}
+		if len(canonical.Artists) != 1 || canonical.Artists[0].ArtistID != artist.ID ||
+			canonical.Artists[0].Role != ArtistRolePrimary || canonical.Artists[0].Position != 1 {
+			return PublicationInput{}, "", validationError(
+				fmt.Sprintf("tracks[%d].artists", index), "must contain the publishing artist as primary",
+			)
+		}
+		for _, unique := range []struct {
+			field string
+			id    uuid.UUID
+			seen  map[uuid.UUID]struct{}
+		}{
+			{field: "id", id: canonical.ID, seen: trackIDs},
+			{field: "content_id", id: canonical.ContentID, seen: contentIDs},
+			{field: "media_asset_id", id: canonical.MediaAssetID, seen: mediaIDs},
+		} {
+			if _, exists := unique.seen[unique.id]; exists {
+				return PublicationInput{}, "", validationError(
+					fmt.Sprintf("tracks[%d].%s", index, unique.field), "must not be duplicated",
+				)
+			}
+			unique.seen[unique.id] = struct{}{}
+		}
+		tracks = append(tracks, canonical)
+	}
+	input.Tracks = tracks
+	encoded, err := json.Marshal(input)
+	if err != nil {
+		return PublicationInput{}, "", fmt.Errorf("encode publication fingerprint: %w", err)
+	}
+	digest := sha256.Sum256(encoded)
+	return input, hex.EncodeToString(digest[:]), nil
+}
+
+func sameOptionalUUID(left, right *uuid.UUID) bool {
+	if left == nil || right == nil {
+		return left == nil && right == nil
+	}
+	return *left == *right
+}
 
 func validatePage(page PageRequest) error {
 	if page.Limit < 1 || page.Limit > maximumPageSize {

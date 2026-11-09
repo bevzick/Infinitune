@@ -97,6 +97,17 @@ func TestMediaSchemaConstraints(t *testing.T) {
 			},
 		},
 		{
+			name: "asset without track reference",
+			run: func(ctx context.Context, tx pgx.Tx) error {
+				_, err := tx.Exec(ctx, `
+					INSERT INTO media.media_assets (
+						id, source_upload_id, original_object_key, original_filename
+					) VALUES ($1, $2, $3, 'demo.wav')
+				`, uuid.New(), uuid.New(), "original/"+uuid.NewString())
+				return err
+			},
+		},
+		{
 			name: "variant references missing asset",
 			run: func(ctx context.Context, tx pgx.Tx) error {
 				_, err := tx.Exec(ctx, `

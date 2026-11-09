@@ -26,6 +26,10 @@ func (stub metadataStub) ReadyAsset(context.Context, uuid.UUID) (media.Asset, er
 	return stub.asset, stub.err
 }
 
+func (stub metadataStub) AssetByUpload(context.Context, uuid.UUID) (media.Asset, error) {
+	return stub.asset, stub.err
+}
+
 func TestGetMediaAssetMapsMetadata(t *testing.T) {
 	id := uuid.New()
 	trackID := uuid.New()
@@ -76,5 +80,26 @@ func TestMediaServerReturnsControlledErrors(t *testing.T) {
 				t.Fatalf("GetReadyMediaAsset() code = %v, want %v", status.Code(err), test.want)
 			}
 		})
+	}
+}
+
+func TestGetMediaAssetByUploadReturnsMatchingAsset(t *testing.T) {
+	uploadID, trackID := uuid.New(), uuid.New()
+	response, err := NewMediaServer(metadataStub{asset: media.Asset{
+		ID: uuid.New(), SourceUploadID: uploadID, ContentTrackID: trackID,
+		Status: media.StatusReady,
+	}}).GetMediaAssetByUpload(context.Background(), &mediav1.GetMediaAssetByUploadRequest{
+		UploadId: uploadID.String(),
+	})
+	if err != nil || response.GetSourceUploadId() != uploadID.String() ||
+		response.GetContentTrackId() != trackID.String() ||
+		response.GetStatus() != mediav1.MediaStatus_MEDIA_STATUS_READY {
+		t.Fatalf("GetMediaAssetByUpload() = %+v, %v", response, err)
+	}
+	_, err = NewMediaServer(metadataStub{}).GetMediaAssetByUpload(
+		context.Background(), &mediav1.GetMediaAssetByUploadRequest{UploadId: "invalid"},
+	)
+	if status.Code(err) != codes.InvalidArgument {
+		t.Fatalf("GetMediaAssetByUpload(invalid) code = %v", status.Code(err))
 	}
 }
