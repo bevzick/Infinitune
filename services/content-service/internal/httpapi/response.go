@@ -8,6 +8,7 @@ import (
 	"net/http"
 
 	"github.com/bevzick/Infinitune/services/content-service/internal/creator"
+	"github.com/bevzick/Infinitune/services/content-service/internal/moderation"
 	"github.com/bevzick/Infinitune/services/content-service/internal/rights"
 	"github.com/bevzick/Infinitune/services/content-service/internal/submission"
 	"github.com/gin-gonic/gin"
@@ -40,6 +41,16 @@ func decodeJSON(c *gin.Context, destination any) error {
 }
 func writeDomainError(c *gin.Context, logger *slog.Logger, err error) {
 	switch {
+	case errors.Is(err, moderation.ErrInvalid):
+		writeError(c, http.StatusUnprocessableEntity, "invalid_moderation_review", err.Error())
+	case errors.Is(err, moderation.ErrNotFound):
+		writeError(c, http.StatusNotFound, "release_not_found", "Release was not found")
+	case errors.Is(err, moderation.ErrForbidden):
+		writeError(c, http.StatusForbidden, "moderator_role_required", "Moderator role is required")
+	case errors.Is(err, moderation.ErrSelfReview):
+		writeError(c, http.StatusForbidden, "self_review_forbidden", "Creator members cannot review their own release")
+	case errors.Is(err, moderation.ErrConflict):
+		writeError(c, http.StatusConflict, "moderation_review_conflict", "Release submission is already reviewed or unavailable")
 	case errors.Is(err, creator.ErrInvalid):
 		writeError(c, http.StatusUnprocessableEntity, "invalid_creator", err.Error())
 	case errors.Is(err, creator.ErrForbidden):

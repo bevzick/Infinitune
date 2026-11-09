@@ -67,7 +67,9 @@ func (service *Service) CreateSession(
 	if !errors.Is(err, ErrNotFound) {
 		return Session{}, fmt.Errorf("find idempotent upload session: %w", err)
 	}
-	if target.ReleaseStatus != release.StatusDraft {
+	if target.ReleaseStatus != release.StatusDraft &&
+		target.ReleaseStatus != release.StatusRejected &&
+		target.ReleaseStatus != release.StatusChangesRequested {
 		return Session{}, ErrReleaseLocked
 	}
 	uploadID := uuid.New()

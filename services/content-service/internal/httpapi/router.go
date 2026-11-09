@@ -9,6 +9,7 @@ import (
 
 	"github.com/bevzick/Infinitune/services/content-service/internal/creator"
 	"github.com/bevzick/Infinitune/services/content-service/internal/identity"
+	"github.com/bevzick/Infinitune/services/content-service/internal/moderation"
 	"github.com/bevzick/Infinitune/services/content-service/internal/release"
 	"github.com/bevzick/Infinitune/services/content-service/internal/rights"
 	"github.com/gin-gonic/gin"
@@ -43,6 +44,9 @@ type TrackRights interface {
 type ReleaseSubmissions interface {
 	Submit(context.Context, uuid.UUID, uuid.UUID) (release.Release, error)
 }
+type ReleaseModeration interface {
+	Review(context.Context, creator.Actor, moderation.Input) (moderation.Review, error)
+}
 type Dependencies struct {
 	Database    DatabaseCheck
 	Tokens      IdentityVerifier
@@ -50,6 +54,7 @@ type Dependencies struct {
 	Members     CreatorMembers
 	Rights      TrackRights
 	Submissions ReleaseSubmissions
+	Moderation  ReleaseModeration
 	Origins     []string
 	Logger      *slog.Logger
 }
@@ -80,6 +85,7 @@ func NewRouter(dependencies Dependencies) http.Handler {
 	content.GET("/release-tracks/:release_track_id/rights", listTrackRights(dependencies.Rights, dependencies.Logger))
 	content.DELETE("/track-rights/:right_id", deleteTrackRights(dependencies.Rights, dependencies.Logger))
 	content.POST("/releases/:release_id/submissions", submitRelease(dependencies.Submissions, dependencies.Logger))
+	content.POST("/releases/:release_id/moderation-reviews", reviewRelease(dependencies.Moderation, dependencies.Logger))
 	return router
 }
 

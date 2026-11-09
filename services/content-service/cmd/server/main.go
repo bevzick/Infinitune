@@ -23,6 +23,7 @@ import (
 	"github.com/bevzick/Infinitune/services/content-service/internal/httpapi"
 	"github.com/bevzick/Infinitune/services/content-service/internal/identity"
 	content_media "github.com/bevzick/Infinitune/services/content-service/internal/media"
+	"github.com/bevzick/Infinitune/services/content-service/internal/moderation"
 	postgres_repository "github.com/bevzick/Infinitune/services/content-service/internal/repository/postgres"
 	"github.com/bevzick/Infinitune/services/content-service/internal/rights"
 	"github.com/bevzick/Infinitune/services/content-service/internal/submission"
@@ -93,6 +94,9 @@ func main() {
 		postgres_repository.NewSubmissionRepository(databasePool), accessService,
 		content_media.NewClient(mediav1.NewMediaServiceClient(mediaConnection)),
 	)
+	moderationService := moderation.NewService(
+		postgres_repository.NewModerationRepository(databasePool),
+	)
 	uploadService := upload.NewService(
 		postgres_repository.NewUploadRepository(databasePool), memberService,
 	)
@@ -103,6 +107,7 @@ func main() {
 			Database: databasePool, Tokens: tokenVerifier, Creators: creatorService,
 			Members: memberService, Rights: rightsService,
 			Submissions: submissionService,
+			Moderation:  moderationService,
 			Origins:     cfg.Origins, Logger: logger,
 		}),
 		ReadHeaderTimeout: readHeaderTimeout,

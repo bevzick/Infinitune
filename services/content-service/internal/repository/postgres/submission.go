@@ -104,9 +104,9 @@ func (repository *SubmissionRepository) SubmitRelease(
 	result, err := scanRelease(repository.database.QueryRow(ctx, `
 		UPDATE content.releases AS release
 		SET status = 'pending_review', submitted_at = clock_timestamp(),
-		    updated_at = clock_timestamp()
+		    reviewed_at = NULL, updated_at = clock_timestamp()
 		WHERE release.id = $1
-		  AND release.status IN ('draft', 'rejected')
+		  AND release.status IN ('draft', 'rejected', 'changes_requested')
 		  AND release.cover_object_key IS NOT NULL
 		  AND btrim(release.cover_object_key) <> ''
 		  AND EXISTS (
@@ -162,7 +162,8 @@ func (repository *SubmissionRepository) SubmitRelease(
 	if current.Status == release.StatusPendingReview {
 		return current, nil
 	}
-	if current.Status == release.StatusDraft || current.Status == release.StatusRejected {
+	if current.Status == release.StatusDraft || current.Status == release.StatusRejected ||
+		current.Status == release.StatusChangesRequested {
 		return release.Release{}, submission.ErrNotReady
 	}
 	return release.Release{}, submission.ErrConflict

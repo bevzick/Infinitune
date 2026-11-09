@@ -124,7 +124,7 @@ func TestServiceDeletesMutableTrackRights(t *testing.T) {
 	store := &storeStub{right: RightTarget{
 		Right: Right{ID: rightID},
 		Track: TrackTarget{
-			CreatorID: creatorID, ReleaseStatus: release.StatusRejected,
+			CreatorID: creatorID, ReleaseStatus: release.StatusChangesRequested,
 		},
 	}}
 	access := &accessStub{decision: creator.AccessDecision{

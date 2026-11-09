@@ -58,7 +58,8 @@ func (service *Service) Submit(
 		return candidate.Release, nil
 	}
 	if candidate.Release.Status != release.StatusDraft &&
-		candidate.Release.Status != release.StatusRejected {
+		candidate.Release.Status != release.StatusRejected &&
+		candidate.Release.Status != release.StatusChangesRequested {
 		return release.Release{}, ErrConflict
 	}
 	if candidate.Release.CoverObjectKey == nil ||

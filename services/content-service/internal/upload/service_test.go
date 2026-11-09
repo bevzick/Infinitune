@@ -70,6 +70,23 @@ func TestServiceAcceptsSupportedAudioFormats(t *testing.T) {
 	}
 }
 
+func TestServiceAcceptsCorrectedReleaseUpload(t *testing.T) {
+	trackID := uuid.New()
+	store := &storeStub{target: TrackTarget{
+		TrackID: trackID, ReleaseID: uuid.New(), CreatorID: uuid.New(),
+		ReleaseStatus: release.StatusChangesRequested,
+	}}
+	_, err := NewService(store, &authorizerStub{}).CreateSession(
+		context.Background(), uuid.New(), CreateInput{
+			ReleaseTrackID: trackID, IdempotencyKey: uuid.New(),
+			OriginalName: "corrected.flac", MIMEType: "audio/flac", SizeBytes: 1024,
+		},
+	)
+	if err != nil || store.createCalls != 1 {
+		t.Fatalf("CreateSession() error = %v; create calls = %d", err, store.createCalls)
+	}
+}
+
 func TestServiceRejectsInvalidUploadBeforeLookup(t *testing.T) {
 	trackID := uuid.New()
 	tests := []struct {

@@ -60,6 +60,31 @@ func TestServiceReturnsPendingReviewIdempotently(t *testing.T) {
 	}
 }
 
+func TestServiceResubmitsReleaseAfterRequestedChanges(t *testing.T) {
+	releaseID, trackID, uploadID := uuid.New(), uuid.New(), uuid.New()
+	cover := "corrected-cover.jpg"
+	store := &storeStub{candidate: Candidate{
+		Release: release.Release{
+			ID: releaseID, CreatorID: uuid.New(), Status: release.StatusChangesRequested,
+			CoverObjectKey: &cover,
+		},
+		Tracks: []Track{{
+			ID: trackID, CompletedUploadID: &uploadID,
+			HasWorldwideStreaming: true, HasWorldwideDistribution: true,
+		}},
+	}}
+	mediaAssets := &mediaStub{asset: contentmedia.Asset{
+		ID: uuid.New(), SourceUploadID: uploadID, ContentTrackID: trackID,
+		Status: contentmedia.StatusReady,
+	}}
+	result, err := NewService(store,
+		&accessStub{decision: creator.AccessDecision{Allowed: true}}, mediaAssets,
+	).Submit(context.Background(), uuid.New(), releaseID)
+	if err != nil || result.Status != release.StatusPendingReview || store.submitCalls != 1 {
+		t.Fatalf("Submit() = %+v, %v; calls = %d", result, err, store.submitCalls)
+	}
+}
+
 func TestServiceRejectsIncompleteRelease(t *testing.T) {
 	trackID, uploadID := uuid.New(), uuid.New()
 	cover := "cover.jpg"

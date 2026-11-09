@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/bevzick/Infinitune/services/content-service/internal/creator"
+	"github.com/bevzick/Infinitune/services/content-service/internal/moderation"
 	"github.com/bevzick/Infinitune/services/content-service/internal/release"
 	"github.com/bevzick/Infinitune/services/content-service/internal/rights"
 	"github.com/bevzick/Infinitune/services/content-service/internal/submission"
@@ -114,6 +115,19 @@ func TestSubmissionRepositoryLoadsReadinessAndTransitionsIdempotently(t *testing
 	if err != nil || again.SubmittedAt == nil ||
 		!again.SubmittedAt.Equal(*submitted.SubmittedAt) {
 		t.Fatalf("SubmitRelease(idempotent) = %+v, %v", again, err)
+	}
+	reviewed, err := NewModerationRepository(pool).RecordReview(ctx, moderation.Review{
+		ID: uuid.New(), ReleaseID: releaseID, ReviewerUserID: uuid.New(),
+		Decision: moderation.DecisionChangesRequested, Comment: "replace metadata",
+	})
+	if err != nil || reviewed.ReleaseStatus != release.StatusChangesRequested {
+		t.Fatalf("RecordReview(changes requested) = %+v, %v", reviewed, err)
+	}
+	resubmitted, err := repository.SubmitRelease(ctx, releaseID)
+	if err != nil || resubmitted.Status != release.StatusPendingReview ||
+		resubmitted.SubmittedAt == nil || resubmitted.ReviewedAt != nil ||
+		!resubmitted.SubmittedAt.After(*submitted.SubmittedAt) {
+		t.Fatalf("SubmitRelease(corrected) = %+v, %v", resubmitted, err)
 	}
 	if _, err = pool.Exec(ctx, `
 		UPDATE content.releases SET status = 'approved' WHERE id = $1

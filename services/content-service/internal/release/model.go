@@ -24,13 +24,14 @@ const (
 type Status string
 
 const (
-	StatusDraft         Status = "draft"
-	StatusUploading     Status = "uploading"
-	StatusProcessing    Status = "processing"
-	StatusPendingReview Status = "pending_review"
-	StatusApproved      Status = "approved"
-	StatusRejected      Status = "rejected"
-	StatusPublished     Status = "published"
+	StatusDraft            Status = "draft"
+	StatusUploading        Status = "uploading"
+	StatusProcessing       Status = "processing"
+	StatusPendingReview    Status = "pending_review"
+	StatusApproved         Status = "approved"
+	StatusRejected         Status = "rejected"
+	StatusChangesRequested Status = "changes_requested"
+	StatusPublished        Status = "published"
 )
 
 type Release struct {
@@ -43,6 +44,7 @@ type Release struct {
 	CoverObjectKey *string
 	CatalogAlbumID *uuid.UUID
 	SubmittedAt    *time.Time
+	ReviewedAt     *time.Time
 	CreatedAt      time.Time
 	UpdatedAt      time.Time
 }

@@ -142,7 +142,7 @@ func (service *Service) authorize(
 func rightsMutable(status release.Status) bool {
 	switch status {
 	case release.StatusDraft, release.StatusUploading,
-		release.StatusProcessing, release.StatusRejected:
+		release.StatusProcessing, release.StatusRejected, release.StatusChangesRequested:
 		return true
 	default:
 		return false

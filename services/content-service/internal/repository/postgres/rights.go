@@ -90,7 +90,7 @@ func (repository *RightsRepository) UpsertRight(
 		FROM content.release_tracks AS track
 		JOIN content.releases AS release ON release.id = track.release_id
 		WHERE track.id = $2
-		  AND release.status IN ('draft', 'uploading', 'processing', 'rejected')
+		  AND release.status IN ('draft', 'uploading', 'processing', 'rejected', 'changes_requested')
 		ON CONFLICT (release_track_id, territory_code, rights_type) DO UPDATE
 		SET valid_from = EXCLUDED.valid_from,
 		    valid_until = EXCLUDED.valid_until,
@@ -150,7 +150,7 @@ func (repository *RightsRepository) DeleteRight(
 		WHERE track_right.id = $1
 		  AND track.id = track_right.release_track_id
 		  AND release.id = track.release_id
-		  AND release.status IN ('draft', 'uploading', 'processing', 'rejected')
+		  AND release.status IN ('draft', 'uploading', 'processing', 'rejected', 'changes_requested')
 	`, rightID)
 	if err != nil {
 		return fmt.Errorf("delete track right: %w", err)
