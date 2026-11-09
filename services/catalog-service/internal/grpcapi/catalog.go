@@ -18,10 +18,33 @@ const defaultRequestTimeout = 3 * time.Second
 
 type Catalog interface {
 	PublishApprovedRelease(context.Context, metadata.PublicationInput) (metadata.Publication, error)
+	ArchivePublishedRelease(context.Context, uuid.UUID) (metadata.Archive, error)
 	BatchTracks(context.Context, []uuid.UUID) ([]metadata.Track, error)
 	ValidateTrackIDs(context.Context, []uuid.UUID) (metadata.TrackIDValidation, error)
 	Tracks(context.Context, metadata.TrackQuery) (metadata.Page[metadata.Track], error)
 	EvaluateTrackFilters(context.Context, metadata.DynamicTrackQuery) (metadata.Page[metadata.Track], error)
+}
+
+func (server *CatalogServer) ArchiveRelease(
+	ctx context.Context,
+	request *catalogv1.ArchiveReleaseRequest,
+) (*catalogv1.ArchiveReleaseResponse, error) {
+	if request == nil {
+		return nil, status.Error(codes.InvalidArgument, "request is required")
+	}
+	sourceID, err := requiredUUID(request.GetSourceReleaseId(), "source_release_id")
+	if err != nil {
+		return nil, err
+	}
+	callCtx, cancel := context.WithTimeout(ctx, server.timeout)
+	defer cancel()
+	result, err := server.catalog.ArchivePublishedRelease(callCtx, sourceID)
+	if err != nil {
+		return nil, mapCatalogError(err, "release archival failed")
+	}
+	return &catalogv1.ArchiveReleaseResponse{
+		ArchivedAt: timestamppb.New(result.ArchivedAt),
+	}, nil
 }
 
 func (server *CatalogServer) PublishRelease(

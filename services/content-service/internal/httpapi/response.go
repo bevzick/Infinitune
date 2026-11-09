@@ -10,6 +10,7 @@ import (
 	"github.com/bevzick/Infinitune/services/content-service/internal/creator"
 	"github.com/bevzick/Infinitune/services/content-service/internal/moderation"
 	"github.com/bevzick/Infinitune/services/content-service/internal/publication"
+	"github.com/bevzick/Infinitune/services/content-service/internal/release"
 	"github.com/bevzick/Infinitune/services/content-service/internal/rights"
 	"github.com/bevzick/Infinitune/services/content-service/internal/submission"
 	"github.com/gin-gonic/gin"
@@ -42,6 +43,14 @@ func decodeJSON(c *gin.Context, destination any) error {
 }
 func writeDomainError(c *gin.Context, logger *slog.Logger, err error) {
 	switch {
+	case errors.Is(err, release.ErrInvalid):
+		writeError(c, http.StatusUnprocessableEntity, "invalid_release", err.Error())
+	case errors.Is(err, release.ErrNotFound):
+		writeError(c, http.StatusNotFound, "release_not_found", "Release was not found")
+	case errors.Is(err, release.ErrConflict):
+		writeError(c, http.StatusConflict, "release_lifecycle_conflict", "Release cannot be changed in its current status")
+	case errors.Is(err, release.ErrCatalogUnavailable):
+		writeError(c, http.StatusServiceUnavailable, "catalog_unavailable", "Catalog archival is temporarily unavailable")
 	case errors.Is(err, publication.ErrInvalid):
 		writeError(c, http.StatusUnprocessableEntity, "invalid_release_publication", err.Error())
 	case errors.Is(err, publication.ErrNotFound):

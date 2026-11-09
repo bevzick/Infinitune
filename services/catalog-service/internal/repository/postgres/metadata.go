@@ -150,8 +150,8 @@ func (repository *MetadataRepository) AlbumByID(
 	var result metadata.Album
 	err := repository.database.QueryRow(ctx, `
 		SELECT id, title, album_type, release_date, cover_url, created_at, updated_at
-		FROM catalog.albums
-		WHERE id = $1
+		FROM catalog.albums AS a
+		WHERE id = $1 AND `+activeAlbumPredicate+`
 	`, id).Scan(
 		&result.ID,
 		&result.Title,
@@ -230,8 +230,8 @@ func (repository *MetadataRepository) TrackByID(
 		SELECT
 			id, album_id, title, duration_ms, track_number, disc_number, explicit,
 			release_date, media_asset_id, content_id, created_at, updated_at
-		FROM catalog.tracks
-		WHERE id = $1
+		FROM catalog.tracks AS t
+		WHERE id = $1 AND `+activeTrackPredicate+`
 	`, id).Scan(
 		&result.ID,
 		&result.AlbumID,

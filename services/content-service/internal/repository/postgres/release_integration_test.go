@@ -94,6 +94,62 @@ func TestReleaseRepositoryRollsBackInvalidTrackPositions(t *testing.T) {
 	}
 }
 
+func TestReleaseRepositoryUpdatesWithdrawsAndArchivesWithoutDeletingTracks(t *testing.T) {
+	pool := openIntegrationDatabase(t)
+	repository := NewReleaseRepository(pool)
+	ctx := context.Background()
+	creatorID, releaseID, firstTrackID, secondTrackID :=
+		uuid.New(), uuid.New(), uuid.New(), uuid.New()
+	t.Cleanup(func() { cleanupReleaseAggregate(t, pool, creatorID, releaseID) })
+	if _, err := NewCreatorRepository(pool).Create(ctx, creator.Account{
+		ID: creatorID, Type: creator.TypeArtist, DisplayName: "Lifecycle Artist",
+		VerificationStatus: creator.VerificationVerified,
+	}, creator.Member{
+		CreatorID: creatorID, UserID: uuid.New(), Role: creator.RoleOwner,
+	}); err != nil {
+		t.Fatalf("create creator: %v", err)
+	}
+	created, err := repository.Create(ctx, release.Draft{
+		Release: release.Release{
+			ID: releaseID, CreatorID: creatorID, Title: "Before",
+			Type: release.TypeAlbum, ReleaseDate: time.Now(), Status: release.StatusDraft,
+		},
+		Tracks: []release.Track{
+			{ID: firstTrackID, ReleaseID: releaseID, Title: "First", DiscNumber: 1, TrackNumber: 1},
+			{ID: secondTrackID, ReleaseID: releaseID, Title: "Second", DiscNumber: 1, TrackNumber: 2},
+		},
+	})
+	if err != nil {
+		t.Fatalf("create release: %v", err)
+	}
+	created.Release.Title = "After"
+	created.Tracks[0].TrackNumber = 2
+	created.Tracks[1].TrackNumber = 1
+	updated, err := repository.Update(ctx, created)
+	if err != nil || updated.Release.Title != "After" || len(updated.Tracks) != 2 {
+		t.Fatalf("Update() = %+v, %v", updated, err)
+	}
+	if _, err = pool.Exec(ctx, `
+		UPDATE content.releases
+		SET status = 'pending_review', submitted_at = now()
+		WHERE id = $1
+	`, releaseID); err != nil {
+		t.Fatalf("prepare pending release: %v", err)
+	}
+	withdrawn, err := repository.Withdraw(ctx, releaseID)
+	if err != nil || withdrawn.Status != release.StatusDraft || withdrawn.SubmittedAt != nil {
+		t.Fatalf("Withdraw() = %+v, %v", withdrawn, err)
+	}
+	archived, err := repository.Archive(ctx, releaseID)
+	if err != nil || archived.Status != release.StatusArchived || archived.ArchivedAt == nil {
+		t.Fatalf("Archive() = %+v, %v", archived, err)
+	}
+	loaded, err := repository.ByID(ctx, releaseID)
+	if err != nil || len(loaded.Tracks) != 2 || loaded.Release.Status != release.StatusArchived {
+		t.Fatalf("ByID(archived) = %+v, %v", loaded, err)
+	}
+}
+
 func cleanupReleaseAggregate(
 	t *testing.T,
 	pool *pgxpool.Pool,

@@ -83,6 +83,22 @@ func TestPublishReleaseMapsApprovedMetadata(t *testing.T) {
 	}
 }
 
+func TestArchiveReleaseReturnsTimestamp(t *testing.T) {
+	releaseID := uuid.New()
+	now := time.Now().UTC()
+	stub := &catalogStub{archive: metadata.Archive{
+		SourceReleaseID: releaseID, ArchivedAt: now,
+	}}
+	response, err := NewCatalogServer(stub).ArchiveRelease(
+		context.Background(), &catalogv1.ArchiveReleaseRequest{
+			SourceReleaseId: releaseID.String(),
+		},
+	)
+	if err != nil || !response.GetArchivedAt().AsTime().Equal(now) {
+		t.Fatalf("ArchiveRelease() = %+v, %v", response, err)
+	}
+}
+
 func TestPublishReleaseRejectsInvalidContract(t *testing.T) {
 	t.Parallel()
 	_, err := NewCatalogServer(&catalogStub{}).PublishRelease(
@@ -347,6 +363,7 @@ func grpcTestTrack() metadata.Track {
 
 type catalogStub struct {
 	publication      metadata.Publication
+	archive          metadata.Archive
 	publicationInput metadata.PublicationInput
 	tracks           []metadata.Track
 	validation       metadata.TrackIDValidation
@@ -354,6 +371,13 @@ type catalogStub struct {
 	err              error
 	lastQuery        metadata.TrackQuery
 	lastDynamicQuery metadata.DynamicTrackQuery
+}
+
+func (stub *catalogStub) ArchivePublishedRelease(
+	context.Context,
+	uuid.UUID,
+) (metadata.Archive, error) {
+	return stub.archive, stub.err
 }
 
 func (stub *catalogStub) PublishApprovedRelease(
@@ -392,6 +416,14 @@ func (stub *catalogStub) EvaluateTrackFilters(
 }
 
 type blockingCatalogStub struct{}
+
+func (blockingCatalogStub) ArchivePublishedRelease(
+	ctx context.Context,
+	_ uuid.UUID,
+) (metadata.Archive, error) {
+	<-ctx.Done()
+	return metadata.Archive{}, ctx.Err()
+}
 
 func (blockingCatalogStub) PublishApprovedRelease(
 	ctx context.Context,

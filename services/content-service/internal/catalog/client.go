@@ -64,6 +64,32 @@ func NewClient(client catalogv1.CatalogServiceClient) *Client {
 	return &Client{client: client}
 }
 
+func (client *Client) Archive(ctx context.Context, sourceReleaseID uuid.UUID) error {
+	if sourceReleaseID == uuid.Nil {
+		return ErrInvalid
+	}
+	callCtx, cancel := context.WithTimeout(ctx, requestTimeout)
+	defer cancel()
+	response, err := client.client.ArchiveRelease(
+		callCtx, &catalogv1.ArchiveReleaseRequest{SourceReleaseId: sourceReleaseID.String()},
+	)
+	if err != nil {
+		switch status.Code(err) {
+		case codes.NotFound:
+			return ErrInvalid
+		case codes.Unavailable, codes.DeadlineExceeded, codes.Canceled:
+			return fmt.Errorf("archive release: %w", ErrUnavailable)
+		default:
+			return fmt.Errorf("archive release: %w", err)
+		}
+	}
+	if response == nil || response.GetArchivedAt() == nil ||
+		!response.GetArchivedAt().IsValid() {
+		return ErrInvalid
+	}
+	return nil
+}
+
 func (client *Client) Publish(
 	ctx context.Context,
 	input PublicationInput,

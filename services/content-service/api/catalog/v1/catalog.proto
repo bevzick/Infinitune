@@ -9,6 +9,7 @@ option go_package = "github.com/bevzick/Infinitune/services/content-service/api/
 // Consumer-owned subset of the Catalog contract used for approved releases.
 service CatalogService {
   rpc PublishRelease(PublishReleaseRequest) returns (PublishReleaseResponse);
+  rpc ArchiveRelease(ArchiveReleaseRequest) returns (ArchiveReleaseResponse);
 }
 
 message PublishReleaseRequest {
@@ -59,4 +60,12 @@ message Date {
   int32 year = 1;
   int32 month = 2;
   int32 day = 3;
+}
+
+message ArchiveReleaseRequest {
+  string source_release_id = 1;
+}
+
+message ArchiveReleaseResponse {
+  google.protobuf.Timestamp archived_at = 1;
 }

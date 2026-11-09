@@ -8,8 +8,10 @@ import (
 )
 
 var (
-	ErrInvalid  = errors.New("invalid release")
-	ErrNotFound = errors.New("release not found")
+	ErrInvalid            = errors.New("invalid release")
+	ErrNotFound           = errors.New("release not found")
+	ErrConflict           = errors.New("release cannot be changed in its current status")
+	ErrCatalogUnavailable = errors.New("catalog archival is unavailable")
 )
 
 type Type string
@@ -32,6 +34,7 @@ const (
 	StatusRejected         Status = "rejected"
 	StatusChangesRequested Status = "changes_requested"
 	StatusPublished        Status = "published"
+	StatusArchived         Status = "archived"
 )
 
 type Release struct {
@@ -46,6 +49,7 @@ type Release struct {
 	SubmittedAt    *time.Time
 	ReviewedAt     *time.Time
 	PublishedAt    *time.Time
+	ArchivedAt     *time.Time
 	CreatedAt      time.Time
 	UpdatedAt      time.Time
 }
@@ -75,6 +79,22 @@ type CreateDraftInput struct {
 }
 
 type TrackInput struct {
+	Title       string
+	TrackNumber int32
+	DiscNumber  int32
+	Explicit    bool
+}
+
+type UpdateInput struct {
+	Title          string
+	Type           Type
+	ReleaseDate    time.Time
+	CoverObjectKey *string
+	Tracks         []TrackUpdateInput
+}
+
+type TrackUpdateInput struct {
+	ID          uuid.UUID
 	Title       string
 	TrackNumber int32
 	DiscNumber  int32

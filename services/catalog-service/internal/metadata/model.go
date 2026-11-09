@@ -178,6 +178,11 @@ type Publication struct {
 	PublishedAt     time.Time
 }
 
+type Archive struct {
+	SourceReleaseID uuid.UUID
+	ArchivedAt      time.Time
+}
+
 type PageRequest struct {
 	Limit  int
 	Offset int

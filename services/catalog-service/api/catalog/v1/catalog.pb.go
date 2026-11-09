@@ -2089,6 +2089,94 @@ func (x *Mood) GetSlug() string {
 	return ""
 }
 
+type ArchiveReleaseRequest struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	SourceReleaseId string                 `protobuf:"bytes,1,opt,name=source_release_id,json=sourceReleaseId,proto3" json:"source_release_id,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *ArchiveReleaseRequest) Reset() {
+	*x = ArchiveReleaseRequest{}
+	mi := &file_api_catalog_v1_catalog_proto_msgTypes[26]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ArchiveReleaseRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ArchiveReleaseRequest) ProtoMessage() {}
+
+func (x *ArchiveReleaseRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_api_catalog_v1_catalog_proto_msgTypes[26]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ArchiveReleaseRequest.ProtoReflect.Descriptor instead.
+func (*ArchiveReleaseRequest) Descriptor() ([]byte, []int) {
+	return file_api_catalog_v1_catalog_proto_rawDescGZIP(), []int{26}
+}
+
+func (x *ArchiveReleaseRequest) GetSourceReleaseId() string {
+	if x != nil {
+		return x.SourceReleaseId
+	}
+	return ""
+}
+
+type ArchiveReleaseResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ArchivedAt    *timestamppb.Timestamp `protobuf:"bytes,1,opt,name=archived_at,json=archivedAt,proto3" json:"archived_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ArchiveReleaseResponse) Reset() {
+	*x = ArchiveReleaseResponse{}
+	mi := &file_api_catalog_v1_catalog_proto_msgTypes[27]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ArchiveReleaseResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ArchiveReleaseResponse) ProtoMessage() {}
+
+func (x *ArchiveReleaseResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_api_catalog_v1_catalog_proto_msgTypes[27]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ArchiveReleaseResponse.ProtoReflect.Descriptor instead.
+func (*ArchiveReleaseResponse) Descriptor() ([]byte, []int) {
+	return file_api_catalog_v1_catalog_proto_rawDescGZIP(), []int{27}
+}
+
+func (x *ArchiveReleaseResponse) GetArchivedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.ArchivedAt
+	}
+	return nil
+}
+
 var File_api_catalog_v1_catalog_proto protoreflect.FileDescriptor
 
 const file_api_catalog_v1_catalog_proto_rawDesc = "" +
@@ -2230,7 +2318,12 @@ const file_api_catalog_v1_catalog_proto_rawDesc = "" +
 	"\x04Mood\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x12\n" +
-	"\x04slug\x18\x03 \x01(\tR\x04slug*\x8a\x01\n" +
+	"\x04slug\x18\x03 \x01(\tR\x04slug\"C\n" +
+	"\x15ArchiveReleaseRequest\x12*\n" +
+	"\x11source_release_id\x18\x01 \x01(\tR\x0fsourceReleaseId\"U\n" +
+	"\x16ArchiveReleaseResponse\x12;\n" +
+	"\varchived_at\x18\x01 \x01(\v2\x1a.google.protobuf.TimestampR\n" +
+	"archivedAt*\x8a\x01\n" +
 	"\tTrackSort\x12\x1a\n" +
 	"\x16TRACK_SORT_UNSPECIFIED\x10\x00\x12\x15\n" +
 	"\x11TRACK_SORT_NEWEST\x10\x01\x12\x15\n" +
@@ -2267,9 +2360,10 @@ const file_api_catalog_v1_catalog_proto_rawDesc = "" +
 	"\x13ARTIST_ROLE_PRIMARY\x10\x01\x12\x18\n" +
 	"\x14ARTIST_ROLE_FEATURED\x10\x02\x12\x18\n" +
 	"\x14ARTIST_ROLE_PRODUCER\x10\x03\x12\x18\n" +
-	"\x14ARTIST_ROLE_COMPOSER\x10\x042\xbe\x04\n" +
+	"\x14ARTIST_ROLE_COMPOSER\x10\x042\xad\x05\n" +
 	"\x0eCatalogService\x12m\n" +
-	"\x0ePublishRelease\x12,.infinitune.catalog.v1.PublishReleaseRequest\x1a-.infinitune.catalog.v1.PublishReleaseResponse\x12^\n" +
+	"\x0ePublishRelease\x12,.infinitune.catalog.v1.PublishReleaseRequest\x1a-.infinitune.catalog.v1.PublishReleaseResponse\x12m\n" +
+	"\x0eArchiveRelease\x12,.infinitune.catalog.v1.ArchiveReleaseRequest\x1a-.infinitune.catalog.v1.ArchiveReleaseResponse\x12^\n" +
 	"\tGetTracks\x12'.infinitune.catalog.v1.GetTracksRequest\x1a(.infinitune.catalog.v1.GetTracksResponse\x12s\n" +
 	"\x10ValidateTrackIds\x12..infinitune.catalog.v1.ValidateTrackIdsRequest\x1a/.infinitune.catalog.v1.ValidateTrackIdsResponse\x12g\n" +
 	"\fFilterTracks\x12*.infinitune.catalog.v1.FilterTracksRequest\x1a+.infinitune.catalog.v1.FilterTracksResponse\x12\x7f\n" +
@@ -2288,7 +2382,7 @@ func file_api_catalog_v1_catalog_proto_rawDescGZIP() []byte {
 }
 
 var file_api_catalog_v1_catalog_proto_enumTypes = make([]protoimpl.EnumInfo, 5)
-var file_api_catalog_v1_catalog_proto_msgTypes = make([]protoimpl.MessageInfo, 26)
+var file_api_catalog_v1_catalog_proto_msgTypes = make([]protoimpl.MessageInfo, 28)
 var file_api_catalog_v1_catalog_proto_goTypes = []any{
 	(TrackSort)(0),                       // 0: infinitune.catalog.v1.TrackSort
 	(FilterLogic)(0),                     // 1: infinitune.catalog.v1.FilterLogic
@@ -2321,7 +2415,9 @@ var file_api_catalog_v1_catalog_proto_goTypes = []any{
 	(*Genre)(nil),                        // 28: infinitune.catalog.v1.Genre
 	(*TrackMood)(nil),                    // 29: infinitune.catalog.v1.TrackMood
 	(*Mood)(nil),                         // 30: infinitune.catalog.v1.Mood
-	(*timestamppb.Timestamp)(nil),        // 31: google.protobuf.Timestamp
+	(*ArchiveReleaseRequest)(nil),        // 31: infinitune.catalog.v1.ArchiveReleaseRequest
+	(*ArchiveReleaseResponse)(nil),       // 32: infinitune.catalog.v1.ArchiveReleaseResponse
+	(*timestamppb.Timestamp)(nil),        // 33: google.protobuf.Timestamp
 }
 var file_api_catalog_v1_catalog_proto_depIdxs = []int32{
 	6,  // 0: infinitune.catalog.v1.PublishReleaseRequest.artist:type_name -> infinitune.catalog.v1.PublishArtist
@@ -2330,7 +2426,7 @@ var file_api_catalog_v1_catalog_proto_depIdxs = []int32{
 	25, // 3: infinitune.catalog.v1.PublishAlbum.release_date:type_name -> infinitune.catalog.v1.Date
 	25, // 4: infinitune.catalog.v1.PublishTrack.release_date:type_name -> infinitune.catalog.v1.Date
 	10, // 5: infinitune.catalog.v1.PublishReleaseResponse.tracks:type_name -> infinitune.catalog.v1.PublishedTrack
-	31, // 6: infinitune.catalog.v1.PublishReleaseResponse.published_at:type_name -> google.protobuf.Timestamp
+	33, // 6: infinitune.catalog.v1.PublishReleaseResponse.published_at:type_name -> google.protobuf.Timestamp
 	24, // 7: infinitune.catalog.v1.GetTracksResponse.tracks:type_name -> infinitune.catalog.v1.Track
 	0,  // 8: infinitune.catalog.v1.FilterTracksRequest.sort:type_name -> infinitune.catalog.v1.TrackSort
 	24, // 9: infinitune.catalog.v1.FilterTracksResponse.tracks:type_name -> infinitune.catalog.v1.Track
@@ -2349,26 +2445,29 @@ var file_api_catalog_v1_catalog_proto_depIdxs = []int32{
 	26, // 22: infinitune.catalog.v1.Track.artists:type_name -> infinitune.catalog.v1.ArtistCredit
 	28, // 23: infinitune.catalog.v1.Track.genres:type_name -> infinitune.catalog.v1.Genre
 	29, // 24: infinitune.catalog.v1.Track.moods:type_name -> infinitune.catalog.v1.TrackMood
-	31, // 25: infinitune.catalog.v1.Track.created_at:type_name -> google.protobuf.Timestamp
-	31, // 26: infinitune.catalog.v1.Track.updated_at:type_name -> google.protobuf.Timestamp
+	33, // 25: infinitune.catalog.v1.Track.created_at:type_name -> google.protobuf.Timestamp
+	33, // 26: infinitune.catalog.v1.Track.updated_at:type_name -> google.protobuf.Timestamp
 	27, // 27: infinitune.catalog.v1.ArtistCredit.artist:type_name -> infinitune.catalog.v1.Artist
 	4,  // 28: infinitune.catalog.v1.ArtistCredit.role:type_name -> infinitune.catalog.v1.ArtistRole
 	30, // 29: infinitune.catalog.v1.TrackMood.mood:type_name -> infinitune.catalog.v1.Mood
-	5,  // 30: infinitune.catalog.v1.CatalogService.PublishRelease:input_type -> infinitune.catalog.v1.PublishReleaseRequest
-	11, // 31: infinitune.catalog.v1.CatalogService.GetTracks:input_type -> infinitune.catalog.v1.GetTracksRequest
-	13, // 32: infinitune.catalog.v1.CatalogService.ValidateTrackIds:input_type -> infinitune.catalog.v1.ValidateTrackIdsRequest
-	15, // 33: infinitune.catalog.v1.CatalogService.FilterTracks:input_type -> infinitune.catalog.v1.FilterTracksRequest
-	21, // 34: infinitune.catalog.v1.CatalogService.EvaluateTrackFilters:input_type -> infinitune.catalog.v1.EvaluateTrackFiltersRequest
-	9,  // 35: infinitune.catalog.v1.CatalogService.PublishRelease:output_type -> infinitune.catalog.v1.PublishReleaseResponse
-	12, // 36: infinitune.catalog.v1.CatalogService.GetTracks:output_type -> infinitune.catalog.v1.GetTracksResponse
-	14, // 37: infinitune.catalog.v1.CatalogService.ValidateTrackIds:output_type -> infinitune.catalog.v1.ValidateTrackIdsResponse
-	16, // 38: infinitune.catalog.v1.CatalogService.FilterTracks:output_type -> infinitune.catalog.v1.FilterTracksResponse
-	22, // 39: infinitune.catalog.v1.CatalogService.EvaluateTrackFilters:output_type -> infinitune.catalog.v1.EvaluateTrackFiltersResponse
-	35, // [35:40] is the sub-list for method output_type
-	30, // [30:35] is the sub-list for method input_type
-	30, // [30:30] is the sub-list for extension type_name
-	30, // [30:30] is the sub-list for extension extendee
-	0,  // [0:30] is the sub-list for field type_name
+	33, // 30: infinitune.catalog.v1.ArchiveReleaseResponse.archived_at:type_name -> google.protobuf.Timestamp
+	5,  // 31: infinitune.catalog.v1.CatalogService.PublishRelease:input_type -> infinitune.catalog.v1.PublishReleaseRequest
+	31, // 32: infinitune.catalog.v1.CatalogService.ArchiveRelease:input_type -> infinitune.catalog.v1.ArchiveReleaseRequest
+	11, // 33: infinitune.catalog.v1.CatalogService.GetTracks:input_type -> infinitune.catalog.v1.GetTracksRequest
+	13, // 34: infinitune.catalog.v1.CatalogService.ValidateTrackIds:input_type -> infinitune.catalog.v1.ValidateTrackIdsRequest
+	15, // 35: infinitune.catalog.v1.CatalogService.FilterTracks:input_type -> infinitune.catalog.v1.FilterTracksRequest
+	21, // 36: infinitune.catalog.v1.CatalogService.EvaluateTrackFilters:input_type -> infinitune.catalog.v1.EvaluateTrackFiltersRequest
+	9,  // 37: infinitune.catalog.v1.CatalogService.PublishRelease:output_type -> infinitune.catalog.v1.PublishReleaseResponse
+	32, // 38: infinitune.catalog.v1.CatalogService.ArchiveRelease:output_type -> infinitune.catalog.v1.ArchiveReleaseResponse
+	12, // 39: infinitune.catalog.v1.CatalogService.GetTracks:output_type -> infinitune.catalog.v1.GetTracksResponse
+	14, // 40: infinitune.catalog.v1.CatalogService.ValidateTrackIds:output_type -> infinitune.catalog.v1.ValidateTrackIdsResponse
+	16, // 41: infinitune.catalog.v1.CatalogService.FilterTracks:output_type -> infinitune.catalog.v1.FilterTracksResponse
+	22, // 42: infinitune.catalog.v1.CatalogService.EvaluateTrackFilters:output_type -> infinitune.catalog.v1.EvaluateTrackFiltersResponse
+	37, // [37:43] is the sub-list for method output_type
+	31, // [31:37] is the sub-list for method input_type
+	31, // [31:31] is the sub-list for extension type_name
+	31, // [31:31] is the sub-list for extension extendee
+	0,  // [0:31] is the sub-list for field type_name
 }
 
 func init() { file_api_catalog_v1_catalog_proto_init() }
@@ -2392,7 +2491,7 @@ func file_api_catalog_v1_catalog_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_api_catalog_v1_catalog_proto_rawDesc), len(file_api_catalog_v1_catalog_proto_rawDesc)),
 			NumEnums:      5,
-			NumMessages:   26,
+			NumMessages:   28,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

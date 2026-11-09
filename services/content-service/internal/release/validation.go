@@ -9,7 +9,10 @@ import (
 	"github.com/google/uuid"
 )
 
-const maximumTitleLength = 200
+const (
+	maximumTitleLength   = 200
+	maximumTrackPosition = 32767
+)
 
 func newDraft(input CreateDraftInput) (Draft, error) {
 	if input.CreatorID == uuid.Nil {
@@ -44,14 +47,14 @@ func newDraft(input CreateDraftInput) (Draft, error) {
 		if validationErr != nil {
 			return Draft{}, validationErr
 		}
-		if inputTrack.TrackNumber < 1 {
+		if inputTrack.TrackNumber < 1 || inputTrack.TrackNumber > maximumTrackPosition {
 			return Draft{}, validationError(
-				fmt.Sprintf("tracks[%d].track_number", index), "must be positive",
+				fmt.Sprintf("tracks[%d].track_number", index), "must be from 1 to 32767",
 			)
 		}
-		if inputTrack.DiscNumber < 1 {
+		if inputTrack.DiscNumber < 1 || inputTrack.DiscNumber > maximumTrackPosition {
 			return Draft{}, validationError(
-				fmt.Sprintf("tracks[%d].disc_number", index), "must be positive",
+				fmt.Sprintf("tracks[%d].disc_number", index), "must be from 1 to 32767",
 			)
 		}
 		position := fmt.Sprintf("%d:%d", inputTrack.DiscNumber, inputTrack.TrackNumber)
@@ -75,6 +78,84 @@ func newDraft(input CreateDraftInput) (Draft, error) {
 		},
 		Tracks: tracks,
 	}, nil
+}
+
+func updatedDraft(current Draft, input UpdateInput) (Draft, error) {
+	title, err := validTitle("title", input.Title)
+	if err != nil {
+		return Draft{}, err
+	}
+	releaseType, err := validType(input.Type)
+	if err != nil {
+		return Draft{}, err
+	}
+	releaseDate, err := validDate(input.ReleaseDate)
+	if err != nil {
+		return Draft{}, err
+	}
+	if input.CoverObjectKey != nil {
+		trimmed := strings.TrimSpace(*input.CoverObjectKey)
+		if trimmed == "" {
+			return Draft{}, validationError("cover_object_key", "must not be blank")
+		}
+		input.CoverObjectKey = &trimmed
+	}
+	if len(input.Tracks) != len(current.Tracks) {
+		return Draft{}, validationError("tracks", "must preserve the existing track set")
+	}
+	if releaseType == TypeSingle && len(input.Tracks) != 1 {
+		return Draft{}, validationError("tracks", "single must contain exactly one track")
+	}
+	existing := make(map[uuid.UUID]struct{}, len(current.Tracks))
+	for _, track := range current.Tracks {
+		existing[track.ID] = struct{}{}
+	}
+	tracks := make([]Track, 0, len(input.Tracks))
+	positions := make(map[string]struct{}, len(input.Tracks))
+	seen := make(map[uuid.UUID]struct{}, len(input.Tracks))
+	for index, candidate := range input.Tracks {
+		if candidate.ID == uuid.Nil {
+			return Draft{}, validationError(fmt.Sprintf("tracks[%d].id", index), "must be a UUID")
+		}
+		if _, ok := existing[candidate.ID]; !ok {
+			return Draft{}, validationError(fmt.Sprintf("tracks[%d].id", index), "must identify an existing track")
+		}
+		if _, duplicate := seen[candidate.ID]; duplicate {
+			return Draft{}, validationError("tracks", "must not repeat a track")
+		}
+		seen[candidate.ID] = struct{}{}
+		trackTitle, validationErr := validTitle(fmt.Sprintf("tracks[%d].title", index), candidate.Title)
+		if validationErr != nil {
+			return Draft{}, validationErr
+		}
+		if candidate.TrackNumber < 1 || candidate.TrackNumber > maximumTrackPosition ||
+			candidate.DiscNumber < 1 || candidate.DiscNumber > maximumTrackPosition {
+			return Draft{}, validationError(
+				fmt.Sprintf("tracks[%d]", index), "track_number and disc_number must be from 1 to 32767",
+			)
+		}
+		position := fmt.Sprintf("%d:%d", candidate.DiscNumber, candidate.TrackNumber)
+		if _, duplicate := positions[position]; duplicate {
+			return Draft{}, validationError("tracks", "must not repeat a disc and track position")
+		}
+		positions[position] = struct{}{}
+		tracks = append(tracks, Track{
+			ID: candidate.ID, ReleaseID: current.Release.ID, Title: trackTitle,
+			TrackNumber: candidate.TrackNumber, DiscNumber: candidate.DiscNumber,
+			Explicit: candidate.Explicit,
+		})
+	}
+	if releaseType == TypeSingle &&
+		(tracks[0].DiscNumber != 1 || tracks[0].TrackNumber != 1) {
+		return Draft{}, validationError("tracks", "single track position must be disc 1, track 1")
+	}
+	result := current
+	result.Release.Title = title
+	result.Release.Type = releaseType
+	result.Release.ReleaseDate = releaseDate
+	result.Release.CoverObjectKey = input.CoverObjectKey
+	result.Tracks = tracks
+	return result, nil
 }
 
 func validTitle(field, value string) (string, error) {

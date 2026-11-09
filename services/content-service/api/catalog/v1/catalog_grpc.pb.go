@@ -20,6 +20,7 @@ const _ = grpc.SupportPackageIsVersion9
 
 const (
 	CatalogService_PublishRelease_FullMethodName = "/infinitune.catalog.v1.CatalogService/PublishRelease"
+	CatalogService_ArchiveRelease_FullMethodName = "/infinitune.catalog.v1.CatalogService/ArchiveRelease"
 )
 
 // CatalogServiceClient is the client API for CatalogService service.
@@ -29,6 +30,7 @@ const (
 // Consumer-owned subset of the Catalog contract used for approved releases.
 type CatalogServiceClient interface {
 	PublishRelease(ctx context.Context, in *PublishReleaseRequest, opts ...grpc.CallOption) (*PublishReleaseResponse, error)
+	ArchiveRelease(ctx context.Context, in *ArchiveReleaseRequest, opts ...grpc.CallOption) (*ArchiveReleaseResponse, error)
 }
 
 type catalogServiceClient struct {
@@ -49,6 +51,16 @@ func (c *catalogServiceClient) PublishRelease(ctx context.Context, in *PublishRe
 	return out, nil
 }
 
+func (c *catalogServiceClient) ArchiveRelease(ctx context.Context, in *ArchiveReleaseRequest, opts ...grpc.CallOption) (*ArchiveReleaseResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ArchiveReleaseResponse)
+	err := c.cc.Invoke(ctx, CatalogService_ArchiveRelease_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // CatalogServiceServer is the server API for CatalogService service.
 // All implementations must embed UnimplementedCatalogServiceServer
 // for forward compatibility.
@@ -56,6 +68,7 @@ func (c *catalogServiceClient) PublishRelease(ctx context.Context, in *PublishRe
 // Consumer-owned subset of the Catalog contract used for approved releases.
 type CatalogServiceServer interface {
 	PublishRelease(context.Context, *PublishReleaseRequest) (*PublishReleaseResponse, error)
+	ArchiveRelease(context.Context, *ArchiveReleaseRequest) (*ArchiveReleaseResponse, error)
 	mustEmbedUnimplementedCatalogServiceServer()
 }
 
@@ -68,6 +81,9 @@ type UnimplementedCatalogServiceServer struct{}
 
 func (UnimplementedCatalogServiceServer) PublishRelease(context.Context, *PublishReleaseRequest) (*PublishReleaseResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method PublishRelease not implemented")
+}
+func (UnimplementedCatalogServiceServer) ArchiveRelease(context.Context, *ArchiveReleaseRequest) (*ArchiveReleaseResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ArchiveRelease not implemented")
 }
 func (UnimplementedCatalogServiceServer) mustEmbedUnimplementedCatalogServiceServer() {}
 func (UnimplementedCatalogServiceServer) testEmbeddedByValue()                        {}
@@ -108,6 +124,24 @@ func _CatalogService_PublishRelease_Handler(srv interface{}, ctx context.Context
 	return interceptor(ctx, in, info, handler)
 }
 
+func _CatalogService_ArchiveRelease_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ArchiveReleaseRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CatalogServiceServer).ArchiveRelease(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: CatalogService_ArchiveRelease_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CatalogServiceServer).ArchiveRelease(ctx, req.(*ArchiveReleaseRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // CatalogService_ServiceDesc is the grpc.ServiceDesc for CatalogService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -118,6 +152,10 @@ var CatalogService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "PublishRelease",
 			Handler:    _CatalogService_PublishRelease_Handler,
+		},
+		{
+			MethodName: "ArchiveRelease",
+			Handler:    _CatalogService_ArchiveRelease_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

@@ -75,10 +75,33 @@ func TestClientRejectsMalformedPublication(t *testing.T) {
 	}
 }
 
+func TestClientArchivesRelease(t *testing.T) {
+	releaseID := uuid.New()
+	now := time.Now().UTC()
+	stub := &catalogClientStub{archiveResponse: &catalogv1.ArchiveReleaseResponse{
+		ArchivedAt: timestamppb.New(now),
+	}}
+	if err := NewClient(stub).Archive(context.Background(), releaseID); err != nil ||
+		stub.archiveRequest.GetSourceReleaseId() != releaseID.String() {
+		t.Fatalf("Archive() error = %v; request = %+v", err, stub.archiveRequest)
+	}
+}
+
 type catalogClientStub struct {
-	request  *catalogv1.PublishReleaseRequest
-	response *catalogv1.PublishReleaseResponse
-	err      error
+	request         *catalogv1.PublishReleaseRequest
+	response        *catalogv1.PublishReleaseResponse
+	archiveRequest  *catalogv1.ArchiveReleaseRequest
+	archiveResponse *catalogv1.ArchiveReleaseResponse
+	err             error
+}
+
+func (stub *catalogClientStub) ArchiveRelease(
+	_ context.Context,
+	request *catalogv1.ArchiveReleaseRequest,
+	_ ...grpc.CallOption,
+) (*catalogv1.ArchiveReleaseResponse, error) {
+	stub.archiveRequest = request
+	return stub.archiveResponse, stub.err
 }
 
 func (stub *catalogClientStub) PublishRelease(

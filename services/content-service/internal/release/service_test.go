@@ -133,10 +133,93 @@ func TestServiceRejectsInvalidReleaseIDBeforeReading(t *testing.T) {
 	}
 }
 
+func TestServiceUpdatesRejectedReleaseAsDraft(t *testing.T) {
+	actorID, creatorID, releaseID, trackID := uuid.New(), uuid.New(), uuid.New(), uuid.New()
+	store := &storeStub{draft: Draft{
+		Release: Release{ID: releaseID, CreatorID: creatorID, Status: StatusRejected},
+		Tracks:  []Track{{ID: trackID, ReleaseID: releaseID}},
+	}}
+	result, err := NewService(store, &authorizerStub{}).Update(
+		context.Background(), actorID, releaseID, UpdateInput{
+			Title: "Corrected", Type: TypeSingle, ReleaseDate: time.Now(),
+			Tracks: []TrackUpdateInput{{
+				ID: trackID, Title: "Corrected", DiscNumber: 1, TrackNumber: 1,
+			}},
+		},
+	)
+	if err != nil || result.Release.Title != "Corrected" || store.updateCalls != 1 {
+		t.Fatalf("Update() = %+v, %v; calls = %d", result, err, store.updateCalls)
+	}
+}
+
+func TestServiceWithdrawsPendingRelease(t *testing.T) {
+	releaseID := uuid.New()
+	store := &storeStub{draft: Draft{Release: Release{
+		ID: releaseID, CreatorID: uuid.New(), Status: StatusPendingReview,
+	}}}
+	result, err := NewService(store, &authorizerStub{}).Withdraw(
+		context.Background(), uuid.New(), releaseID,
+	)
+	if err != nil || result.Status != StatusDraft || store.withdrawCalls != 1 {
+		t.Fatalf("Withdraw() = %+v, %v; calls = %d", result, err, store.withdrawCalls)
+	}
+}
+
+func TestServiceArchivesPublishedReleaseInCatalogFirst(t *testing.T) {
+	releaseID := uuid.New()
+	store := &storeStub{draft: Draft{Release: Release{
+		ID: releaseID, CreatorID: uuid.New(), Status: StatusPublished,
+	}}}
+	catalog := &catalogArchiverStub{}
+	result, err := NewService(store, &authorizerStub{}, catalog).Archive(
+		context.Background(), uuid.New(), releaseID,
+	)
+	if err != nil || result.Status != StatusArchived || catalog.releaseID != releaseID ||
+		store.archiveCalls != 1 {
+		t.Fatalf("Archive() = %+v, %v; catalog = %+v; calls = %d",
+			result, err, catalog, store.archiveCalls)
+	}
+}
+
+func TestServiceDoesNotArchiveContentWhenCatalogFails(t *testing.T) {
+	releaseID := uuid.New()
+	store := &storeStub{draft: Draft{Release: Release{
+		ID: releaseID, CreatorID: uuid.New(), Status: StatusPublished,
+	}}}
+	_, err := NewService(store, &authorizerStub{}, &catalogArchiverStub{
+		err: errors.New("catalog unavailable"),
+	}).Archive(context.Background(), uuid.New(), releaseID)
+	if !errors.Is(err, ErrCatalogUnavailable) || store.archiveCalls != 0 {
+		t.Fatalf("Archive() error = %v; calls = %d", err, store.archiveCalls)
+	}
+}
+
 type storeStub struct {
-	draft       Draft
-	createCalls int
-	readCalls   int
+	draft         Draft
+	createCalls   int
+	readCalls     int
+	updateCalls   int
+	withdrawCalls int
+	archiveCalls  int
+}
+
+func (store *storeStub) Update(_ context.Context, draft Draft) (Draft, error) {
+	store.updateCalls++
+	draft.Release.Status = StatusDraft
+	store.draft = draft
+	return draft, nil
+}
+
+func (store *storeStub) Withdraw(context.Context, uuid.UUID) (Release, error) {
+	store.withdrawCalls++
+	store.draft.Release.Status = StatusDraft
+	return store.draft.Release, nil
+}
+
+func (store *storeStub) Archive(context.Context, uuid.UUID) (Release, error) {
+	store.archiveCalls++
+	store.draft.Release.Status = StatusArchived
+	return store.draft.Release, nil
 }
 
 func (store *storeStub) Create(_ context.Context, draft Draft) (Draft, error) {
@@ -156,6 +239,19 @@ type authorizerStub struct {
 	permission creator.Permission
 	err        error
 	calls      int
+}
+
+type catalogArchiverStub struct {
+	releaseID uuid.UUID
+	err       error
+}
+
+func (stub *catalogArchiverStub) Archive(
+	_ context.Context,
+	releaseID uuid.UUID,
+) error {
+	stub.releaseID = releaseID
+	return stub.err
 }
 
 func (stub *authorizerStub) Authorize(

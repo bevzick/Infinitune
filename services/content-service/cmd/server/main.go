@@ -28,6 +28,7 @@ import (
 	"github.com/bevzick/Infinitune/services/content-service/internal/moderation"
 	"github.com/bevzick/Infinitune/services/content-service/internal/playback"
 	"github.com/bevzick/Infinitune/services/content-service/internal/publication"
+	"github.com/bevzick/Infinitune/services/content-service/internal/release"
 	postgres_repository "github.com/bevzick/Infinitune/services/content-service/internal/repository/postgres"
 	"github.com/bevzick/Infinitune/services/content-service/internal/rights"
 	"github.com/bevzick/Infinitune/services/content-service/internal/submission"
@@ -109,10 +110,14 @@ func main() {
 	moderationService := moderation.NewService(
 		postgres_repository.NewModerationRepository(databasePool),
 	)
+	catalogClient := content_catalog.NewClient(catalogv1.NewCatalogServiceClient(catalogConnection))
 	publicationService := publication.NewService(
 		postgres_repository.NewPublicationRepository(databasePool), accessService,
 		content_media.NewClient(mediav1.NewMediaServiceClient(mediaConnection)),
-		content_catalog.NewClient(catalogv1.NewCatalogServiceClient(catalogConnection)),
+		catalogClient,
+	)
+	releaseService := release.NewService(
+		postgres_repository.NewReleaseRepository(databasePool), memberService, catalogClient,
 	)
 	uploadService := upload.NewService(
 		postgres_repository.NewUploadRepository(databasePool), memberService,
@@ -129,6 +134,7 @@ func main() {
 			Submissions:  submissionService,
 			Moderation:   moderationService,
 			Publications: publicationService,
+			Releases:     releaseService,
 			Origins:      cfg.Origins, Logger: logger,
 		}),
 		ReadHeaderTimeout: readHeaderTimeout,

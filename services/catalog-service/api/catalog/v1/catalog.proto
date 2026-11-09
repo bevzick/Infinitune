@@ -11,6 +11,9 @@ service CatalogService {
   // source release and payload returns the existing catalog identifiers.
   rpc PublishRelease(PublishReleaseRequest) returns (PublishReleaseResponse);
 
+  // Hides a published release from discovery while preserving its identifiers.
+  rpc ArchiveRelease(ArchiveReleaseRequest) returns (ArchiveReleaseResponse);
+
   // Returns tracks in request order. Fails with NOT_FOUND if any ID is missing.
   rpc GetTracks(GetTracksRequest) returns (GetTracksResponse);
 
@@ -245,4 +248,12 @@ message Mood {
   string id = 1;
   string name = 2;
   string slug = 3;
+}
+
+message ArchiveReleaseRequest {
+  string source_release_id = 1;
+}
+
+message ArchiveReleaseResponse {
+  google.protobuf.Timestamp archived_at = 1;
 }

@@ -50,6 +50,13 @@ type ReleaseModeration interface {
 type ReleasePublications interface {
 	Publish(context.Context, uuid.UUID, uuid.UUID) (release.Release, error)
 }
+type Releases interface {
+	CreateDraft(context.Context, uuid.UUID, release.CreateDraftInput) (release.Draft, error)
+	ByID(context.Context, uuid.UUID, uuid.UUID) (release.Draft, error)
+	Update(context.Context, uuid.UUID, uuid.UUID, release.UpdateInput) (release.Draft, error)
+	Withdraw(context.Context, uuid.UUID, uuid.UUID) (release.Release, error)
+	Archive(context.Context, uuid.UUID, uuid.UUID) (release.Release, error)
+}
 type Dependencies struct {
 	Database     DatabaseCheck
 	Tokens       IdentityVerifier
@@ -59,6 +66,7 @@ type Dependencies struct {
 	Submissions  ReleaseSubmissions
 	Moderation   ReleaseModeration
 	Publications ReleasePublications
+	Releases     Releases
 	Origins      []string
 	Logger       *slog.Logger
 }
@@ -88,6 +96,11 @@ func NewRouter(dependencies Dependencies) http.Handler {
 	content.PUT("/release-tracks/:release_track_id/rights", setTrackRights(dependencies.Rights, dependencies.Logger))
 	content.GET("/release-tracks/:release_track_id/rights", listTrackRights(dependencies.Rights, dependencies.Logger))
 	content.DELETE("/track-rights/:right_id", deleteTrackRights(dependencies.Rights, dependencies.Logger))
+	content.POST("/releases", createRelease(dependencies.Releases, dependencies.Logger))
+	content.GET("/releases/:release_id", getRelease(dependencies.Releases, dependencies.Logger))
+	content.PUT("/releases/:release_id", updateRelease(dependencies.Releases, dependencies.Logger))
+	content.POST("/releases/:release_id/withdrawals", withdrawRelease(dependencies.Releases, dependencies.Logger))
+	content.DELETE("/releases/:release_id", archiveRelease(dependencies.Releases, dependencies.Logger))
 	content.POST("/releases/:release_id/submissions", submitRelease(dependencies.Submissions, dependencies.Logger))
 	content.POST("/releases/:release_id/moderation-reviews", reviewRelease(dependencies.Moderation, dependencies.Logger))
 	content.POST("/releases/:release_id/publications", publishRelease(dependencies.Publications, dependencies.Logger))

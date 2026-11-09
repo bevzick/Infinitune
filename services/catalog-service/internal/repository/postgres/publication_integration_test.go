@@ -63,6 +63,28 @@ func TestPublicationRepositoryPublishesAtomicallyAndIdempotently(t *testing.T) {
 		t.Fatalf("catalog counts = publications %d, albums %d, tracks %d; error = %v",
 			publications, albums, tracks, err)
 	}
+	archived, err := service.ArchivePublishedRelease(ctx, sourceID)
+	if err != nil || archived.SourceReleaseID != sourceID || archived.ArchivedAt.IsZero() {
+		t.Fatalf("ArchivePublishedRelease() = %+v, %v", archived, err)
+	}
+	againArchived, err := service.ArchivePublishedRelease(ctx, sourceID)
+	if err != nil || !againArchived.ArchivedAt.Equal(archived.ArchivedAt) {
+		t.Fatalf("ArchivePublishedRelease(idempotent) = %+v, %v", againArchived, err)
+	}
+	if _, err = service.Track(ctx, trackOneID); !errors.Is(err, metadata.ErrNotFound) {
+		t.Fatalf("Track(archived) error = %v", err)
+	}
+	batch, err := service.BatchTracks(ctx, []uuid.UUID{trackOneID, trackTwoID})
+	if err != nil || len(batch) != 2 {
+		t.Fatalf("BatchTracks(archived) = %d, %v", len(batch), err)
+	}
+	validation, err := service.ValidateTrackIDs(ctx, []uuid.UUID{trackOneID, trackTwoID})
+	if err != nil || len(validation.ValidIDs) != 0 || len(validation.MissingIDs) != 2 {
+		t.Fatalf("ValidateTrackIDs(archived) = %+v, %v", validation, err)
+	}
+	if _, err = service.Album(ctx, albumID); !errors.Is(err, metadata.ErrNotFound) {
+		t.Fatalf("Album(archived) error = %v", err)
+	}
 }
 
 func publicationTrack(

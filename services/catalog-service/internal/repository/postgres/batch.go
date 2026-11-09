@@ -82,9 +82,10 @@ func (repository *MetadataRepository) ExistingTrackIDs(
 	ids []uuid.UUID,
 ) (map[uuid.UUID]struct{}, error) {
 	rows, err := repository.database.Query(ctx, `
-		SELECT id
-		FROM catalog.tracks
-		WHERE id = ANY($1::uuid[])
+		SELECT t.id
+		FROM catalog.tracks AS t
+		WHERE t.id = ANY($1::uuid[])
+		  AND `+activeTrackPredicate+`
 	`, ids)
 	if err != nil {
 		return nil, fmt.Errorf("query existing track ids: %w", err)

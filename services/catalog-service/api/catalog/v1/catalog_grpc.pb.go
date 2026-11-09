@@ -20,6 +20,7 @@ const _ = grpc.SupportPackageIsVersion9
 
 const (
 	CatalogService_PublishRelease_FullMethodName       = "/infinitune.catalog.v1.CatalogService/PublishRelease"
+	CatalogService_ArchiveRelease_FullMethodName       = "/infinitune.catalog.v1.CatalogService/ArchiveRelease"
 	CatalogService_GetTracks_FullMethodName            = "/infinitune.catalog.v1.CatalogService/GetTracks"
 	CatalogService_ValidateTrackIds_FullMethodName     = "/infinitune.catalog.v1.CatalogService/ValidateTrackIds"
 	CatalogService_FilterTracks_FullMethodName         = "/infinitune.catalog.v1.CatalogService/FilterTracks"
@@ -33,6 +34,8 @@ type CatalogServiceClient interface {
 	// Atomically publishes metadata approved by Content. Repeating the same
 	// source release and payload returns the existing catalog identifiers.
 	PublishRelease(ctx context.Context, in *PublishReleaseRequest, opts ...grpc.CallOption) (*PublishReleaseResponse, error)
+	// Hides a published release from discovery while preserving its identifiers.
+	ArchiveRelease(ctx context.Context, in *ArchiveReleaseRequest, opts ...grpc.CallOption) (*ArchiveReleaseResponse, error)
 	// Returns tracks in request order. Fails with NOT_FOUND if any ID is missing.
 	GetTracks(ctx context.Context, in *GetTracksRequest, opts ...grpc.CallOption) (*GetTracksResponse, error)
 	// Separates requested IDs into ordered valid and missing collections.
@@ -55,6 +58,16 @@ func (c *catalogServiceClient) PublishRelease(ctx context.Context, in *PublishRe
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(PublishReleaseResponse)
 	err := c.cc.Invoke(ctx, CatalogService_PublishRelease_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *catalogServiceClient) ArchiveRelease(ctx context.Context, in *ArchiveReleaseRequest, opts ...grpc.CallOption) (*ArchiveReleaseResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ArchiveReleaseResponse)
+	err := c.cc.Invoke(ctx, CatalogService_ArchiveRelease_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -108,6 +121,8 @@ type CatalogServiceServer interface {
 	// Atomically publishes metadata approved by Content. Repeating the same
 	// source release and payload returns the existing catalog identifiers.
 	PublishRelease(context.Context, *PublishReleaseRequest) (*PublishReleaseResponse, error)
+	// Hides a published release from discovery while preserving its identifiers.
+	ArchiveRelease(context.Context, *ArchiveReleaseRequest) (*ArchiveReleaseResponse, error)
 	// Returns tracks in request order. Fails with NOT_FOUND if any ID is missing.
 	GetTracks(context.Context, *GetTracksRequest) (*GetTracksResponse, error)
 	// Separates requested IDs into ordered valid and missing collections.
@@ -128,6 +143,9 @@ type UnimplementedCatalogServiceServer struct{}
 
 func (UnimplementedCatalogServiceServer) PublishRelease(context.Context, *PublishReleaseRequest) (*PublishReleaseResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method PublishRelease not implemented")
+}
+func (UnimplementedCatalogServiceServer) ArchiveRelease(context.Context, *ArchiveReleaseRequest) (*ArchiveReleaseResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ArchiveRelease not implemented")
 }
 func (UnimplementedCatalogServiceServer) GetTracks(context.Context, *GetTracksRequest) (*GetTracksResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetTracks not implemented")
@@ -176,6 +194,24 @@ func _CatalogService_PublishRelease_Handler(srv interface{}, ctx context.Context
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(CatalogServiceServer).PublishRelease(ctx, req.(*PublishReleaseRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _CatalogService_ArchiveRelease_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ArchiveReleaseRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CatalogServiceServer).ArchiveRelease(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: CatalogService_ArchiveRelease_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CatalogServiceServer).ArchiveRelease(ctx, req.(*ArchiveReleaseRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -262,6 +298,10 @@ var CatalogService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "PublishRelease",
 			Handler:    _CatalogService_PublishRelease_Handler,
+		},
+		{
+			MethodName: "ArchiveRelease",
+			Handler:    _CatalogService_ArchiveRelease_Handler,
 		},
 		{
 			MethodName: "GetTracks",

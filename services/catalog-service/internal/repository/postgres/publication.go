@@ -115,6 +115,26 @@ func (repository *MetadataRepository) PublishRelease(
 	return result, nil
 }
 
+func (repository *MetadataRepository) ArchiveRelease(
+	ctx context.Context,
+	sourceReleaseID uuid.UUID,
+) (metadata.Archive, error) {
+	var result metadata.Archive
+	err := repository.database.QueryRow(ctx, `
+		UPDATE catalog.publications
+		SET archived_at = COALESCE(archived_at, clock_timestamp())
+		WHERE source_release_id = $1
+		RETURNING source_release_id, archived_at
+	`, sourceReleaseID).Scan(&result.SourceReleaseID, &result.ArchivedAt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return metadata.Archive{}, metadata.ErrNotFound
+	}
+	if err != nil {
+		return metadata.Archive{}, fmt.Errorf("archive catalog publication: %w", err)
+	}
+	return result, nil
+}
+
 func publicationBySource(
 	ctx context.Context,
 	tx pgx.Tx,
