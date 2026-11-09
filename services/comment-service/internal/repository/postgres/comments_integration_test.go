@@ -1,0 +1,147 @@
+//go:build integration
+
+package postgres
+
+import (
+	"context"
+	"errors"
+	"os"
+	"strconv"
+	"testing"
+	"time"
+
+	"github.com/bevzick/Infinitune/services/comment-service/internal/comment"
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgxpool"
+)
+
+func TestCommentRepositoryManagesOwnedCommentsAndReplies(t *testing.T) {
+	pool := openIntegrationDatabase(t)
+	repository := NewCommentRepository(pool)
+	ctx := context.Background()
+	ownerID, replyUserID, strangerID := uuid.New(), uuid.New(), uuid.New()
+	trackID, rootID, replyID := uuid.New(), uuid.New(), uuid.New()
+	cleanupUsers(t, pool, ownerID, replyUserID, strangerID)
+
+	root, err := repository.Create(ctx, comment.Comment{
+		ID: rootID, UserID: ownerID, TrackID: trackID, Content: "Root",
+	})
+	if err != nil || root.Status != comment.StatusPublished || root.CreatedAt.IsZero() {
+		t.Fatalf("Create(root) = %+v, %v", root, err)
+	}
+	reply, err := repository.Create(ctx, comment.Comment{
+		ID: replyID, UserID: replyUserID, TrackID: trackID, ParentID: &rootID, Content: "Reply",
+	})
+	if err != nil || reply.ParentID == nil || *reply.ParentID != rootID {
+		t.Fatalf("Create(reply) = %+v, %v", reply, err)
+	}
+	if _, err = repository.Create(ctx, comment.Comment{
+		ID: uuid.New(), UserID: strangerID, TrackID: trackID, ParentID: &replyID, Content: "Nested",
+	}); !errors.Is(err, comment.ErrParentInvalid) {
+		t.Fatalf("Create(nested) error = %v, want %v", err, comment.ErrParentInvalid)
+	}
+	page, err := repository.List(ctx, trackID, comment.PageRequest{Limit: 10})
+	if err != nil || page.Total != 2 || len(page.Items) != 2 {
+		t.Fatalf("List() = %+v, %v", page, err)
+	}
+	if _, err = repository.UpdateOwned(ctx, rootID, strangerID, "Stolen"); !errors.Is(err, comment.ErrForbidden) {
+		t.Fatalf("UpdateOwned(stranger) error = %v", err)
+	}
+	updated, err := repository.UpdateOwned(ctx, rootID, ownerID, "Updated root")
+	if err != nil || updated.Content != "Updated root" || updated.UserID != ownerID {
+		t.Fatalf("UpdateOwned(owner) = %+v, %v", updated, err)
+	}
+	if err = repository.DeleteOwned(ctx, rootID, strangerID); !errors.Is(err, comment.ErrForbidden) {
+		t.Fatalf("DeleteOwned(stranger) error = %v", err)
+	}
+	for range 2 {
+		if err = repository.DeleteOwned(ctx, rootID, ownerID); err != nil {
+			t.Fatalf("DeleteOwned(owner) error = %v", err)
+		}
+	}
+	if _, err = repository.UpdateOwned(ctx, rootID, ownerID, "Resurrected"); !errors.Is(err, comment.ErrNotEditable) {
+		t.Fatalf("UpdateOwned(deleted) error = %v, want %v", err, comment.ErrNotEditable)
+	}
+	page, err = repository.List(ctx, trackID, comment.PageRequest{Limit: 10})
+	if err != nil || page.Total != 0 || len(page.Items) != 0 {
+		t.Fatalf("List(after root delete) = %+v, %v", page, err)
+	}
+}
+
+func TestCommentRepositoryRateLimitsAuthor(t *testing.T) {
+	pool := openIntegrationDatabase(t)
+	repository := NewCommentRepository(pool)
+	ctx := context.Background()
+	userID, trackID := uuid.New(), uuid.New()
+	cleanupUsers(t, pool, userID)
+	for index := range maximumCommentsPerMinute {
+		_, err := repository.Create(ctx, comment.Comment{
+			ID: uuid.New(), UserID: userID, TrackID: trackID, Content: "Comment " + strconv.Itoa(index),
+		})
+		if err != nil {
+			t.Fatalf("Create(%d) error = %v", index, err)
+		}
+	}
+	_, err := repository.Create(ctx, comment.Comment{
+		ID: uuid.New(), UserID: userID, TrackID: trackID, Content: "One too many",
+	})
+	if !errors.Is(err, comment.ErrRateLimited) {
+		t.Fatalf("Create(over limit) error = %v, want %v", err, comment.ErrRateLimited)
+	}
+}
+
+func cleanupUsers(t *testing.T, pool *pgxpool.Pool, userIDs ...uuid.UUID) {
+	t.Helper()
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_, _ = pool.Exec(ctx, `DELETE FROM comment.comments WHERE user_id = ANY($1::uuid[])`, userIDs)
+	})
+}
+
+func openIntegrationDatabase(t *testing.T) *pgxpool.Pool {
+	t.Helper()
+	if os.Getenv("INFINITUNE_INTEGRATION_TESTS") != "1" {
+		t.Skip("set INFINITUNE_INTEGRATION_TESTS=1 to run integration tests")
+	}
+	port, err := strconv.ParseUint(envOrDefault("POSTGRES_PORT", "5432"), 10, 16)
+	if err != nil {
+		t.Fatalf("parse POSTGRES_PORT: %v", err)
+	}
+	config, err := pgxpool.ParseConfig("sslmode=disable")
+	if err != nil {
+		t.Fatalf("parse postgres config: %v", err)
+	}
+	config.ConnConfig.Host = envOrDefault("POSTGRES_HOST", "127.0.0.1")
+	config.ConnConfig.Port = uint16(port)
+	config.ConnConfig.User = requiredEnv(t, "POSTGRES_USER")
+	config.ConnConfig.Password = requiredEnv(t, "POSTGRES_PASSWORD")
+	config.ConnConfig.Database = requiredEnv(t, "POSTGRES_COMMENT_DB")
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	pool, err := pgxpool.NewWithConfig(ctx, config)
+	if err != nil {
+		t.Fatalf("open postgres: %v", err)
+	}
+	if err = pool.Ping(ctx); err != nil {
+		pool.Close()
+		t.Fatalf("ping postgres: %v", err)
+	}
+	t.Cleanup(pool.Close)
+	return pool
+}
+
+func requiredEnv(t *testing.T, key string) string {
+	t.Helper()
+	value := os.Getenv(key)
+	if value == "" {
+		t.Fatalf("%s is required", key)
+	}
+	return value
+}
+func envOrDefault(key, fallback string) string {
+	if value := os.Getenv(key); value != "" {
+		return value
+	}
+	return fallback
+}

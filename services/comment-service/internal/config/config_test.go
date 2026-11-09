@@ -5,6 +5,10 @@ import "testing"
 func TestLoadUsesCommentDatabase(t *testing.T) {
 	t.Setenv("COMMENT_HTTP_HOST", "127.0.0.1")
 	t.Setenv("COMMENT_HTTP_PORT", "8088")
+	t.Setenv("CATALOG_GRPC_HOST", "catalog-service")
+	t.Setenv("CATALOG_GRPC_PORT", "9091")
+	t.Setenv("COMMENT_AUTH_JWKS_URL", "http://auth-service:8080/v1/auth/jwks")
+	t.Setenv("COMMENT_ALLOWED_ORIGINS", "http://localhost:5173,https://app.example.test")
 	t.Setenv("POSTGRES_HOST", "postgres")
 	t.Setenv("POSTGRES_PORT", "5433")
 	t.Setenv("POSTGRES_USER", "comment_user")
@@ -17,6 +21,11 @@ func TestLoadUsesCommentDatabase(t *testing.T) {
 	}
 	if config.HTTPAddress != "127.0.0.1:8088" {
 		t.Fatalf("HTTPAddress = %q", config.HTTPAddress)
+	}
+	if config.CatalogAddress != "catalog-service:9091" || len(config.Origins) != 2 ||
+		config.Identity.JWKSURL != "http://auth-service:8080/v1/auth/jwks" {
+		t.Fatalf("CatalogAddress = %q, Origins = %v, Identity = %+v",
+			config.CatalogAddress, config.Origins, config.Identity)
 	}
 	if config.Database.Host != "postgres" || config.Database.Port != 5433 ||
 		config.Database.User != "comment_user" || config.Database.Password != "secret" ||
@@ -34,6 +43,8 @@ func TestLoadRejectsInvalidConfiguration(t *testing.T) {
 	}{
 		{name: "invalid HTTP port", key: "COMMENT_HTTP_PORT", value: "0"},
 		{name: "invalid database port", key: "POSTGRES_PORT", value: "invalid"},
+		{name: "invalid Catalog port", key: "CATALOG_GRPC_PORT", value: "70000"},
+		{name: "invalid origin", key: "COMMENT_ALLOWED_ORIGINS", value: "localhost:5173"},
 		{name: "missing database user", key: "POSTGRES_USER", value: ""},
 		{name: "missing database password", key: "POSTGRES_PASSWORD", value: ""},
 		{name: "missing database name", key: "POSTGRES_COMMENT_DB", value: ""},
