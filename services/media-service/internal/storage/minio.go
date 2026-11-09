@@ -23,6 +23,7 @@ type bucketClient interface {
 	BucketExists(context.Context, string) (bool, error)
 	GetObject(context.Context, string, string, minio.GetObjectOptions) (*minio.Object, error)
 	PutObject(context.Context, string, string, io.Reader, int64, minio.PutObjectOptions) (minio.UploadInfo, error)
+	RemoveObject(context.Context, string, string, minio.RemoveObjectOptions) error
 }
 
 var ErrObjectNotFound = errors.New("media object not found")
@@ -92,6 +93,15 @@ func (client *Client) Put(
 		minio.PutObjectOptions{ContentType: contentType})
 	if err != nil {
 		return fmt.Errorf("put object %q: %w", objectKey, err)
+	}
+	return nil
+}
+
+func (client *Client) Delete(ctx context.Context, objectKey string) error {
+	if err := client.client.RemoveObject(
+		ctx, client.bucket, objectKey, minio.RemoveObjectOptions{},
+	); err != nil {
+		return fmt.Errorf("delete object %q: %w", objectKey, err)
 	}
 	return nil
 }

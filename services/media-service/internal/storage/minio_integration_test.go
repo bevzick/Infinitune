@@ -5,6 +5,7 @@ package storage
 import (
 	"bytes"
 	"context"
+	"errors"
 	"io"
 	"os"
 	"strconv"
@@ -105,6 +106,12 @@ func TestMinIOStreamsPrivateMediaObject(t *testing.T) {
 	}
 	if !bytes.Equal(seeked, want[offset:]) {
 		t.Fatalf("seeked body = %q, want %q", seeked, want[offset:])
+	}
+	if err = client.Delete(ctx, objectKey); err != nil {
+		t.Fatalf("Delete() error = %v", err)
+	}
+	if _, err = client.Open(ctx, objectKey); !errors.Is(err, ErrObjectNotFound) {
+		t.Fatalf("Open(deleted) error = %v, want %v", err, ErrObjectNotFound)
 	}
 }
 

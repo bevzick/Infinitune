@@ -59,6 +59,38 @@ func TestMediaRepositoryReturnsAssetWithOrderedVariants(t *testing.T) {
 	}
 }
 
+func TestMediaRepositoryCreatesCreatorAssetIdempotently(t *testing.T) {
+	pool := openIntegrationDatabase(t)
+	ctx := context.Background()
+	assetID, contentTrackID, uploadID := uuid.New(), uuid.New(), uuid.New()
+	t.Cleanup(func() { removeMediaAsset(t, pool, assetID) })
+	repository := NewMediaRepository(pool)
+	input := media.Asset{
+		ID: assetID, ContentTrackID: contentTrackID, SourceUploadID: uploadID,
+		OriginalObjectKey: "creator-content/" + uploadID.String() + "/source.flac",
+		OriginalFilename:  "source.flac", Status: media.StatusUploaded,
+	}
+	created, inserted, err := repository.CreateFromUpload(ctx, input)
+	if err != nil || !inserted {
+		t.Fatalf("CreateFromUpload() = %+v, inserted %v, %v", created, inserted, err)
+	}
+	if created.TrackID != uuid.Nil || created.ContentTrackID != contentTrackID ||
+		created.SourceUploadID != uploadID || created.Status != media.StatusUploaded {
+		t.Fatalf("CreateFromUpload() = %+v", created)
+	}
+	duplicate := input
+	duplicate.ID = uuid.New()
+	idempotent, inserted, err := repository.CreateFromUpload(ctx, duplicate)
+	if err != nil || inserted || idempotent.ID != assetID {
+		t.Fatalf("CreateFromUpload(idempotent) = %+v, inserted %v, %v",
+			idempotent, inserted, err)
+	}
+	loaded, err := repository.AssetBySourceUpload(ctx, uploadID)
+	if err != nil || loaded.ID != assetID || loaded.ContentTrackID != contentTrackID {
+		t.Fatalf("AssetBySourceUpload() = %+v, %v", loaded, err)
+	}
+}
+
 func openIntegrationDatabase(t *testing.T) *pgxpool.Pool {
 	t.Helper()
 	if os.Getenv("INFINITUNE_INTEGRATION_TESTS") != "1" {

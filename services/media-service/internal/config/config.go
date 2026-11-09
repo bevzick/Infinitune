@@ -19,6 +19,8 @@ const (
 	defaultHTTPPort       = "8080"
 	defaultGRPCHost       = "0.0.0.0"
 	defaultGRPCPort       = "9090"
+	defaultContentHost    = "127.0.0.1"
+	defaultContentPort    = "9090"
 	defaultPostgresHost   = "127.0.0.1"
 	defaultPostgresPort   = "5432"
 	defaultMinIOEndpoint  = "127.0.0.1:9000"
@@ -31,12 +33,13 @@ const (
 )
 
 type Config struct {
-	HTTPAddress string
-	GRPCAddress string
-	Database    database.Config
-	Storage     storage.Config
-	Identity    identity.Config
-	Origins     []string
+	HTTPAddress    string
+	GRPCAddress    string
+	ContentAddress string
+	Database       database.Config
+	Storage        storage.Config
+	Identity       identity.Config
+	Origins        []string
 }
 
 func Load() (Config, error) {
@@ -46,6 +49,10 @@ func Load() (Config, error) {
 	}
 	grpcPort := envOrDefault("MEDIA_GRPC_PORT", defaultGRPCPort)
 	if _, err := parsePort("MEDIA_GRPC_PORT", grpcPort); err != nil {
+		return Config{}, err
+	}
+	contentPort := envOrDefault("CONTENT_GRPC_PORT", defaultContentPort)
+	if _, err := parsePort("CONTENT_GRPC_PORT", contentPort); err != nil {
 		return Config{}, err
 	}
 	databaseConfig, err := loadDatabaseConfig()
@@ -63,8 +70,11 @@ func Load() (Config, error) {
 	return Config{
 		HTTPAddress: net.JoinHostPort(envOrDefault("MEDIA_HTTP_HOST", defaultHTTPHost), httpPort),
 		GRPCAddress: net.JoinHostPort(envOrDefault("MEDIA_GRPC_HOST", defaultGRPCHost), grpcPort),
-		Database:    databaseConfig,
-		Storage:     storageConfig,
+		ContentAddress: net.JoinHostPort(
+			envOrDefault("CONTENT_GRPC_HOST", defaultContentHost), contentPort,
+		),
+		Database: databaseConfig,
+		Storage:  storageConfig,
 		Identity: identity.Config{
 			JWKSURL:         envOrDefault("MEDIA_AUTH_JWKS_URL", defaultJWKSURL),
 			Issuer:          envOrDefault("AUTH_JWT_ISSUER", defaultJWTIssuer),

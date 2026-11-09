@@ -6,6 +6,7 @@ import (
 
 	contentv1 "github.com/bevzick/Infinitune/services/content-service/api/content/v1"
 	"github.com/bevzick/Infinitune/services/content-service/internal/creator"
+	"github.com/bevzick/Infinitune/services/content-service/internal/upload"
 	"github.com/google/uuid"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -15,13 +16,95 @@ type AccessChecker interface {
 	Check(context.Context, uuid.UUID, uuid.UUID, creator.Permission) (creator.AccessDecision, error)
 }
 
-type ContentServer struct {
-	contentv1.UnimplementedContentServiceServer
-	access AccessChecker
+type UploadSessions interface {
+	SessionForUser(context.Context, uuid.UUID, uuid.UUID) (upload.Session, error)
+	Transition(context.Context, uuid.UUID, upload.Status) (upload.Session, error)
 }
 
-func NewContentServer(access AccessChecker) *ContentServer {
-	return &ContentServer{access: access}
+type ContentServer struct {
+	contentv1.UnimplementedContentServiceServer
+	access  AccessChecker
+	uploads UploadSessions
+}
+
+func NewContentServer(access AccessChecker, uploads UploadSessions) *ContentServer {
+	return &ContentServer{access: access, uploads: uploads}
+}
+
+func (server *ContentServer) GetUploadSession(
+	ctx context.Context,
+	request *contentv1.GetUploadSessionRequest,
+) (*contentv1.UploadSession, error) {
+	if request == nil || server.uploads == nil {
+		return nil, status.Error(codes.InvalidArgument, "request is required")
+	}
+	uploadID, err := parseUUID(request.GetUploadId(), "upload_id")
+	if err != nil {
+		return nil, err
+	}
+	userID, err := parseUUID(request.GetUserId(), "user_id")
+	if err != nil {
+		return nil, err
+	}
+	session, err := server.uploads.SessionForUser(ctx, userID, uploadID)
+	if err != nil {
+		return nil, mapUploadError(err)
+	}
+	return uploadResponse(session), nil
+}
+
+func (server *ContentServer) TransitionUpload(
+	ctx context.Context,
+	request *contentv1.TransitionUploadRequest,
+) (*contentv1.UploadSession, error) {
+	if request == nil || server.uploads == nil {
+		return nil, status.Error(codes.InvalidArgument, "request is required")
+	}
+	uploadID, err := parseUUID(request.GetUploadId(), "upload_id")
+	if err != nil {
+		return nil, err
+	}
+	session, err := server.uploads.Transition(
+		ctx, uploadID, upload.Status(request.GetTargetStatus()),
+	)
+	if err != nil {
+		return nil, mapUploadError(err)
+	}
+	return uploadResponse(session), nil
+}
+
+func parseUUID(value, field string) (uuid.UUID, error) {
+	id, err := uuid.Parse(value)
+	if err != nil || id == uuid.Nil {
+		return uuid.Nil, status.Errorf(codes.InvalidArgument, "%s must be a UUID", field)
+	}
+	return id, nil
+}
+
+func mapUploadError(err error) error {
+	switch {
+	case errors.Is(err, creator.ErrForbidden):
+		return status.Error(codes.PermissionDenied, "upload session is not available to this user")
+	case errors.Is(err, upload.ErrInvalid):
+		return status.Error(codes.InvalidArgument, err.Error())
+	case errors.Is(err, upload.ErrNotFound):
+		return status.Error(codes.NotFound, "upload session was not found")
+	case errors.Is(err, upload.ErrInvalidTransition), errors.Is(err, upload.ErrReleaseLocked):
+		return status.Error(codes.FailedPrecondition, err.Error())
+	case errors.Is(err, upload.ErrConflict):
+		return status.Error(codes.Aborted, "upload session changed concurrently")
+	default:
+		return status.Error(codes.Internal, "upload session operation failed")
+	}
+}
+
+func uploadResponse(session upload.Session) *contentv1.UploadSession {
+	return &contentv1.UploadSession{
+		Id: session.ID.String(), ReleaseTrackId: session.ReleaseTrackID.String(),
+		RequestedByUserId: session.RequestedByUserID.String(), ObjectKey: session.ObjectKey,
+		OriginalName: session.OriginalName, MimeType: session.MIMEType,
+		SizeBytes: session.SizeBytes, Status: string(session.Status),
+	}
 }
 
 func (server *ContentServer) CheckPermission(

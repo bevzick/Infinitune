@@ -101,12 +101,18 @@ func assetResponse(asset media.Asset) *mediav1.MediaAsset {
 		})
 	}
 	response := &mediav1.MediaAsset{
-		Id: asset.ID.String(), TrackId: asset.TrackID.String(),
+		Id:                asset.ID.String(),
 		SourceUploadId:    asset.SourceUploadID.String(),
 		OriginalObjectKey: asset.OriginalObjectKey,
 		OriginalFilename:  asset.OriginalFilename,
 		Status:            assetStatus(asset.Status), Variants: variants,
 		CreatedAt: timestamppb.New(asset.CreatedAt), UpdatedAt: timestamppb.New(asset.UpdatedAt),
+	}
+	if asset.TrackID != uuid.Nil {
+		response.TrackId = asset.TrackID.String()
+	}
+	if asset.ContentTrackID != uuid.Nil {
+		response.ContentTrackId = asset.ContentTrackID.String()
 	}
 	if asset.DurationMS != nil {
 		value := int32(*asset.DurationMS)

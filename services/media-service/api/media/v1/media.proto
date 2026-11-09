@@ -41,6 +41,7 @@ message MediaAsset {
   repeated AudioVariant variants = 8;
   google.protobuf.Timestamp created_at = 9;
   google.protobuf.Timestamp updated_at = 10;
+  string content_track_id = 11;
 }
 
 message AudioVariant {

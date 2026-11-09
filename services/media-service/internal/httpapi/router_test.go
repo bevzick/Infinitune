@@ -67,6 +67,34 @@ type playbackStub struct {
 	err     error
 }
 
+type ingestStub struct {
+	asset       media.Asset
+	created     bool
+	err         error
+	actorID     uuid.UUID
+	uploadID    uuid.UUID
+	contentType string
+	sizeBytes   int64
+	body        string
+}
+
+func (stub *ingestStub) Ingest(
+	_ context.Context,
+	actorID uuid.UUID,
+	uploadID uuid.UUID,
+	contentType string,
+	sizeBytes int64,
+	body io.Reader,
+) (media.Asset, bool, error) {
+	stub.actorID = actorID
+	stub.uploadID = uploadID
+	stub.contentType = contentType
+	stub.sizeBytes = sizeBytes
+	data, _ := io.ReadAll(body)
+	stub.body = string(data)
+	return stub.asset, stub.created, stub.err
+}
+
 func (stub playbackStub) PlaybackVariant(
 	context.Context,
 	uuid.UUID,
@@ -108,6 +136,44 @@ func TestPlaybackRequiresVerifiedBearerToken(t *testing.T) {
 	if response.Code != http.StatusUnauthorized || response.Header().Get("WWW-Authenticate") != "Bearer" {
 		t.Fatalf("status = %d, authenticate = %q, body = %s",
 			response.Code, response.Header().Get("WWW-Authenticate"), response.Body.String())
+	}
+}
+
+func TestCreatorUploadIngestsAuthenticatedRawAudio(t *testing.T) {
+	actorID, uploadID, assetID, contentTrackID :=
+		uuid.New(), uuid.New(), uuid.New(), uuid.New()
+	ingester := &ingestStub{created: true, asset: media.Asset{
+		ID: assetID, ContentTrackID: contentTrackID, Status: media.StatusUploaded,
+	}}
+	dependencies := playbackDependencies()
+	dependencies.Tokens = identityVerifierStub{identity: identity.Identity{UserID: actorID}}
+	dependencies.Ingest = ingester
+	request := httptest.NewRequest(http.MethodPut,
+		"/v1/media/uploads/"+uploadID.String(), bytes.NewBufferString("audio"))
+	request.Header.Set("Authorization", "Bearer valid")
+	request.Header.Set("Content-Type", "audio/flac")
+	response := httptest.NewRecorder()
+	NewRouter(dependencies).ServeHTTP(response, request)
+	if response.Code != http.StatusCreated || ingester.actorID != actorID ||
+		ingester.uploadID != uploadID || ingester.contentType != "audio/flac" ||
+		ingester.sizeBytes != 5 || ingester.body != "audio" {
+		t.Fatalf("status = %d, ingest = %+v, body = %s",
+			response.Code, ingester, response.Body.String())
+	}
+}
+
+func TestCreatorUploadRequiresContentLength(t *testing.T) {
+	dependencies := playbackDependencies()
+	dependencies.Ingest = &ingestStub{}
+	request := httptest.NewRequest(http.MethodPut,
+		"/v1/media/uploads/"+uuid.NewString(), bytes.NewBufferString("audio"))
+	request.ContentLength = -1
+	request.Header.Set("Authorization", "Bearer valid")
+	request.Header.Set("Content-Type", "audio/flac")
+	response := httptest.NewRecorder()
+	NewRouter(dependencies).ServeHTTP(response, request)
+	if response.Code != http.StatusLengthRequired {
+		t.Fatalf("status = %d, body = %s", response.Code, response.Body.String())
 	}
 }
 

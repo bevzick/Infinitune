@@ -27,6 +27,7 @@ const (
 type Asset struct {
 	ID                uuid.UUID
 	TrackID           uuid.UUID
+	ContentTrackID    uuid.UUID
 	SourceUploadID    uuid.UUID
 	OriginalObjectKey string
 	OriginalFilename  string

@@ -22,6 +22,7 @@ import (
 	"github.com/bevzick/Infinitune/services/content-service/internal/httpapi"
 	"github.com/bevzick/Infinitune/services/content-service/internal/identity"
 	postgres_repository "github.com/bevzick/Infinitune/services/content-service/internal/repository/postgres"
+	"github.com/bevzick/Infinitune/services/content-service/internal/upload"
 	"github.com/bevzick/Infinitune/services/content-service/internal/user"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -73,6 +74,9 @@ func main() {
 	memberService := creator.NewMemberService(repository,
 		user.NewDirectory(userv1.NewUserServiceClient(userConnection)))
 	accessService := creator.NewAccessService(repository)
+	uploadService := upload.NewService(
+		postgres_repository.NewUploadRepository(databasePool), memberService,
+	)
 
 	httpServer := &http.Server{
 		Addr: cfg.HTTPAddress,
@@ -88,7 +92,9 @@ func main() {
 		os.Exit(1)
 	}
 	grpcServer := grpc.NewServer()
-	contentv1.RegisterContentServiceServer(grpcServer, grpcapi.NewContentServer(accessService))
+	contentv1.RegisterContentServiceServer(
+		grpcServer, grpcapi.NewContentServer(accessService, uploadService),
+	)
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	serverErrors := make(chan error, 2)

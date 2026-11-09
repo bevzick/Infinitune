@@ -92,6 +92,27 @@ func (service *Service) CreateSession(
 	return stored, nil
 }
 
+func (service *Service) SessionForUser(
+	ctx context.Context,
+	actorID uuid.UUID,
+	uploadID uuid.UUID,
+) (Session, error) {
+	if actorID == uuid.Nil {
+		return Session{}, creator.ErrForbidden
+	}
+	if uploadID == uuid.Nil {
+		return Session{}, validationError("upload_id", "must be a UUID")
+	}
+	session, err := service.store.ByID(ctx, uploadID)
+	if err != nil {
+		return Session{}, fmt.Errorf("read upload session: %w", err)
+	}
+	if session.RequestedByUserID != actorID {
+		return Session{}, creator.ErrForbidden
+	}
+	return session, nil
+}
+
 func (service *Service) Transition(
 	ctx context.Context,
 	uploadID uuid.UUID,

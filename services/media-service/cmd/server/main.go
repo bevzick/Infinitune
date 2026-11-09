@@ -13,16 +13,20 @@ import (
 	"syscall"
 	"time"
 
+	contentv1 "github.com/bevzick/Infinitune/services/media-service/api/content/v1"
 	mediav1 "github.com/bevzick/Infinitune/services/media-service/api/media/v1"
 	"github.com/bevzick/Infinitune/services/media-service/internal/config"
+	content_client "github.com/bevzick/Infinitune/services/media-service/internal/content"
 	"github.com/bevzick/Infinitune/services/media-service/internal/database"
 	"github.com/bevzick/Infinitune/services/media-service/internal/grpcapi"
 	"github.com/bevzick/Infinitune/services/media-service/internal/httpapi"
 	"github.com/bevzick/Infinitune/services/media-service/internal/identity"
+	"github.com/bevzick/Infinitune/services/media-service/internal/ingest"
 	"github.com/bevzick/Infinitune/services/media-service/internal/media"
 	postgres_repository "github.com/bevzick/Infinitune/services/media-service/internal/repository/postgres"
 	"github.com/bevzick/Infinitune/services/media-service/internal/storage"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 const (
@@ -69,7 +73,20 @@ func main() {
 		logger.Error("failed to initialize identity verifier", "error", err)
 		os.Exit(1)
 	}
-	metadataService := media.NewService(postgres_repository.NewMediaRepository(databasePool))
+	contentConnection, err := grpc.NewClient(
+		cfg.ContentAddress, grpc.WithTransportCredentials(insecure.NewCredentials()),
+	)
+	if err != nil {
+		logger.Error("failed to initialize content service client", "error", err)
+		os.Exit(1)
+	}
+	defer contentConnection.Close()
+	mediaRepository := postgres_repository.NewMediaRepository(databasePool)
+	metadataService := media.NewService(mediaRepository)
+	ingestService := ingest.NewService(
+		content_client.NewClient(contentv1.NewContentServiceClient(contentConnection)),
+		mediaRepository, objectStorage,
+	)
 	grpcListener, err := net.Listen("tcp", cfg.GRPCAddress)
 	if err != nil {
 		logger.Error("failed to listen for gRPC", "error", err)
@@ -85,6 +102,7 @@ func main() {
 			Storage:  objectStorage,
 			Objects:  objectStorage,
 			Media:    metadataService,
+			Ingest:   ingestService,
 			Tokens:   tokenVerifier,
 			Origins:  cfg.Origins,
 			Logger:   logger,

@@ -6,6 +6,7 @@ import (
 
 	contentv1 "github.com/bevzick/Infinitune/services/content-service/api/content/v1"
 	"github.com/bevzick/Infinitune/services/content-service/internal/creator"
+	"github.com/bevzick/Infinitune/services/content-service/internal/upload"
 	"github.com/google/uuid"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -16,7 +17,7 @@ func TestContentServerReturnsAccessDecision(t *testing.T) {
 		Allowed: true, Role: creator.RoleOwner,
 		VerificationStatus: creator.VerificationVerified,
 	}}
-	response, err := NewContentServer(checker).CheckPermission(context.Background(),
+	response, err := NewContentServer(checker, nil).CheckPermission(context.Background(),
 		&contentv1.CheckPermissionRequest{
 			CreatorId: uuid.NewString(), UserId: uuid.NewString(),
 			Permission: string(creator.PermissionContentPublish),
@@ -27,16 +28,62 @@ func TestContentServerReturnsAccessDecision(t *testing.T) {
 }
 
 func TestContentServerRejectsInvalidIdentifiers(t *testing.T) {
-	_, err := NewContentServer(&checkerStub{}).CheckPermission(context.Background(),
+	_, err := NewContentServer(&checkerStub{}, nil).CheckPermission(context.Background(),
 		&contentv1.CheckPermissionRequest{CreatorId: "bad", UserId: uuid.NewString()})
 	if status.Code(err) != codes.InvalidArgument {
 		t.Fatalf("CheckPermission() code = %v", status.Code(err))
 	}
 }
 
+func TestContentServerReturnsUploadSessionForUser(t *testing.T) {
+	uploadID, userID, trackID := uuid.New(), uuid.New(), uuid.New()
+	sessions := &uploadSessionsStub{session: upload.Session{
+		ID: uploadID, ReleaseTrackID: trackID, RequestedByUserID: userID,
+		ObjectKey: "private/source.flac", OriginalName: "source.flac",
+		MIMEType: "audio/flac", SizeBytes: 1024, Status: upload.StatusPending,
+	}}
+	response, err := NewContentServer(&checkerStub{}, sessions).GetUploadSession(
+		context.Background(), &contentv1.GetUploadSessionRequest{
+			UploadId: uploadID.String(), UserId: userID.String(),
+		},
+	)
+	if err != nil || response.GetId() != uploadID.String() ||
+		response.GetReleaseTrackId() != trackID.String() || response.GetStatus() != "pending" {
+		t.Fatalf("GetUploadSession() = %+v, %v", response, err)
+	}
+}
+
+func TestContentServerMapsUploadTransitionConflict(t *testing.T) {
+	_, err := NewContentServer(&checkerStub{}, &uploadSessionsStub{
+		err: upload.ErrConflict,
+	}).TransitionUpload(context.Background(), &contentv1.TransitionUploadRequest{
+		UploadId: uuid.NewString(), TargetStatus: "completed",
+	})
+	if status.Code(err) != codes.Aborted {
+		t.Fatalf("TransitionUpload() code = %v", status.Code(err))
+	}
+}
+
 type checkerStub struct {
 	decision creator.AccessDecision
 	err      error
+}
+
+type uploadSessionsStub struct {
+	session upload.Session
+	err     error
+}
+
+func (stub *uploadSessionsStub) SessionForUser(
+	context.Context, uuid.UUID, uuid.UUID,
+) (upload.Session, error) {
+	return stub.session, stub.err
+}
+
+func (stub *uploadSessionsStub) Transition(
+	context.Context, uuid.UUID, upload.Status,
+) (upload.Session, error) {
+	return stub.session, stub.err
 }
 
 func (stub *checkerStub) Check(

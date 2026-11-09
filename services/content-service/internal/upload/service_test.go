@@ -197,6 +197,22 @@ func TestServiceControlsUploadStatusTransitions(t *testing.T) {
 	}
 }
 
+func TestServiceReturnsUploadOnlyToRequester(t *testing.T) {
+	actorID, uploadID := uuid.New(), uuid.New()
+	service := NewService(&storeStub{byIDResult: Session{
+		ID: uploadID, RequestedByUserID: actorID,
+	}}, &authorizerStub{})
+	session, err := service.SessionForUser(context.Background(), actorID, uploadID)
+	if err != nil || session.ID != uploadID {
+		t.Fatalf("SessionForUser() = %+v, %v", session, err)
+	}
+	if _, err = service.SessionForUser(
+		context.Background(), uuid.New(), uploadID,
+	); !errors.Is(err, creator.ErrForbidden) {
+		t.Fatalf("SessionForUser(foreign) error = %v", err)
+	}
+}
+
 type storeStub struct {
 	target          TrackTarget
 	targetCalls     int

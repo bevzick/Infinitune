@@ -36,11 +36,16 @@ type ObjectStorage interface {
 	Open(context.Context, string) (storage.Object, error)
 }
 
+type UploadIngest interface {
+	Ingest(context.Context, uuid.UUID, uuid.UUID, string, int64, io.Reader) (media.Asset, bool, error)
+}
+
 type Dependencies struct {
 	Database DatabaseCheck
 	Storage  StorageCheck
 	Objects  ObjectStorage
 	Media    Playback
+	Ingest   UploadIngest
 	Tokens   IdentityVerifier
 	Origins  []string
 	Logger   *slog.Logger
@@ -57,6 +62,7 @@ func NewRouter(dependencies Dependencies) http.Handler {
 	protected := router.Group("/v1/media")
 	protected.Use(authenticate(dependencies.Tokens, dependencies.Logger))
 	protected.GET("/assets/:media_asset_id/playback", playback(dependencies))
+	protected.PUT("/uploads/:upload_id", ingestUpload(dependencies.Ingest, dependencies.Logger))
 	return router
 }
 
