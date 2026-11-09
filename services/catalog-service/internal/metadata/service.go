@@ -10,6 +10,7 @@ import (
 type Store interface {
 	ArtistByID(context.Context, uuid.UUID) (Artist, error)
 	ListArtists(context.Context, PageRequest) (Page[Artist], error)
+	ExistingArtistIDs(context.Context, []uuid.UUID) (map[uuid.UUID]struct{}, error)
 	SaveArtist(context.Context, ArtistInput) (Artist, error)
 	AlbumByID(context.Context, uuid.UUID) (Album, error)
 	ListAlbums(context.Context, PageRequest) (Page[Album], error)
@@ -86,6 +87,30 @@ func (service *Service) Artists(ctx context.Context, page PageRequest) (Page[Art
 	result, err := service.store.ListArtists(ctx, page)
 	if err != nil {
 		return Page[Artist]{}, fmt.Errorf("list artists: %w", err)
+	}
+	return result, nil
+}
+
+func (service *Service) ValidateArtistIDs(
+	ctx context.Context,
+	ids []uuid.UUID,
+) (ArtistIDValidation, error) {
+	if err := validateIDBatch("artist_ids", ids); err != nil {
+		return ArtistIDValidation{}, err
+	}
+	existing, err := service.store.ExistingArtistIDs(ctx, ids)
+	if err != nil {
+		return ArtistIDValidation{}, fmt.Errorf("validate artist ids: %w", err)
+	}
+	result := ArtistIDValidation{
+		ValidIDs: make([]uuid.UUID, 0, len(ids)), MissingIDs: make([]uuid.UUID, 0),
+	}
+	for _, id := range ids {
+		if _, exists := existing[id]; exists {
+			result.ValidIDs = append(result.ValidIDs, id)
+		} else {
+			result.MissingIDs = append(result.MissingIDs, id)
+		}
 	}
 	return result, nil
 }

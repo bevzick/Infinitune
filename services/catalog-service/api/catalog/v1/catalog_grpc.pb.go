@@ -24,6 +24,7 @@ const (
 	CatalogService_GetTracks_FullMethodName            = "/infinitune.catalog.v1.CatalogService/GetTracks"
 	CatalogService_ValidateTrackIds_FullMethodName     = "/infinitune.catalog.v1.CatalogService/ValidateTrackIds"
 	CatalogService_ValidateAlbumIds_FullMethodName     = "/infinitune.catalog.v1.CatalogService/ValidateAlbumIds"
+	CatalogService_ValidateArtistIds_FullMethodName    = "/infinitune.catalog.v1.CatalogService/ValidateArtistIds"
 	CatalogService_FilterTracks_FullMethodName         = "/infinitune.catalog.v1.CatalogService/FilterTracks"
 	CatalogService_EvaluateTrackFilters_FullMethodName = "/infinitune.catalog.v1.CatalogService/EvaluateTrackFilters"
 )
@@ -43,6 +44,8 @@ type CatalogServiceClient interface {
 	ValidateTrackIds(ctx context.Context, in *ValidateTrackIdsRequest, opts ...grpc.CallOption) (*ValidateTrackIdsResponse, error)
 	// Separates requested album IDs into ordered available and missing collections.
 	ValidateAlbumIds(ctx context.Context, in *ValidateAlbumIdsRequest, opts ...grpc.CallOption) (*ValidateAlbumIdsResponse, error)
+	// Separates requested artist IDs into ordered valid and missing collections.
+	ValidateArtistIds(ctx context.Context, in *ValidateArtistIdsRequest, opts ...grpc.CallOption) (*ValidateArtistIdsResponse, error)
 	// Applies the supported hard filters with stable pagination and sorting.
 	FilterTracks(ctx context.Context, in *FilterTracksRequest, opts ...grpc.CallOption) (*FilterTracksResponse, error)
 	// Evaluates a validated flat AND/OR rule set for a dynamic playlist.
@@ -107,6 +110,16 @@ func (c *catalogServiceClient) ValidateAlbumIds(ctx context.Context, in *Validat
 	return out, nil
 }
 
+func (c *catalogServiceClient) ValidateArtistIds(ctx context.Context, in *ValidateArtistIdsRequest, opts ...grpc.CallOption) (*ValidateArtistIdsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ValidateArtistIdsResponse)
+	err := c.cc.Invoke(ctx, CatalogService_ValidateArtistIds_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *catalogServiceClient) FilterTracks(ctx context.Context, in *FilterTracksRequest, opts ...grpc.CallOption) (*FilterTracksResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(FilterTracksResponse)
@@ -142,6 +155,8 @@ type CatalogServiceServer interface {
 	ValidateTrackIds(context.Context, *ValidateTrackIdsRequest) (*ValidateTrackIdsResponse, error)
 	// Separates requested album IDs into ordered available and missing collections.
 	ValidateAlbumIds(context.Context, *ValidateAlbumIdsRequest) (*ValidateAlbumIdsResponse, error)
+	// Separates requested artist IDs into ordered valid and missing collections.
+	ValidateArtistIds(context.Context, *ValidateArtistIdsRequest) (*ValidateArtistIdsResponse, error)
 	// Applies the supported hard filters with stable pagination and sorting.
 	FilterTracks(context.Context, *FilterTracksRequest) (*FilterTracksResponse, error)
 	// Evaluates a validated flat AND/OR rule set for a dynamic playlist.
@@ -170,6 +185,9 @@ func (UnimplementedCatalogServiceServer) ValidateTrackIds(context.Context, *Vali
 }
 func (UnimplementedCatalogServiceServer) ValidateAlbumIds(context.Context, *ValidateAlbumIdsRequest) (*ValidateAlbumIdsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ValidateAlbumIds not implemented")
+}
+func (UnimplementedCatalogServiceServer) ValidateArtistIds(context.Context, *ValidateArtistIdsRequest) (*ValidateArtistIdsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ValidateArtistIds not implemented")
 }
 func (UnimplementedCatalogServiceServer) FilterTracks(context.Context, *FilterTracksRequest) (*FilterTracksResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method FilterTracks not implemented")
@@ -288,6 +306,24 @@ func _CatalogService_ValidateAlbumIds_Handler(srv interface{}, ctx context.Conte
 	return interceptor(ctx, in, info, handler)
 }
 
+func _CatalogService_ValidateArtistIds_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ValidateArtistIdsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CatalogServiceServer).ValidateArtistIds(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: CatalogService_ValidateArtistIds_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CatalogServiceServer).ValidateArtistIds(ctx, req.(*ValidateArtistIdsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _CatalogService_FilterTracks_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(FilterTracksRequest)
 	if err := dec(in); err != nil {
@@ -350,6 +386,10 @@ var CatalogService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ValidateAlbumIds",
 			Handler:    _CatalogService_ValidateAlbumIds_Handler,
+		},
+		{
+			MethodName: "ValidateArtistIds",
+			Handler:    _CatalogService_ValidateArtistIds_Handler,
 		},
 		{
 			MethodName: "FilterTracks",

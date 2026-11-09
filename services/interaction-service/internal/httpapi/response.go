@@ -30,6 +30,8 @@ func writeDomainError(c *gin.Context, logger *slog.Logger, err error) {
 		writeError(c, http.StatusNotFound, "track_not_found", "Track was not found")
 	case errors.Is(err, interaction.ErrAlbumNotFound):
 		writeError(c, http.StatusNotFound, "album_not_found", "Album was not found")
+	case errors.Is(err, interaction.ErrArtistNotFound):
+		writeError(c, http.StatusNotFound, "artist_not_found", "Artist was not found")
 	case errors.Is(err, interaction.ErrCatalogTimeout):
 		writeError(c, http.StatusGatewayTimeout, "catalog_timeout", "Catalog service did not respond in time")
 	case errors.Is(err, interaction.ErrCatalogUnavailable):

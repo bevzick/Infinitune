@@ -71,11 +71,40 @@ func TestServiceListUsesDefaultsAndRejectsInvalidPagination(t *testing.T) {
 	}
 }
 
+func TestServiceFollowsValidatedArtistsForVerifiedOwner(t *testing.T) {
+	userID, firstArtistID, secondArtistID := uuid.New(), uuid.New(), uuid.New()
+	store := &storeStub{}
+	validator := &validatorStub{}
+	service := NewService(store, validator)
+	for _, artistID := range []uuid.UUID{firstArtistID, secondArtistID} {
+		followed, err := service.FollowArtist(context.Background(), userID, artistID)
+		if err != nil || followed.UserID != userID || followed.ArtistID != artistID {
+			t.Fatalf("FollowArtist() = %+v, %v", followed, err)
+		}
+	}
+	if store.followCalls != 2 || store.userID != userID || store.targetID != secondArtistID ||
+		validator.artistID != secondArtistID {
+		t.Fatalf("follow calls = %d, owner = %s, artist = %s, validated = %s",
+			store.followCalls, store.userID, store.targetID, validator.artistID)
+	}
+}
+
+func TestServiceDoesNotFollowMissingArtist(t *testing.T) {
+	store := &storeStub{}
+	service := NewService(store, &validatorStub{artistErr: ErrArtistNotFound})
+	_, err := service.FollowArtist(context.Background(), uuid.New(), uuid.New())
+	if !errors.Is(err, ErrArtistNotFound) || store.followCalls != 0 {
+		t.Fatalf("FollowArtist() error = %v, store calls = %d", err, store.followCalls)
+	}
+}
+
 type validatorStub struct {
-	trackID  uuid.UUID
-	albumID  uuid.UUID
-	trackErr error
-	albumErr error
+	trackID   uuid.UUID
+	albumID   uuid.UUID
+	artistID  uuid.UUID
+	trackErr  error
+	albumErr  error
+	artistErr error
 }
 
 func (stub *validatorStub) ValidateTrack(_ context.Context, id uuid.UUID) error {
@@ -88,13 +117,20 @@ func (stub *validatorStub) ValidateAlbum(_ context.Context, id uuid.UUID) error 
 	return stub.albumErr
 }
 
+func (stub *validatorStub) ValidateArtist(_ context.Context, id uuid.UUID) error {
+	stub.artistID = id
+	return stub.artistErr
+}
+
 type storeStub struct {
-	like        Like
-	userID      uuid.UUID
-	targetID    uuid.UUID
-	page        PageRequest
-	likeCalls   int
-	unlikeCalls int
+	like          Like
+	userID        uuid.UUID
+	targetID      uuid.UUID
+	page          PageRequest
+	likeCalls     int
+	unlikeCalls   int
+	followCalls   int
+	unfollowCalls int
 }
 
 func (stub *storeStub) liked(userID, targetID uuid.UUID) (Like, error) {
@@ -133,4 +169,23 @@ func (stub *storeStub) UnlikeAlbum(_ context.Context, userID, id uuid.UUID) erro
 }
 func (stub *storeStub) AlbumLikes(_ context.Context, userID uuid.UUID, page PageRequest) (LikePage, error) {
 	return stub.listed(userID, page)
+}
+
+func (stub *storeStub) FollowArtist(_ context.Context, userID, artistID uuid.UUID) (Follow, error) {
+	stub.userID, stub.targetID = userID, artistID
+	stub.followCalls++
+	return Follow{UserID: userID, ArtistID: artistID, FollowedAt: time.Now().UTC()}, nil
+}
+
+func (stub *storeStub) UnfollowArtist(_ context.Context, userID, artistID uuid.UUID) error {
+	stub.userID, stub.targetID = userID, artistID
+	stub.unfollowCalls++
+	return nil
+}
+
+func (stub *storeStub) ArtistFollows(
+	_ context.Context, userID uuid.UUID, page PageRequest,
+) (FollowPage, error) {
+	stub.userID, stub.page = userID, page
+	return FollowPage{Items: []Follow{}, Limit: page.Limit, Offset: page.Offset}, nil
 }

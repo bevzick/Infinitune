@@ -1019,6 +1019,102 @@ func (x *ValidateAlbumIdsResponse) GetMissingAlbumIds() []string {
 	return nil
 }
 
+type ValidateArtistIdsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ArtistIds     []string               `protobuf:"bytes,1,rep,name=artist_ids,json=artistIds,proto3" json:"artist_ids,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ValidateArtistIdsRequest) Reset() {
+	*x = ValidateArtistIdsRequest{}
+	mi := &file_api_catalog_v1_catalog_proto_msgTypes[12]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ValidateArtistIdsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ValidateArtistIdsRequest) ProtoMessage() {}
+
+func (x *ValidateArtistIdsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_api_catalog_v1_catalog_proto_msgTypes[12]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ValidateArtistIdsRequest.ProtoReflect.Descriptor instead.
+func (*ValidateArtistIdsRequest) Descriptor() ([]byte, []int) {
+	return file_api_catalog_v1_catalog_proto_rawDescGZIP(), []int{12}
+}
+
+func (x *ValidateArtistIdsRequest) GetArtistIds() []string {
+	if x != nil {
+		return x.ArtistIds
+	}
+	return nil
+}
+
+type ValidateArtistIdsResponse struct {
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	ValidArtistIds   []string               `protobuf:"bytes,1,rep,name=valid_artist_ids,json=validArtistIds,proto3" json:"valid_artist_ids,omitempty"`
+	MissingArtistIds []string               `protobuf:"bytes,2,rep,name=missing_artist_ids,json=missingArtistIds,proto3" json:"missing_artist_ids,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
+}
+
+func (x *ValidateArtistIdsResponse) Reset() {
+	*x = ValidateArtistIdsResponse{}
+	mi := &file_api_catalog_v1_catalog_proto_msgTypes[13]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ValidateArtistIdsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ValidateArtistIdsResponse) ProtoMessage() {}
+
+func (x *ValidateArtistIdsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_api_catalog_v1_catalog_proto_msgTypes[13]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ValidateArtistIdsResponse.ProtoReflect.Descriptor instead.
+func (*ValidateArtistIdsResponse) Descriptor() ([]byte, []int) {
+	return file_api_catalog_v1_catalog_proto_rawDescGZIP(), []int{13}
+}
+
+func (x *ValidateArtistIdsResponse) GetValidArtistIds() []string {
+	if x != nil {
+		return x.ValidArtistIds
+	}
+	return nil
+}
+
+func (x *ValidateArtistIdsResponse) GetMissingArtistIds() []string {
+	if x != nil {
+		return x.MissingArtistIds
+	}
+	return nil
+}
+
 type FilterTracksRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Title         string                 `protobuf:"bytes,1,opt,name=title,proto3" json:"title,omitempty"`
@@ -1037,7 +1133,7 @@ type FilterTracksRequest struct {
 
 func (x *FilterTracksRequest) Reset() {
 	*x = FilterTracksRequest{}
-	mi := &file_api_catalog_v1_catalog_proto_msgTypes[12]
+	mi := &file_api_catalog_v1_catalog_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1049,7 +1145,7 @@ func (x *FilterTracksRequest) String() string {
 func (*FilterTracksRequest) ProtoMessage() {}
 
 func (x *FilterTracksRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_catalog_v1_catalog_proto_msgTypes[12]
+	mi := &file_api_catalog_v1_catalog_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1062,7 +1158,7 @@ func (x *FilterTracksRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FilterTracksRequest.ProtoReflect.Descriptor instead.
 func (*FilterTracksRequest) Descriptor() ([]byte, []int) {
-	return file_api_catalog_v1_catalog_proto_rawDescGZIP(), []int{12}
+	return file_api_catalog_v1_catalog_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *FilterTracksRequest) GetTitle() string {
@@ -1145,7 +1241,7 @@ type FilterTracksResponse struct {
 
 func (x *FilterTracksResponse) Reset() {
 	*x = FilterTracksResponse{}
-	mi := &file_api_catalog_v1_catalog_proto_msgTypes[13]
+	mi := &file_api_catalog_v1_catalog_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1157,7 +1253,7 @@ func (x *FilterTracksResponse) String() string {
 func (*FilterTracksResponse) ProtoMessage() {}
 
 func (x *FilterTracksResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_api_catalog_v1_catalog_proto_msgTypes[13]
+	mi := &file_api_catalog_v1_catalog_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1170,7 +1266,7 @@ func (x *FilterTracksResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FilterTracksResponse.ProtoReflect.Descriptor instead.
 func (*FilterTracksResponse) Descriptor() ([]byte, []int) {
-	return file_api_catalog_v1_catalog_proto_rawDescGZIP(), []int{13}
+	return file_api_catalog_v1_catalog_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *FilterTracksResponse) GetTracks() []*Track {
@@ -1196,7 +1292,7 @@ type UUIDList struct {
 
 func (x *UUIDList) Reset() {
 	*x = UUIDList{}
-	mi := &file_api_catalog_v1_catalog_proto_msgTypes[14]
+	mi := &file_api_catalog_v1_catalog_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1208,7 +1304,7 @@ func (x *UUIDList) String() string {
 func (*UUIDList) ProtoMessage() {}
 
 func (x *UUIDList) ProtoReflect() protoreflect.Message {
-	mi := &file_api_catalog_v1_catalog_proto_msgTypes[14]
+	mi := &file_api_catalog_v1_catalog_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1221,7 +1317,7 @@ func (x *UUIDList) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UUIDList.ProtoReflect.Descriptor instead.
 func (*UUIDList) Descriptor() ([]byte, []int) {
-	return file_api_catalog_v1_catalog_proto_rawDescGZIP(), []int{14}
+	return file_api_catalog_v1_catalog_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *UUIDList) GetValues() []string {
@@ -1241,7 +1337,7 @@ type IntegerRange struct {
 
 func (x *IntegerRange) Reset() {
 	*x = IntegerRange{}
-	mi := &file_api_catalog_v1_catalog_proto_msgTypes[15]
+	mi := &file_api_catalog_v1_catalog_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1253,7 +1349,7 @@ func (x *IntegerRange) String() string {
 func (*IntegerRange) ProtoMessage() {}
 
 func (x *IntegerRange) ProtoReflect() protoreflect.Message {
-	mi := &file_api_catalog_v1_catalog_proto_msgTypes[15]
+	mi := &file_api_catalog_v1_catalog_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1266,7 +1362,7 @@ func (x *IntegerRange) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use IntegerRange.ProtoReflect.Descriptor instead.
 func (*IntegerRange) Descriptor() ([]byte, []int) {
-	return file_api_catalog_v1_catalog_proto_rawDescGZIP(), []int{15}
+	return file_api_catalog_v1_catalog_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *IntegerRange) GetMinimum() int32 {
@@ -1300,7 +1396,7 @@ type TrackFilterValue struct {
 
 func (x *TrackFilterValue) Reset() {
 	*x = TrackFilterValue{}
-	mi := &file_api_catalog_v1_catalog_proto_msgTypes[16]
+	mi := &file_api_catalog_v1_catalog_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1312,7 +1408,7 @@ func (x *TrackFilterValue) String() string {
 func (*TrackFilterValue) ProtoMessage() {}
 
 func (x *TrackFilterValue) ProtoReflect() protoreflect.Message {
-	mi := &file_api_catalog_v1_catalog_proto_msgTypes[16]
+	mi := &file_api_catalog_v1_catalog_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1325,7 +1421,7 @@ func (x *TrackFilterValue) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TrackFilterValue.ProtoReflect.Descriptor instead.
 func (*TrackFilterValue) Descriptor() ([]byte, []int) {
-	return file_api_catalog_v1_catalog_proto_rawDescGZIP(), []int{16}
+	return file_api_catalog_v1_catalog_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *TrackFilterValue) GetKind() isTrackFilterValue_Kind {
@@ -1440,7 +1536,7 @@ type TrackFilter struct {
 
 func (x *TrackFilter) Reset() {
 	*x = TrackFilter{}
-	mi := &file_api_catalog_v1_catalog_proto_msgTypes[17]
+	mi := &file_api_catalog_v1_catalog_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1452,7 +1548,7 @@ func (x *TrackFilter) String() string {
 func (*TrackFilter) ProtoMessage() {}
 
 func (x *TrackFilter) ProtoReflect() protoreflect.Message {
-	mi := &file_api_catalog_v1_catalog_proto_msgTypes[17]
+	mi := &file_api_catalog_v1_catalog_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1465,7 +1561,7 @@ func (x *TrackFilter) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TrackFilter.ProtoReflect.Descriptor instead.
 func (*TrackFilter) Descriptor() ([]byte, []int) {
-	return file_api_catalog_v1_catalog_proto_rawDescGZIP(), []int{17}
+	return file_api_catalog_v1_catalog_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *TrackFilter) GetField() TrackFilterField {
@@ -1502,7 +1598,7 @@ type EvaluateTrackFiltersRequest struct {
 
 func (x *EvaluateTrackFiltersRequest) Reset() {
 	*x = EvaluateTrackFiltersRequest{}
-	mi := &file_api_catalog_v1_catalog_proto_msgTypes[18]
+	mi := &file_api_catalog_v1_catalog_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1514,7 +1610,7 @@ func (x *EvaluateTrackFiltersRequest) String() string {
 func (*EvaluateTrackFiltersRequest) ProtoMessage() {}
 
 func (x *EvaluateTrackFiltersRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_catalog_v1_catalog_proto_msgTypes[18]
+	mi := &file_api_catalog_v1_catalog_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1527,7 +1623,7 @@ func (x *EvaluateTrackFiltersRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EvaluateTrackFiltersRequest.ProtoReflect.Descriptor instead.
 func (*EvaluateTrackFiltersRequest) Descriptor() ([]byte, []int) {
-	return file_api_catalog_v1_catalog_proto_rawDescGZIP(), []int{18}
+	return file_api_catalog_v1_catalog_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *EvaluateTrackFiltersRequest) GetLogic() FilterLogic {
@@ -1575,7 +1671,7 @@ type EvaluateTrackFiltersResponse struct {
 
 func (x *EvaluateTrackFiltersResponse) Reset() {
 	*x = EvaluateTrackFiltersResponse{}
-	mi := &file_api_catalog_v1_catalog_proto_msgTypes[19]
+	mi := &file_api_catalog_v1_catalog_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1587,7 +1683,7 @@ func (x *EvaluateTrackFiltersResponse) String() string {
 func (*EvaluateTrackFiltersResponse) ProtoMessage() {}
 
 func (x *EvaluateTrackFiltersResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_api_catalog_v1_catalog_proto_msgTypes[19]
+	mi := &file_api_catalog_v1_catalog_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1600,7 +1696,7 @@ func (x *EvaluateTrackFiltersResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EvaluateTrackFiltersResponse.ProtoReflect.Descriptor instead.
 func (*EvaluateTrackFiltersResponse) Descriptor() ([]byte, []int) {
-	return file_api_catalog_v1_catalog_proto_rawDescGZIP(), []int{19}
+	return file_api_catalog_v1_catalog_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *EvaluateTrackFiltersResponse) GetTracks() []*Track {
@@ -1628,7 +1724,7 @@ type Page struct {
 
 func (x *Page) Reset() {
 	*x = Page{}
-	mi := &file_api_catalog_v1_catalog_proto_msgTypes[20]
+	mi := &file_api_catalog_v1_catalog_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1640,7 +1736,7 @@ func (x *Page) String() string {
 func (*Page) ProtoMessage() {}
 
 func (x *Page) ProtoReflect() protoreflect.Message {
-	mi := &file_api_catalog_v1_catalog_proto_msgTypes[20]
+	mi := &file_api_catalog_v1_catalog_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1653,7 +1749,7 @@ func (x *Page) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Page.ProtoReflect.Descriptor instead.
 func (*Page) Descriptor() ([]byte, []int) {
-	return file_api_catalog_v1_catalog_proto_rawDescGZIP(), []int{20}
+	return file_api_catalog_v1_catalog_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *Page) GetLimit() int32 {
@@ -1700,7 +1796,7 @@ type Track struct {
 
 func (x *Track) Reset() {
 	*x = Track{}
-	mi := &file_api_catalog_v1_catalog_proto_msgTypes[21]
+	mi := &file_api_catalog_v1_catalog_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1712,7 +1808,7 @@ func (x *Track) String() string {
 func (*Track) ProtoMessage() {}
 
 func (x *Track) ProtoReflect() protoreflect.Message {
-	mi := &file_api_catalog_v1_catalog_proto_msgTypes[21]
+	mi := &file_api_catalog_v1_catalog_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1725,7 +1821,7 @@ func (x *Track) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Track.ProtoReflect.Descriptor instead.
 func (*Track) Descriptor() ([]byte, []int) {
-	return file_api_catalog_v1_catalog_proto_rawDescGZIP(), []int{21}
+	return file_api_catalog_v1_catalog_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *Track) GetId() string {
@@ -1844,7 +1940,7 @@ type Date struct {
 
 func (x *Date) Reset() {
 	*x = Date{}
-	mi := &file_api_catalog_v1_catalog_proto_msgTypes[22]
+	mi := &file_api_catalog_v1_catalog_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1856,7 +1952,7 @@ func (x *Date) String() string {
 func (*Date) ProtoMessage() {}
 
 func (x *Date) ProtoReflect() protoreflect.Message {
-	mi := &file_api_catalog_v1_catalog_proto_msgTypes[22]
+	mi := &file_api_catalog_v1_catalog_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1869,7 +1965,7 @@ func (x *Date) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Date.ProtoReflect.Descriptor instead.
 func (*Date) Descriptor() ([]byte, []int) {
-	return file_api_catalog_v1_catalog_proto_rawDescGZIP(), []int{22}
+	return file_api_catalog_v1_catalog_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *Date) GetYear() int32 {
@@ -1904,7 +2000,7 @@ type ArtistCredit struct {
 
 func (x *ArtistCredit) Reset() {
 	*x = ArtistCredit{}
-	mi := &file_api_catalog_v1_catalog_proto_msgTypes[23]
+	mi := &file_api_catalog_v1_catalog_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1916,7 +2012,7 @@ func (x *ArtistCredit) String() string {
 func (*ArtistCredit) ProtoMessage() {}
 
 func (x *ArtistCredit) ProtoReflect() protoreflect.Message {
-	mi := &file_api_catalog_v1_catalog_proto_msgTypes[23]
+	mi := &file_api_catalog_v1_catalog_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1929,7 +2025,7 @@ func (x *ArtistCredit) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ArtistCredit.ProtoReflect.Descriptor instead.
 func (*ArtistCredit) Descriptor() ([]byte, []int) {
-	return file_api_catalog_v1_catalog_proto_rawDescGZIP(), []int{23}
+	return file_api_catalog_v1_catalog_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *ArtistCredit) GetArtist() *Artist {
@@ -1964,7 +2060,7 @@ type Artist struct {
 
 func (x *Artist) Reset() {
 	*x = Artist{}
-	mi := &file_api_catalog_v1_catalog_proto_msgTypes[24]
+	mi := &file_api_catalog_v1_catalog_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1976,7 +2072,7 @@ func (x *Artist) String() string {
 func (*Artist) ProtoMessage() {}
 
 func (x *Artist) ProtoReflect() protoreflect.Message {
-	mi := &file_api_catalog_v1_catalog_proto_msgTypes[24]
+	mi := &file_api_catalog_v1_catalog_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1989,7 +2085,7 @@ func (x *Artist) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Artist.ProtoReflect.Descriptor instead.
 func (*Artist) Descriptor() ([]byte, []int) {
-	return file_api_catalog_v1_catalog_proto_rawDescGZIP(), []int{24}
+	return file_api_catalog_v1_catalog_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *Artist) GetId() string {
@@ -2024,7 +2120,7 @@ type Genre struct {
 
 func (x *Genre) Reset() {
 	*x = Genre{}
-	mi := &file_api_catalog_v1_catalog_proto_msgTypes[25]
+	mi := &file_api_catalog_v1_catalog_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2036,7 +2132,7 @@ func (x *Genre) String() string {
 func (*Genre) ProtoMessage() {}
 
 func (x *Genre) ProtoReflect() protoreflect.Message {
-	mi := &file_api_catalog_v1_catalog_proto_msgTypes[25]
+	mi := &file_api_catalog_v1_catalog_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2049,7 +2145,7 @@ func (x *Genre) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Genre.ProtoReflect.Descriptor instead.
 func (*Genre) Descriptor() ([]byte, []int) {
-	return file_api_catalog_v1_catalog_proto_rawDescGZIP(), []int{25}
+	return file_api_catalog_v1_catalog_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *Genre) GetId() string {
@@ -2083,7 +2179,7 @@ type TrackMood struct {
 
 func (x *TrackMood) Reset() {
 	*x = TrackMood{}
-	mi := &file_api_catalog_v1_catalog_proto_msgTypes[26]
+	mi := &file_api_catalog_v1_catalog_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2095,7 +2191,7 @@ func (x *TrackMood) String() string {
 func (*TrackMood) ProtoMessage() {}
 
 func (x *TrackMood) ProtoReflect() protoreflect.Message {
-	mi := &file_api_catalog_v1_catalog_proto_msgTypes[26]
+	mi := &file_api_catalog_v1_catalog_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2108,7 +2204,7 @@ func (x *TrackMood) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TrackMood.ProtoReflect.Descriptor instead.
 func (*TrackMood) Descriptor() ([]byte, []int) {
-	return file_api_catalog_v1_catalog_proto_rawDescGZIP(), []int{26}
+	return file_api_catalog_v1_catalog_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *TrackMood) GetMood() *Mood {
@@ -2136,7 +2232,7 @@ type Mood struct {
 
 func (x *Mood) Reset() {
 	*x = Mood{}
-	mi := &file_api_catalog_v1_catalog_proto_msgTypes[27]
+	mi := &file_api_catalog_v1_catalog_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2148,7 +2244,7 @@ func (x *Mood) String() string {
 func (*Mood) ProtoMessage() {}
 
 func (x *Mood) ProtoReflect() protoreflect.Message {
-	mi := &file_api_catalog_v1_catalog_proto_msgTypes[27]
+	mi := &file_api_catalog_v1_catalog_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2161,7 +2257,7 @@ func (x *Mood) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Mood.ProtoReflect.Descriptor instead.
 func (*Mood) Descriptor() ([]byte, []int) {
-	return file_api_catalog_v1_catalog_proto_rawDescGZIP(), []int{27}
+	return file_api_catalog_v1_catalog_proto_rawDescGZIP(), []int{29}
 }
 
 func (x *Mood) GetId() string {
@@ -2194,7 +2290,7 @@ type ArchiveReleaseRequest struct {
 
 func (x *ArchiveReleaseRequest) Reset() {
 	*x = ArchiveReleaseRequest{}
-	mi := &file_api_catalog_v1_catalog_proto_msgTypes[28]
+	mi := &file_api_catalog_v1_catalog_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2206,7 +2302,7 @@ func (x *ArchiveReleaseRequest) String() string {
 func (*ArchiveReleaseRequest) ProtoMessage() {}
 
 func (x *ArchiveReleaseRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_catalog_v1_catalog_proto_msgTypes[28]
+	mi := &file_api_catalog_v1_catalog_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2219,7 +2315,7 @@ func (x *ArchiveReleaseRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ArchiveReleaseRequest.ProtoReflect.Descriptor instead.
 func (*ArchiveReleaseRequest) Descriptor() ([]byte, []int) {
-	return file_api_catalog_v1_catalog_proto_rawDescGZIP(), []int{28}
+	return file_api_catalog_v1_catalog_proto_rawDescGZIP(), []int{30}
 }
 
 func (x *ArchiveReleaseRequest) GetSourceReleaseId() string {
@@ -2238,7 +2334,7 @@ type ArchiveReleaseResponse struct {
 
 func (x *ArchiveReleaseResponse) Reset() {
 	*x = ArchiveReleaseResponse{}
-	mi := &file_api_catalog_v1_catalog_proto_msgTypes[29]
+	mi := &file_api_catalog_v1_catalog_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2250,7 +2346,7 @@ func (x *ArchiveReleaseResponse) String() string {
 func (*ArchiveReleaseResponse) ProtoMessage() {}
 
 func (x *ArchiveReleaseResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_api_catalog_v1_catalog_proto_msgTypes[29]
+	mi := &file_api_catalog_v1_catalog_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2263,7 +2359,7 @@ func (x *ArchiveReleaseResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ArchiveReleaseResponse.ProtoReflect.Descriptor instead.
 func (*ArchiveReleaseResponse) Descriptor() ([]byte, []int) {
-	return file_api_catalog_v1_catalog_proto_rawDescGZIP(), []int{29}
+	return file_api_catalog_v1_catalog_proto_rawDescGZIP(), []int{31}
 }
 
 func (x *ArchiveReleaseResponse) GetArchivedAt() *timestamppb.Timestamp {
@@ -2327,7 +2423,13 @@ const file_api_catalog_v1_catalog_proto_rawDesc = "" +
 	"\talbum_ids\x18\x01 \x03(\tR\balbumIds\"n\n" +
 	"\x18ValidateAlbumIdsResponse\x12&\n" +
 	"\x0fvalid_album_ids\x18\x01 \x03(\tR\rvalidAlbumIds\x12*\n" +
-	"\x11missing_album_ids\x18\x02 \x03(\tR\x0fmissingAlbumIds\"\xe2\x02\n" +
+	"\x11missing_album_ids\x18\x02 \x03(\tR\x0fmissingAlbumIds\"9\n" +
+	"\x18ValidateArtistIdsRequest\x12\x1d\n" +
+	"\n" +
+	"artist_ids\x18\x01 \x03(\tR\tartistIds\"s\n" +
+	"\x19ValidateArtistIdsResponse\x12(\n" +
+	"\x10valid_artist_ids\x18\x01 \x03(\tR\x0evalidArtistIds\x12,\n" +
+	"\x12missing_artist_ids\x18\x02 \x03(\tR\x10missingArtistIds\"\xe2\x02\n" +
 	"\x13FilterTracksRequest\x12\x14\n" +
 	"\x05title\x18\x01 \x01(\tR\x05title\x12\x1b\n" +
 	"\tartist_id\x18\x02 \x01(\tR\bartistId\x12\x19\n" +
@@ -2461,13 +2563,14 @@ const file_api_catalog_v1_catalog_proto_rawDesc = "" +
 	"\x13ARTIST_ROLE_PRIMARY\x10\x01\x12\x18\n" +
 	"\x14ARTIST_ROLE_FEATURED\x10\x02\x12\x18\n" +
 	"\x14ARTIST_ROLE_PRODUCER\x10\x03\x12\x18\n" +
-	"\x14ARTIST_ROLE_COMPOSER\x10\x042\xa2\x06\n" +
+	"\x14ARTIST_ROLE_COMPOSER\x10\x042\x9a\a\n" +
 	"\x0eCatalogService\x12m\n" +
 	"\x0ePublishRelease\x12,.infinitune.catalog.v1.PublishReleaseRequest\x1a-.infinitune.catalog.v1.PublishReleaseResponse\x12m\n" +
 	"\x0eArchiveRelease\x12,.infinitune.catalog.v1.ArchiveReleaseRequest\x1a-.infinitune.catalog.v1.ArchiveReleaseResponse\x12^\n" +
 	"\tGetTracks\x12'.infinitune.catalog.v1.GetTracksRequest\x1a(.infinitune.catalog.v1.GetTracksResponse\x12s\n" +
 	"\x10ValidateTrackIds\x12..infinitune.catalog.v1.ValidateTrackIdsRequest\x1a/.infinitune.catalog.v1.ValidateTrackIdsResponse\x12s\n" +
-	"\x10ValidateAlbumIds\x12..infinitune.catalog.v1.ValidateAlbumIdsRequest\x1a/.infinitune.catalog.v1.ValidateAlbumIdsResponse\x12g\n" +
+	"\x10ValidateAlbumIds\x12..infinitune.catalog.v1.ValidateAlbumIdsRequest\x1a/.infinitune.catalog.v1.ValidateAlbumIdsResponse\x12v\n" +
+	"\x11ValidateArtistIds\x12/.infinitune.catalog.v1.ValidateArtistIdsRequest\x1a0.infinitune.catalog.v1.ValidateArtistIdsResponse\x12g\n" +
 	"\fFilterTracks\x12*.infinitune.catalog.v1.FilterTracksRequest\x1a+.infinitune.catalog.v1.FilterTracksResponse\x12\x7f\n" +
 	"\x14EvaluateTrackFilters\x122.infinitune.catalog.v1.EvaluateTrackFiltersRequest\x1a3.infinitune.catalog.v1.EvaluateTrackFiltersResponseBQZOgithub.com/bevzick/Infinitune/services/catalog-service/api/catalog/v1;catalogv1b\x06proto3"
 
@@ -2484,7 +2587,7 @@ func file_api_catalog_v1_catalog_proto_rawDescGZIP() []byte {
 }
 
 var file_api_catalog_v1_catalog_proto_enumTypes = make([]protoimpl.EnumInfo, 5)
-var file_api_catalog_v1_catalog_proto_msgTypes = make([]protoimpl.MessageInfo, 30)
+var file_api_catalog_v1_catalog_proto_msgTypes = make([]protoimpl.MessageInfo, 32)
 var file_api_catalog_v1_catalog_proto_goTypes = []any{
 	(TrackSort)(0),                       // 0: infinitune.catalog.v1.TrackSort
 	(FilterLogic)(0),                     // 1: infinitune.catalog.v1.FilterLogic
@@ -2503,74 +2606,78 @@ var file_api_catalog_v1_catalog_proto_goTypes = []any{
 	(*ValidateTrackIdsResponse)(nil),     // 14: infinitune.catalog.v1.ValidateTrackIdsResponse
 	(*ValidateAlbumIdsRequest)(nil),      // 15: infinitune.catalog.v1.ValidateAlbumIdsRequest
 	(*ValidateAlbumIdsResponse)(nil),     // 16: infinitune.catalog.v1.ValidateAlbumIdsResponse
-	(*FilterTracksRequest)(nil),          // 17: infinitune.catalog.v1.FilterTracksRequest
-	(*FilterTracksResponse)(nil),         // 18: infinitune.catalog.v1.FilterTracksResponse
-	(*UUIDList)(nil),                     // 19: infinitune.catalog.v1.UUIDList
-	(*IntegerRange)(nil),                 // 20: infinitune.catalog.v1.IntegerRange
-	(*TrackFilterValue)(nil),             // 21: infinitune.catalog.v1.TrackFilterValue
-	(*TrackFilter)(nil),                  // 22: infinitune.catalog.v1.TrackFilter
-	(*EvaluateTrackFiltersRequest)(nil),  // 23: infinitune.catalog.v1.EvaluateTrackFiltersRequest
-	(*EvaluateTrackFiltersResponse)(nil), // 24: infinitune.catalog.v1.EvaluateTrackFiltersResponse
-	(*Page)(nil),                         // 25: infinitune.catalog.v1.Page
-	(*Track)(nil),                        // 26: infinitune.catalog.v1.Track
-	(*Date)(nil),                         // 27: infinitune.catalog.v1.Date
-	(*ArtistCredit)(nil),                 // 28: infinitune.catalog.v1.ArtistCredit
-	(*Artist)(nil),                       // 29: infinitune.catalog.v1.Artist
-	(*Genre)(nil),                        // 30: infinitune.catalog.v1.Genre
-	(*TrackMood)(nil),                    // 31: infinitune.catalog.v1.TrackMood
-	(*Mood)(nil),                         // 32: infinitune.catalog.v1.Mood
-	(*ArchiveReleaseRequest)(nil),        // 33: infinitune.catalog.v1.ArchiveReleaseRequest
-	(*ArchiveReleaseResponse)(nil),       // 34: infinitune.catalog.v1.ArchiveReleaseResponse
-	(*timestamppb.Timestamp)(nil),        // 35: google.protobuf.Timestamp
+	(*ValidateArtistIdsRequest)(nil),     // 17: infinitune.catalog.v1.ValidateArtistIdsRequest
+	(*ValidateArtistIdsResponse)(nil),    // 18: infinitune.catalog.v1.ValidateArtistIdsResponse
+	(*FilterTracksRequest)(nil),          // 19: infinitune.catalog.v1.FilterTracksRequest
+	(*FilterTracksResponse)(nil),         // 20: infinitune.catalog.v1.FilterTracksResponse
+	(*UUIDList)(nil),                     // 21: infinitune.catalog.v1.UUIDList
+	(*IntegerRange)(nil),                 // 22: infinitune.catalog.v1.IntegerRange
+	(*TrackFilterValue)(nil),             // 23: infinitune.catalog.v1.TrackFilterValue
+	(*TrackFilter)(nil),                  // 24: infinitune.catalog.v1.TrackFilter
+	(*EvaluateTrackFiltersRequest)(nil),  // 25: infinitune.catalog.v1.EvaluateTrackFiltersRequest
+	(*EvaluateTrackFiltersResponse)(nil), // 26: infinitune.catalog.v1.EvaluateTrackFiltersResponse
+	(*Page)(nil),                         // 27: infinitune.catalog.v1.Page
+	(*Track)(nil),                        // 28: infinitune.catalog.v1.Track
+	(*Date)(nil),                         // 29: infinitune.catalog.v1.Date
+	(*ArtistCredit)(nil),                 // 30: infinitune.catalog.v1.ArtistCredit
+	(*Artist)(nil),                       // 31: infinitune.catalog.v1.Artist
+	(*Genre)(nil),                        // 32: infinitune.catalog.v1.Genre
+	(*TrackMood)(nil),                    // 33: infinitune.catalog.v1.TrackMood
+	(*Mood)(nil),                         // 34: infinitune.catalog.v1.Mood
+	(*ArchiveReleaseRequest)(nil),        // 35: infinitune.catalog.v1.ArchiveReleaseRequest
+	(*ArchiveReleaseResponse)(nil),       // 36: infinitune.catalog.v1.ArchiveReleaseResponse
+	(*timestamppb.Timestamp)(nil),        // 37: google.protobuf.Timestamp
 }
 var file_api_catalog_v1_catalog_proto_depIdxs = []int32{
 	6,  // 0: infinitune.catalog.v1.PublishReleaseRequest.artist:type_name -> infinitune.catalog.v1.PublishArtist
 	7,  // 1: infinitune.catalog.v1.PublishReleaseRequest.album:type_name -> infinitune.catalog.v1.PublishAlbum
 	8,  // 2: infinitune.catalog.v1.PublishReleaseRequest.tracks:type_name -> infinitune.catalog.v1.PublishTrack
-	27, // 3: infinitune.catalog.v1.PublishAlbum.release_date:type_name -> infinitune.catalog.v1.Date
-	27, // 4: infinitune.catalog.v1.PublishTrack.release_date:type_name -> infinitune.catalog.v1.Date
+	29, // 3: infinitune.catalog.v1.PublishAlbum.release_date:type_name -> infinitune.catalog.v1.Date
+	29, // 4: infinitune.catalog.v1.PublishTrack.release_date:type_name -> infinitune.catalog.v1.Date
 	10, // 5: infinitune.catalog.v1.PublishReleaseResponse.tracks:type_name -> infinitune.catalog.v1.PublishedTrack
-	35, // 6: infinitune.catalog.v1.PublishReleaseResponse.published_at:type_name -> google.protobuf.Timestamp
-	26, // 7: infinitune.catalog.v1.GetTracksResponse.tracks:type_name -> infinitune.catalog.v1.Track
+	37, // 6: infinitune.catalog.v1.PublishReleaseResponse.published_at:type_name -> google.protobuf.Timestamp
+	28, // 7: infinitune.catalog.v1.GetTracksResponse.tracks:type_name -> infinitune.catalog.v1.Track
 	0,  // 8: infinitune.catalog.v1.FilterTracksRequest.sort:type_name -> infinitune.catalog.v1.TrackSort
-	26, // 9: infinitune.catalog.v1.FilterTracksResponse.tracks:type_name -> infinitune.catalog.v1.Track
-	25, // 10: infinitune.catalog.v1.FilterTracksResponse.page:type_name -> infinitune.catalog.v1.Page
-	19, // 11: infinitune.catalog.v1.TrackFilterValue.uuid_list:type_name -> infinitune.catalog.v1.UUIDList
-	20, // 12: infinitune.catalog.v1.TrackFilterValue.integer_range:type_name -> infinitune.catalog.v1.IntegerRange
+	28, // 9: infinitune.catalog.v1.FilterTracksResponse.tracks:type_name -> infinitune.catalog.v1.Track
+	27, // 10: infinitune.catalog.v1.FilterTracksResponse.page:type_name -> infinitune.catalog.v1.Page
+	21, // 11: infinitune.catalog.v1.TrackFilterValue.uuid_list:type_name -> infinitune.catalog.v1.UUIDList
+	22, // 12: infinitune.catalog.v1.TrackFilterValue.integer_range:type_name -> infinitune.catalog.v1.IntegerRange
 	2,  // 13: infinitune.catalog.v1.TrackFilter.field:type_name -> infinitune.catalog.v1.TrackFilterField
 	3,  // 14: infinitune.catalog.v1.TrackFilter.operator:type_name -> infinitune.catalog.v1.TrackFilterOperator
-	21, // 15: infinitune.catalog.v1.TrackFilter.value:type_name -> infinitune.catalog.v1.TrackFilterValue
+	23, // 15: infinitune.catalog.v1.TrackFilter.value:type_name -> infinitune.catalog.v1.TrackFilterValue
 	1,  // 16: infinitune.catalog.v1.EvaluateTrackFiltersRequest.logic:type_name -> infinitune.catalog.v1.FilterLogic
-	22, // 17: infinitune.catalog.v1.EvaluateTrackFiltersRequest.filters:type_name -> infinitune.catalog.v1.TrackFilter
+	24, // 17: infinitune.catalog.v1.EvaluateTrackFiltersRequest.filters:type_name -> infinitune.catalog.v1.TrackFilter
 	0,  // 18: infinitune.catalog.v1.EvaluateTrackFiltersRequest.sort:type_name -> infinitune.catalog.v1.TrackSort
-	26, // 19: infinitune.catalog.v1.EvaluateTrackFiltersResponse.tracks:type_name -> infinitune.catalog.v1.Track
-	25, // 20: infinitune.catalog.v1.EvaluateTrackFiltersResponse.page:type_name -> infinitune.catalog.v1.Page
-	27, // 21: infinitune.catalog.v1.Track.release_date:type_name -> infinitune.catalog.v1.Date
-	28, // 22: infinitune.catalog.v1.Track.artists:type_name -> infinitune.catalog.v1.ArtistCredit
-	30, // 23: infinitune.catalog.v1.Track.genres:type_name -> infinitune.catalog.v1.Genre
-	31, // 24: infinitune.catalog.v1.Track.moods:type_name -> infinitune.catalog.v1.TrackMood
-	35, // 25: infinitune.catalog.v1.Track.created_at:type_name -> google.protobuf.Timestamp
-	35, // 26: infinitune.catalog.v1.Track.updated_at:type_name -> google.protobuf.Timestamp
-	29, // 27: infinitune.catalog.v1.ArtistCredit.artist:type_name -> infinitune.catalog.v1.Artist
+	28, // 19: infinitune.catalog.v1.EvaluateTrackFiltersResponse.tracks:type_name -> infinitune.catalog.v1.Track
+	27, // 20: infinitune.catalog.v1.EvaluateTrackFiltersResponse.page:type_name -> infinitune.catalog.v1.Page
+	29, // 21: infinitune.catalog.v1.Track.release_date:type_name -> infinitune.catalog.v1.Date
+	30, // 22: infinitune.catalog.v1.Track.artists:type_name -> infinitune.catalog.v1.ArtistCredit
+	32, // 23: infinitune.catalog.v1.Track.genres:type_name -> infinitune.catalog.v1.Genre
+	33, // 24: infinitune.catalog.v1.Track.moods:type_name -> infinitune.catalog.v1.TrackMood
+	37, // 25: infinitune.catalog.v1.Track.created_at:type_name -> google.protobuf.Timestamp
+	37, // 26: infinitune.catalog.v1.Track.updated_at:type_name -> google.protobuf.Timestamp
+	31, // 27: infinitune.catalog.v1.ArtistCredit.artist:type_name -> infinitune.catalog.v1.Artist
 	4,  // 28: infinitune.catalog.v1.ArtistCredit.role:type_name -> infinitune.catalog.v1.ArtistRole
-	32, // 29: infinitune.catalog.v1.TrackMood.mood:type_name -> infinitune.catalog.v1.Mood
-	35, // 30: infinitune.catalog.v1.ArchiveReleaseResponse.archived_at:type_name -> google.protobuf.Timestamp
+	34, // 29: infinitune.catalog.v1.TrackMood.mood:type_name -> infinitune.catalog.v1.Mood
+	37, // 30: infinitune.catalog.v1.ArchiveReleaseResponse.archived_at:type_name -> google.protobuf.Timestamp
 	5,  // 31: infinitune.catalog.v1.CatalogService.PublishRelease:input_type -> infinitune.catalog.v1.PublishReleaseRequest
-	33, // 32: infinitune.catalog.v1.CatalogService.ArchiveRelease:input_type -> infinitune.catalog.v1.ArchiveReleaseRequest
+	35, // 32: infinitune.catalog.v1.CatalogService.ArchiveRelease:input_type -> infinitune.catalog.v1.ArchiveReleaseRequest
 	11, // 33: infinitune.catalog.v1.CatalogService.GetTracks:input_type -> infinitune.catalog.v1.GetTracksRequest
 	13, // 34: infinitune.catalog.v1.CatalogService.ValidateTrackIds:input_type -> infinitune.catalog.v1.ValidateTrackIdsRequest
 	15, // 35: infinitune.catalog.v1.CatalogService.ValidateAlbumIds:input_type -> infinitune.catalog.v1.ValidateAlbumIdsRequest
-	17, // 36: infinitune.catalog.v1.CatalogService.FilterTracks:input_type -> infinitune.catalog.v1.FilterTracksRequest
-	23, // 37: infinitune.catalog.v1.CatalogService.EvaluateTrackFilters:input_type -> infinitune.catalog.v1.EvaluateTrackFiltersRequest
-	9,  // 38: infinitune.catalog.v1.CatalogService.PublishRelease:output_type -> infinitune.catalog.v1.PublishReleaseResponse
-	34, // 39: infinitune.catalog.v1.CatalogService.ArchiveRelease:output_type -> infinitune.catalog.v1.ArchiveReleaseResponse
-	12, // 40: infinitune.catalog.v1.CatalogService.GetTracks:output_type -> infinitune.catalog.v1.GetTracksResponse
-	14, // 41: infinitune.catalog.v1.CatalogService.ValidateTrackIds:output_type -> infinitune.catalog.v1.ValidateTrackIdsResponse
-	16, // 42: infinitune.catalog.v1.CatalogService.ValidateAlbumIds:output_type -> infinitune.catalog.v1.ValidateAlbumIdsResponse
-	18, // 43: infinitune.catalog.v1.CatalogService.FilterTracks:output_type -> infinitune.catalog.v1.FilterTracksResponse
-	24, // 44: infinitune.catalog.v1.CatalogService.EvaluateTrackFilters:output_type -> infinitune.catalog.v1.EvaluateTrackFiltersResponse
-	38, // [38:45] is the sub-list for method output_type
-	31, // [31:38] is the sub-list for method input_type
+	17, // 36: infinitune.catalog.v1.CatalogService.ValidateArtistIds:input_type -> infinitune.catalog.v1.ValidateArtistIdsRequest
+	19, // 37: infinitune.catalog.v1.CatalogService.FilterTracks:input_type -> infinitune.catalog.v1.FilterTracksRequest
+	25, // 38: infinitune.catalog.v1.CatalogService.EvaluateTrackFilters:input_type -> infinitune.catalog.v1.EvaluateTrackFiltersRequest
+	9,  // 39: infinitune.catalog.v1.CatalogService.PublishRelease:output_type -> infinitune.catalog.v1.PublishReleaseResponse
+	36, // 40: infinitune.catalog.v1.CatalogService.ArchiveRelease:output_type -> infinitune.catalog.v1.ArchiveReleaseResponse
+	12, // 41: infinitune.catalog.v1.CatalogService.GetTracks:output_type -> infinitune.catalog.v1.GetTracksResponse
+	14, // 42: infinitune.catalog.v1.CatalogService.ValidateTrackIds:output_type -> infinitune.catalog.v1.ValidateTrackIdsResponse
+	16, // 43: infinitune.catalog.v1.CatalogService.ValidateAlbumIds:output_type -> infinitune.catalog.v1.ValidateAlbumIdsResponse
+	18, // 44: infinitune.catalog.v1.CatalogService.ValidateArtistIds:output_type -> infinitune.catalog.v1.ValidateArtistIdsResponse
+	20, // 45: infinitune.catalog.v1.CatalogService.FilterTracks:output_type -> infinitune.catalog.v1.FilterTracksResponse
+	26, // 46: infinitune.catalog.v1.CatalogService.EvaluateTrackFilters:output_type -> infinitune.catalog.v1.EvaluateTrackFiltersResponse
+	39, // [39:47] is the sub-list for method output_type
+	31, // [31:39] is the sub-list for method input_type
 	31, // [31:31] is the sub-list for extension type_name
 	31, // [31:31] is the sub-list for extension extendee
 	0,  // [0:31] is the sub-list for field type_name
@@ -2582,8 +2689,8 @@ func file_api_catalog_v1_catalog_proto_init() {
 		return
 	}
 	file_api_catalog_v1_catalog_proto_msgTypes[0].OneofWrappers = []any{}
-	file_api_catalog_v1_catalog_proto_msgTypes[12].OneofWrappers = []any{}
-	file_api_catalog_v1_catalog_proto_msgTypes[16].OneofWrappers = []any{
+	file_api_catalog_v1_catalog_proto_msgTypes[14].OneofWrappers = []any{}
+	file_api_catalog_v1_catalog_proto_msgTypes[18].OneofWrappers = []any{
 		(*TrackFilterValue_Text)(nil),
 		(*TrackFilterValue_Uuid)(nil),
 		(*TrackFilterValue_UuidList)(nil),
@@ -2597,7 +2704,7 @@ func file_api_catalog_v1_catalog_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_api_catalog_v1_catalog_proto_rawDesc), len(file_api_catalog_v1_catalog_proto_rawDesc)),
 			NumEnums:      5,
-			NumMessages:   30,
+			NumMessages:   32,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

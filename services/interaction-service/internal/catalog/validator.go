@@ -23,6 +23,9 @@ type validationClient interface {
 	ValidateAlbumIds(context.Context, *catalogv1.ValidateAlbumIdsRequest, ...grpc.CallOption) (
 		*catalogv1.ValidateAlbumIdsResponse, error,
 	)
+	ValidateArtistIds(context.Context, *catalogv1.ValidateArtistIdsRequest, ...grpc.CallOption) (
+		*catalogv1.ValidateArtistIdsResponse, error,
+	)
 }
 
 type Validator struct {
@@ -60,6 +63,21 @@ func (validator *Validator) ValidateAlbum(ctx context.Context, albumID uuid.UUID
 	if len(response.GetMissingAlbumIds()) != 0 || len(response.GetValidAlbumIds()) != 1 ||
 		response.GetValidAlbumIds()[0] != albumID.String() {
 		return interaction.ErrAlbumNotFound
+	}
+	return nil
+}
+
+func (validator *Validator) ValidateArtist(ctx context.Context, artistID uuid.UUID) error {
+	callCtx, cancel := context.WithTimeout(ctx, validator.timeout)
+	defer cancel()
+	response, err := validator.client.ValidateArtistIds(callCtx,
+		&catalogv1.ValidateArtistIdsRequest{ArtistIds: []string{artistID.String()}})
+	if err != nil {
+		return validationError(ctx, callCtx, err, "ValidateArtistIds")
+	}
+	if len(response.GetMissingArtistIds()) != 0 || len(response.GetValidArtistIds()) != 1 ||
+		response.GetValidArtistIds()[0] != artistID.String() {
+		return interaction.ErrArtistNotFound
 	}
 	return nil
 }

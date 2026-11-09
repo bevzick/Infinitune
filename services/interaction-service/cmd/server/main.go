@@ -79,7 +79,7 @@ func main() {
 	server := &http.Server{
 		Addr: cfg.HTTPAddress,
 		Handler: httpapi.NewRouter(httpapi.Dependencies{
-			Database: databasePool, Tokens: tokenVerifier, Likes: likes,
+			Database: databasePool, Tokens: tokenVerifier, Likes: likes, Follows: likes,
 			Origins: cfg.Origins, Logger: logger,
 		}),
 		ReadHeaderTimeout: readHeaderTimeout,

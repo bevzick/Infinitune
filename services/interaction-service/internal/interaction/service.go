@@ -19,11 +19,15 @@ type Store interface {
 	LikeAlbum(context.Context, uuid.UUID, uuid.UUID) (Like, error)
 	UnlikeAlbum(context.Context, uuid.UUID, uuid.UUID) error
 	AlbumLikes(context.Context, uuid.UUID, PageRequest) (LikePage, error)
+	FollowArtist(context.Context, uuid.UUID, uuid.UUID) (Follow, error)
+	UnfollowArtist(context.Context, uuid.UUID, uuid.UUID) error
+	ArtistFollows(context.Context, uuid.UUID, PageRequest) (FollowPage, error)
 }
 
 type CatalogValidator interface {
 	ValidateTrack(context.Context, uuid.UUID) error
 	ValidateAlbum(context.Context, uuid.UUID) error
+	ValidateArtist(context.Context, uuid.UUID) error
 }
 
 type Service struct {
@@ -125,6 +129,53 @@ func (service *Service) AlbumLikes(
 	result, err := service.store.AlbumLikes(ctx, userID, page)
 	if err != nil {
 		return LikePage{}, fmt.Errorf("list album likes: %w", err)
+	}
+	return result, nil
+}
+
+func (service *Service) FollowArtist(
+	ctx context.Context,
+	userID uuid.UUID,
+	artistID uuid.UUID,
+) (Follow, error) {
+	if err := validateIDs(userID, artistID, "artist"); err != nil {
+		return Follow{}, err
+	}
+	if err := service.validator.ValidateArtist(ctx, artistID); err != nil {
+		return Follow{}, fmt.Errorf("validate artist: %w", err)
+	}
+	followed, err := service.store.FollowArtist(ctx, userID, artistID)
+	if err != nil {
+		return Follow{}, fmt.Errorf("follow artist: %w", err)
+	}
+	return followed, nil
+}
+
+func (service *Service) UnfollowArtist(ctx context.Context, userID, artistID uuid.UUID) error {
+	if err := validateIDs(userID, artistID, "artist"); err != nil {
+		return err
+	}
+	if err := service.store.UnfollowArtist(ctx, userID, artistID); err != nil {
+		return fmt.Errorf("unfollow artist: %w", err)
+	}
+	return nil
+}
+
+func (service *Service) ArtistFollows(
+	ctx context.Context,
+	userID uuid.UUID,
+	page PageRequest,
+) (FollowPage, error) {
+	if userID == uuid.Nil {
+		return FollowPage{}, invalidArgument("user id is required")
+	}
+	page, err := validatePage(page)
+	if err != nil {
+		return FollowPage{}, err
+	}
+	result, err := service.store.ArtistFollows(ctx, userID, page)
+	if err != nil {
+		return FollowPage{}, fmt.Errorf("list artist follows: %w", err)
 	}
 	return result, nil
 }

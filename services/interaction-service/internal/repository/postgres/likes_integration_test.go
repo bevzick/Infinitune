@@ -20,12 +20,15 @@ func TestLikeRepositoryIsIdempotentAndIsolatesOwners(t *testing.T) {
 	ctx := context.Background()
 	ownerID, strangerID := uuid.New(), uuid.New()
 	trackID, albumID := uuid.New(), uuid.New()
+	firstArtistID, secondArtistID := uuid.New(), uuid.New()
 	t.Cleanup(func() {
 		cleanupCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		_, _ = pool.Exec(cleanupCtx, `DELETE FROM interaction.track_likes WHERE user_id = ANY($1::uuid[])`,
 			[]uuid.UUID{ownerID, strangerID})
 		_, _ = pool.Exec(cleanupCtx, `DELETE FROM interaction.album_likes WHERE user_id = ANY($1::uuid[])`,
+			[]uuid.UUID{ownerID, strangerID})
+		_, _ = pool.Exec(cleanupCtx, `DELETE FROM interaction.artist_follows WHERE user_id = ANY($1::uuid[])`,
 			[]uuid.UUID{ownerID, strangerID})
 	})
 
@@ -56,12 +59,35 @@ func TestLikeRepositoryIsIdempotentAndIsolatesOwners(t *testing.T) {
 		t.Fatalf("AlbumLikes(stranger) = %+v, %v", albums, err)
 	}
 
+	for _, artistID := range []uuid.UUID{firstArtistID, secondArtistID} {
+		first, followErr := repository.FollowArtist(ctx, ownerID, artistID)
+		if followErr != nil {
+			t.Fatalf("FollowArtist(%s) error = %v", artistID, followErr)
+		}
+		again, followErr := repository.FollowArtist(ctx, ownerID, artistID)
+		if followErr != nil || !again.FollowedAt.Equal(first.FollowedAt) {
+			t.Fatalf("FollowArtist(%s, idempotent) = %+v, %v; first = %+v",
+				artistID, again, followErr, first)
+		}
+	}
+	if err = repository.UnfollowArtist(ctx, strangerID, firstArtistID); err != nil {
+		t.Fatalf("UnfollowArtist(stranger) error = %v", err)
+	}
+	follows, err := repository.ArtistFollows(ctx, ownerID, interaction.PageRequest{Limit: 10})
+	if err != nil || follows.Total != 2 || len(follows.Items) != 2 ||
+		follows.Items[0].ArtistID == follows.Items[1].ArtistID {
+		t.Fatalf("ArtistFollows(owner) = %+v, %v", follows, err)
+	}
+
 	for range 2 {
 		if err = repository.UnlikeTrack(ctx, ownerID, trackID); err != nil {
 			t.Fatalf("UnlikeTrack(idempotent) error = %v", err)
 		}
 		if err = repository.UnlikeAlbum(ctx, ownerID, albumID); err != nil {
 			t.Fatalf("UnlikeAlbum(idempotent) error = %v", err)
+		}
+		if err = repository.UnfollowArtist(ctx, ownerID, firstArtistID); err != nil {
+			t.Fatalf("UnfollowArtist(idempotent) error = %v", err)
 		}
 	}
 }

@@ -213,6 +213,102 @@ func (x *ValidateAlbumIdsResponse) GetMissingAlbumIds() []string {
 	return nil
 }
 
+type ValidateArtistIdsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ArtistIds     []string               `protobuf:"bytes,1,rep,name=artist_ids,json=artistIds,proto3" json:"artist_ids,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ValidateArtistIdsRequest) Reset() {
+	*x = ValidateArtistIdsRequest{}
+	mi := &file_api_catalog_v1_catalog_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ValidateArtistIdsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ValidateArtistIdsRequest) ProtoMessage() {}
+
+func (x *ValidateArtistIdsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_api_catalog_v1_catalog_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ValidateArtistIdsRequest.ProtoReflect.Descriptor instead.
+func (*ValidateArtistIdsRequest) Descriptor() ([]byte, []int) {
+	return file_api_catalog_v1_catalog_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *ValidateArtistIdsRequest) GetArtistIds() []string {
+	if x != nil {
+		return x.ArtistIds
+	}
+	return nil
+}
+
+type ValidateArtistIdsResponse struct {
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	ValidArtistIds   []string               `protobuf:"bytes,1,rep,name=valid_artist_ids,json=validArtistIds,proto3" json:"valid_artist_ids,omitempty"`
+	MissingArtistIds []string               `protobuf:"bytes,2,rep,name=missing_artist_ids,json=missingArtistIds,proto3" json:"missing_artist_ids,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
+}
+
+func (x *ValidateArtistIdsResponse) Reset() {
+	*x = ValidateArtistIdsResponse{}
+	mi := &file_api_catalog_v1_catalog_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ValidateArtistIdsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ValidateArtistIdsResponse) ProtoMessage() {}
+
+func (x *ValidateArtistIdsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_api_catalog_v1_catalog_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ValidateArtistIdsResponse.ProtoReflect.Descriptor instead.
+func (*ValidateArtistIdsResponse) Descriptor() ([]byte, []int) {
+	return file_api_catalog_v1_catalog_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *ValidateArtistIdsResponse) GetValidArtistIds() []string {
+	if x != nil {
+		return x.ValidArtistIds
+	}
+	return nil
+}
+
+func (x *ValidateArtistIdsResponse) GetMissingArtistIds() []string {
+	if x != nil {
+		return x.MissingArtistIds
+	}
+	return nil
+}
+
 var File_api_catalog_v1_catalog_proto protoreflect.FileDescriptor
 
 const file_api_catalog_v1_catalog_proto_rawDesc = "" +
@@ -227,10 +323,17 @@ const file_api_catalog_v1_catalog_proto_rawDesc = "" +
 	"\talbum_ids\x18\x01 \x03(\tR\balbumIds\"n\n" +
 	"\x18ValidateAlbumIdsResponse\x12&\n" +
 	"\x0fvalid_album_ids\x18\x01 \x03(\tR\rvalidAlbumIds\x12*\n" +
-	"\x11missing_album_ids\x18\x02 \x03(\tR\x0fmissingAlbumIds2\xfa\x01\n" +
+	"\x11missing_album_ids\x18\x02 \x03(\tR\x0fmissingAlbumIds\"9\n" +
+	"\x18ValidateArtistIdsRequest\x12\x1d\n" +
+	"\n" +
+	"artist_ids\x18\x01 \x03(\tR\tartistIds\"s\n" +
+	"\x19ValidateArtistIdsResponse\x12(\n" +
+	"\x10valid_artist_ids\x18\x01 \x03(\tR\x0evalidArtistIds\x12,\n" +
+	"\x12missing_artist_ids\x18\x02 \x03(\tR\x10missingArtistIds2\xf2\x02\n" +
 	"\x0eCatalogService\x12s\n" +
 	"\x10ValidateTrackIds\x12..infinitune.catalog.v1.ValidateTrackIdsRequest\x1a/.infinitune.catalog.v1.ValidateTrackIdsResponse\x12s\n" +
-	"\x10ValidateAlbumIds\x12..infinitune.catalog.v1.ValidateAlbumIdsRequest\x1a/.infinitune.catalog.v1.ValidateAlbumIdsResponseBUZSgithub.com/bevzick/Infinitune/services/interaction-service/api/catalog/v1;catalogv1b\x06proto3"
+	"\x10ValidateAlbumIds\x12..infinitune.catalog.v1.ValidateAlbumIdsRequest\x1a/.infinitune.catalog.v1.ValidateAlbumIdsResponse\x12v\n" +
+	"\x11ValidateArtistIds\x12/.infinitune.catalog.v1.ValidateArtistIdsRequest\x1a0.infinitune.catalog.v1.ValidateArtistIdsResponseBUZSgithub.com/bevzick/Infinitune/services/interaction-service/api/catalog/v1;catalogv1b\x06proto3"
 
 var (
 	file_api_catalog_v1_catalog_proto_rawDescOnce sync.Once
@@ -244,20 +347,24 @@ func file_api_catalog_v1_catalog_proto_rawDescGZIP() []byte {
 	return file_api_catalog_v1_catalog_proto_rawDescData
 }
 
-var file_api_catalog_v1_catalog_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
+var file_api_catalog_v1_catalog_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
 var file_api_catalog_v1_catalog_proto_goTypes = []any{
-	(*ValidateTrackIdsRequest)(nil),  // 0: infinitune.catalog.v1.ValidateTrackIdsRequest
-	(*ValidateTrackIdsResponse)(nil), // 1: infinitune.catalog.v1.ValidateTrackIdsResponse
-	(*ValidateAlbumIdsRequest)(nil),  // 2: infinitune.catalog.v1.ValidateAlbumIdsRequest
-	(*ValidateAlbumIdsResponse)(nil), // 3: infinitune.catalog.v1.ValidateAlbumIdsResponse
+	(*ValidateTrackIdsRequest)(nil),   // 0: infinitune.catalog.v1.ValidateTrackIdsRequest
+	(*ValidateTrackIdsResponse)(nil),  // 1: infinitune.catalog.v1.ValidateTrackIdsResponse
+	(*ValidateAlbumIdsRequest)(nil),   // 2: infinitune.catalog.v1.ValidateAlbumIdsRequest
+	(*ValidateAlbumIdsResponse)(nil),  // 3: infinitune.catalog.v1.ValidateAlbumIdsResponse
+	(*ValidateArtistIdsRequest)(nil),  // 4: infinitune.catalog.v1.ValidateArtistIdsRequest
+	(*ValidateArtistIdsResponse)(nil), // 5: infinitune.catalog.v1.ValidateArtistIdsResponse
 }
 var file_api_catalog_v1_catalog_proto_depIdxs = []int32{
 	0, // 0: infinitune.catalog.v1.CatalogService.ValidateTrackIds:input_type -> infinitune.catalog.v1.ValidateTrackIdsRequest
 	2, // 1: infinitune.catalog.v1.CatalogService.ValidateAlbumIds:input_type -> infinitune.catalog.v1.ValidateAlbumIdsRequest
-	1, // 2: infinitune.catalog.v1.CatalogService.ValidateTrackIds:output_type -> infinitune.catalog.v1.ValidateTrackIdsResponse
-	3, // 3: infinitune.catalog.v1.CatalogService.ValidateAlbumIds:output_type -> infinitune.catalog.v1.ValidateAlbumIdsResponse
-	2, // [2:4] is the sub-list for method output_type
-	0, // [0:2] is the sub-list for method input_type
+	4, // 2: infinitune.catalog.v1.CatalogService.ValidateArtistIds:input_type -> infinitune.catalog.v1.ValidateArtistIdsRequest
+	1, // 3: infinitune.catalog.v1.CatalogService.ValidateTrackIds:output_type -> infinitune.catalog.v1.ValidateTrackIdsResponse
+	3, // 4: infinitune.catalog.v1.CatalogService.ValidateAlbumIds:output_type -> infinitune.catalog.v1.ValidateAlbumIdsResponse
+	5, // 5: infinitune.catalog.v1.CatalogService.ValidateArtistIds:output_type -> infinitune.catalog.v1.ValidateArtistIdsResponse
+	3, // [3:6] is the sub-list for method output_type
+	0, // [0:3] is the sub-list for method input_type
 	0, // [0:0] is the sub-list for extension type_name
 	0, // [0:0] is the sub-list for extension extendee
 	0, // [0:0] is the sub-list for field type_name
@@ -274,7 +381,7 @@ func file_api_catalog_v1_catalog_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_api_catalog_v1_catalog_proto_rawDesc), len(file_api_catalog_v1_catalog_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   4,
+			NumMessages:   6,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

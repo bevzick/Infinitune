@@ -32,10 +32,17 @@ type Likes interface {
 	AlbumLikes(context.Context, uuid.UUID, interaction.PageRequest) (interaction.LikePage, error)
 }
 
+type Follows interface {
+	FollowArtist(context.Context, uuid.UUID, uuid.UUID) (interaction.Follow, error)
+	UnfollowArtist(context.Context, uuid.UUID, uuid.UUID) error
+	ArtistFollows(context.Context, uuid.UUID, interaction.PageRequest) (interaction.FollowPage, error)
+}
+
 type Dependencies struct {
 	Database DatabaseCheck
 	Tokens   IdentityVerifier
 	Likes    Likes
+	Follows  Follows
 	Origins  []string
 	Logger   *slog.Logger
 }
@@ -58,6 +65,11 @@ func NewRouter(dependencies Dependencies) http.Handler {
 		protected.GET("/albums/likes", listAlbumLikes(dependencies.Likes, dependencies.Logger))
 		protected.PUT("/albums/:album_id/like", likeAlbum(dependencies.Likes, dependencies.Logger))
 		protected.DELETE("/albums/:album_id/like", unlikeAlbum(dependencies.Likes, dependencies.Logger))
+	}
+	if dependencies.Follows != nil {
+		protected.GET("/artists/follows", listArtistFollows(dependencies.Follows, dependencies.Logger))
+		protected.PUT("/artists/:artist_id/follow", followArtist(dependencies.Follows, dependencies.Logger))
+		protected.DELETE("/artists/:artist_id/follow", unfollowArtist(dependencies.Follows, dependencies.Logger))
 	}
 	return router
 }

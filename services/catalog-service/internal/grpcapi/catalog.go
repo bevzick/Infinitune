@@ -22,6 +22,7 @@ type Catalog interface {
 	BatchTracks(context.Context, []uuid.UUID) ([]metadata.Track, error)
 	ValidateTrackIDs(context.Context, []uuid.UUID) (metadata.TrackIDValidation, error)
 	ValidateAlbumIDs(context.Context, []uuid.UUID) (metadata.AlbumIDValidation, error)
+	ValidateArtistIDs(context.Context, []uuid.UUID) (metadata.ArtistIDValidation, error)
 	Tracks(context.Context, metadata.TrackQuery) (metadata.Page[metadata.Track], error)
 	EvaluateTrackFilters(context.Context, metadata.DynamicTrackQuery) (metadata.Page[metadata.Track], error)
 }
@@ -248,6 +249,27 @@ func (server *CatalogServer) ValidateAlbumIds(
 	return &catalogv1.ValidateAlbumIdsResponse{
 		ValidAlbumIds:   uuidStrings(result.ValidIDs),
 		MissingAlbumIds: uuidStrings(result.MissingIDs),
+	}, nil
+}
+
+func (server *CatalogServer) ValidateArtistIds(
+	ctx context.Context,
+	request *catalogv1.ValidateArtistIdsRequest,
+) (*catalogv1.ValidateArtistIdsResponse, error) {
+	ids, err := parseIDs(request.GetArtistIds(), "artist_ids")
+	if err != nil {
+		return nil, err
+	}
+	callCtx, cancel := context.WithTimeout(ctx, server.timeout)
+	defer cancel()
+
+	result, err := server.catalog.ValidateArtistIDs(callCtx, ids)
+	if err != nil {
+		return nil, mapCatalogError(err, "artist validation failed")
+	}
+	return &catalogv1.ValidateArtistIdsResponse{
+		ValidArtistIds:   uuidStrings(result.ValidIDs),
+		MissingArtistIds: uuidStrings(result.MissingIDs),
 	}, nil
 }
 

@@ -48,6 +48,11 @@ func TestPublicationRepositoryPublishesAtomicallyAndIdempotently(t *testing.T) {
 		len(albumValidation.MissingIDs) != 1 {
 		t.Fatalf("ValidateAlbumIDs() = %+v, %v", albumValidation, err)
 	}
+	artistValidation, err := service.ValidateArtistIDs(ctx, []uuid.UUID{artistID, uuid.New()})
+	if err != nil || len(artistValidation.ValidIDs) != 1 || artistValidation.ValidIDs[0] != artistID ||
+		len(artistValidation.MissingIDs) != 1 {
+		t.Fatalf("ValidateArtistIDs() = %+v, %v", artistValidation, err)
+	}
 	again, err := service.PublishApprovedRelease(ctx, input)
 	if err != nil || !again.PublishedAt.Equal(published.PublishedAt) || len(again.Tracks) != 2 {
 		t.Fatalf("PublishApprovedRelease(idempotent) = %+v, %v", again, err)
@@ -93,6 +98,10 @@ func TestPublicationRepositoryPublishesAtomicallyAndIdempotently(t *testing.T) {
 	albumValidation, err = service.ValidateAlbumIDs(ctx, []uuid.UUID{albumID})
 	if err != nil || len(albumValidation.ValidIDs) != 0 || len(albumValidation.MissingIDs) != 1 {
 		t.Fatalf("ValidateAlbumIDs(archived) = %+v, %v", albumValidation, err)
+	}
+	artistValidation, err = service.ValidateArtistIDs(ctx, []uuid.UUID{artistID})
+	if err != nil || len(artistValidation.ValidIDs) != 1 || artistValidation.ValidIDs[0] != artistID {
+		t.Fatalf("ValidateArtistIDs(after archive) = %+v, %v", artistValidation, err)
 	}
 }
 

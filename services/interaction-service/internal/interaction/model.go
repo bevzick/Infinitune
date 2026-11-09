@@ -12,6 +12,7 @@ var (
 	ErrInvalidArgument    = errors.New("invalid interaction argument")
 	ErrTrackNotFound      = errors.New("catalog track not found")
 	ErrAlbumNotFound      = errors.New("catalog album not found")
+	ErrArtistNotFound     = errors.New("catalog artist not found")
 	ErrCatalogUnavailable = errors.New("catalog service unavailable")
 	ErrCatalogTimeout     = errors.New("catalog request timed out")
 )
@@ -29,6 +30,19 @@ type PageRequest struct {
 
 type LikePage struct {
 	Items  []Like
+	Limit  int
+	Offset int
+	Total  int64
+}
+
+type Follow struct {
+	UserID     uuid.UUID
+	ArtistID   uuid.UUID
+	FollowedAt time.Time
+}
+
+type FollowPage struct {
+	Items  []Follow
 	Limit  int
 	Offset int
 	Total  int64

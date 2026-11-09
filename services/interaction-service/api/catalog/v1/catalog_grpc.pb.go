@@ -19,18 +19,20 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	CatalogService_ValidateTrackIds_FullMethodName = "/infinitune.catalog.v1.CatalogService/ValidateTrackIds"
-	CatalogService_ValidateAlbumIds_FullMethodName = "/infinitune.catalog.v1.CatalogService/ValidateAlbumIds"
+	CatalogService_ValidateTrackIds_FullMethodName  = "/infinitune.catalog.v1.CatalogService/ValidateTrackIds"
+	CatalogService_ValidateAlbumIds_FullMethodName  = "/infinitune.catalog.v1.CatalogService/ValidateAlbumIds"
+	CatalogService_ValidateArtistIds_FullMethodName = "/infinitune.catalog.v1.CatalogService/ValidateArtistIds"
 )
 
 // CatalogServiceClient is the client API for CatalogService service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 //
-// Consumer-side subset of Catalog used to validate like targets.
+// Consumer-side subset of Catalog used to validate interaction targets.
 type CatalogServiceClient interface {
 	ValidateTrackIds(ctx context.Context, in *ValidateTrackIdsRequest, opts ...grpc.CallOption) (*ValidateTrackIdsResponse, error)
 	ValidateAlbumIds(ctx context.Context, in *ValidateAlbumIdsRequest, opts ...grpc.CallOption) (*ValidateAlbumIdsResponse, error)
+	ValidateArtistIds(ctx context.Context, in *ValidateArtistIdsRequest, opts ...grpc.CallOption) (*ValidateArtistIdsResponse, error)
 }
 
 type catalogServiceClient struct {
@@ -61,14 +63,25 @@ func (c *catalogServiceClient) ValidateAlbumIds(ctx context.Context, in *Validat
 	return out, nil
 }
 
+func (c *catalogServiceClient) ValidateArtistIds(ctx context.Context, in *ValidateArtistIdsRequest, opts ...grpc.CallOption) (*ValidateArtistIdsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ValidateArtistIdsResponse)
+	err := c.cc.Invoke(ctx, CatalogService_ValidateArtistIds_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // CatalogServiceServer is the server API for CatalogService service.
 // All implementations must embed UnimplementedCatalogServiceServer
 // for forward compatibility.
 //
-// Consumer-side subset of Catalog used to validate like targets.
+// Consumer-side subset of Catalog used to validate interaction targets.
 type CatalogServiceServer interface {
 	ValidateTrackIds(context.Context, *ValidateTrackIdsRequest) (*ValidateTrackIdsResponse, error)
 	ValidateAlbumIds(context.Context, *ValidateAlbumIdsRequest) (*ValidateAlbumIdsResponse, error)
+	ValidateArtistIds(context.Context, *ValidateArtistIdsRequest) (*ValidateArtistIdsResponse, error)
 	mustEmbedUnimplementedCatalogServiceServer()
 }
 
@@ -84,6 +97,9 @@ func (UnimplementedCatalogServiceServer) ValidateTrackIds(context.Context, *Vali
 }
 func (UnimplementedCatalogServiceServer) ValidateAlbumIds(context.Context, *ValidateAlbumIdsRequest) (*ValidateAlbumIdsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ValidateAlbumIds not implemented")
+}
+func (UnimplementedCatalogServiceServer) ValidateArtistIds(context.Context, *ValidateArtistIdsRequest) (*ValidateArtistIdsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ValidateArtistIds not implemented")
 }
 func (UnimplementedCatalogServiceServer) mustEmbedUnimplementedCatalogServiceServer() {}
 func (UnimplementedCatalogServiceServer) testEmbeddedByValue()                        {}
@@ -142,6 +158,24 @@ func _CatalogService_ValidateAlbumIds_Handler(srv interface{}, ctx context.Conte
 	return interceptor(ctx, in, info, handler)
 }
 
+func _CatalogService_ValidateArtistIds_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ValidateArtistIdsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CatalogServiceServer).ValidateArtistIds(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: CatalogService_ValidateArtistIds_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CatalogServiceServer).ValidateArtistIds(ctx, req.(*ValidateArtistIdsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // CatalogService_ServiceDesc is the grpc.ServiceDesc for CatalogService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -156,6 +190,10 @@ var CatalogService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ValidateAlbumIds",
 			Handler:    _CatalogService_ValidateAlbumIds_Handler,
+		},
+		{
+			MethodName: "ValidateArtistIds",
+			Handler:    _CatalogService_ValidateArtistIds_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

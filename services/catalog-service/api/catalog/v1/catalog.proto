@@ -23,6 +23,9 @@ service CatalogService {
   // Separates requested album IDs into ordered available and missing collections.
   rpc ValidateAlbumIds(ValidateAlbumIdsRequest) returns (ValidateAlbumIdsResponse);
 
+  // Separates requested artist IDs into ordered valid and missing collections.
+  rpc ValidateArtistIds(ValidateArtistIdsRequest) returns (ValidateArtistIdsResponse);
+
   // Applies the supported hard filters with stable pagination and sorting.
   rpc FilterTracks(FilterTracksRequest) returns (FilterTracksResponse);
 
@@ -98,6 +101,15 @@ message ValidateAlbumIdsRequest {
 message ValidateAlbumIdsResponse {
   repeated string valid_album_ids = 1;
   repeated string missing_album_ids = 2;
+}
+
+message ValidateArtistIdsRequest {
+  repeated string artist_ids = 1;
+}
+
+message ValidateArtistIdsResponse {
+  repeated string valid_artist_ids = 1;
+  repeated string missing_artist_ids = 2;
 }
 
 enum TrackSort {

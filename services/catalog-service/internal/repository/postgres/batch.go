@@ -8,6 +8,32 @@ import (
 	"github.com/google/uuid"
 )
 
+func (repository *MetadataRepository) ExistingArtistIDs(
+	ctx context.Context,
+	ids []uuid.UUID,
+) (map[uuid.UUID]struct{}, error) {
+	rows, err := repository.database.Query(ctx, `
+		SELECT id FROM catalog.artists WHERE id = ANY($1::uuid[])
+	`, ids)
+	if err != nil {
+		return nil, fmt.Errorf("query existing artist ids: %w", err)
+	}
+	defer rows.Close()
+
+	result := make(map[uuid.UUID]struct{}, len(ids))
+	for rows.Next() {
+		var id uuid.UUID
+		if err = rows.Scan(&id); err != nil {
+			return nil, fmt.Errorf("scan existing artist id: %w", err)
+		}
+		result[id] = struct{}{}
+	}
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate existing artist ids: %w", err)
+	}
+	return result, nil
+}
+
 func (repository *MetadataRepository) ExistingAlbumIDs(
 	ctx context.Context,
 	ids []uuid.UUID,
