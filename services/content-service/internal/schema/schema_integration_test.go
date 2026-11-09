@@ -193,6 +193,58 @@ func TestCreatorMembershipCompositeKeyPreventsDuplicates(t *testing.T) {
 	}
 }
 
+func TestContentSchemaStoresDraftReleaseAndTrackOrder(t *testing.T) {
+	tx := beginIntegrationTransaction(t)
+	ctx := context.Background()
+	creatorID, releaseID := uuid.New(), uuid.New()
+	if _, err := tx.Exec(ctx, `
+		INSERT INTO content.creator_accounts (id, account_type, display_name)
+		VALUES ($1, 'artist', 'Release Schema Artist')
+	`, creatorID); err != nil {
+		t.Fatalf("insert creator account: %v", err)
+	}
+	if _, err := tx.Exec(ctx, `
+		INSERT INTO content.releases (
+			id, creator_id, title, release_type, release_date
+		)
+		VALUES ($1, $2, 'Schema Album', 'album', DATE '2027-10-10')
+	`, releaseID, creatorID); err != nil {
+		t.Fatalf("insert release: %v", err)
+	}
+	for number, title := range []string{"Opening", "Closing"} {
+		if _, err := tx.Exec(ctx, `
+			INSERT INTO content.release_tracks (
+				id, release_id, title, track_number, disc_number
+			)
+			VALUES ($1, $2, $3, $4, 1)
+		`, uuid.New(), releaseID, title, number+1); err != nil {
+			t.Fatalf("insert release track %d: %v", number+1, err)
+		}
+	}
+	var status string
+	var coverObjectKey *string
+	if err := tx.QueryRow(ctx, `
+		SELECT status, cover_object_key FROM content.releases WHERE id = $1
+	`, releaseID).Scan(&status, &coverObjectKey); err != nil {
+		t.Fatalf("read release defaults: %v", err)
+	}
+	if status != "draft" || coverObjectKey != nil {
+		t.Fatalf("release defaults = status %q, cover %v", status, coverObjectKey)
+	}
+	if _, err := tx.Exec(ctx, "SAVEPOINT duplicate_track_position"); err != nil {
+		t.Fatalf("create savepoint: %v", err)
+	}
+	_, duplicateErr := tx.Exec(ctx, `
+		INSERT INTO content.release_tracks (
+			id, release_id, title, track_number, disc_number
+		)
+		VALUES ($1, $2, 'Duplicate', 1, 1)
+	`, uuid.New(), releaseID)
+	if duplicateErr == nil {
+		t.Fatal("duplicate release track position was accepted")
+	}
+}
+
 func beginIntegrationTransaction(t *testing.T) pgx.Tx {
 	t.Helper()
 	pool := openIntegrationDatabase(t)
