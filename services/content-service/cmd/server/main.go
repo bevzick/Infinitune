@@ -13,9 +13,18 @@ import (
 	"syscall"
 	"time"
 
+	contentv1 "github.com/bevzick/Infinitune/services/content-service/api/content/v1"
+	userv1 "github.com/bevzick/Infinitune/services/content-service/api/user/v1"
 	"github.com/bevzick/Infinitune/services/content-service/internal/config"
+	"github.com/bevzick/Infinitune/services/content-service/internal/creator"
 	"github.com/bevzick/Infinitune/services/content-service/internal/database"
+	"github.com/bevzick/Infinitune/services/content-service/internal/grpcapi"
 	"github.com/bevzick/Infinitune/services/content-service/internal/httpapi"
+	"github.com/bevzick/Infinitune/services/content-service/internal/identity"
+	postgres_repository "github.com/bevzick/Infinitune/services/content-service/internal/repository/postgres"
+	"github.com/bevzick/Infinitune/services/content-service/internal/user"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 const (
@@ -48,18 +57,48 @@ func main() {
 		os.Exit(1)
 	}
 	defer databasePool.Close()
+	repository := postgres_repository.NewCreatorRepository(databasePool)
+	creatorService := creator.NewService(repository)
+	tokenVerifier, err := identity.NewVerifier(cfg.Identity, nil)
+	if err != nil {
+		logger.Error("failed to initialize identity verifier", "error", err)
+		os.Exit(1)
+	}
+	userConnection, err := grpc.NewClient(cfg.UserAddress, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		logger.Error("failed to initialize user service client", "error", err)
+		os.Exit(1)
+	}
+	defer userConnection.Close()
+	memberService := creator.NewMemberService(repository,
+		user.NewDirectory(userv1.NewUserServiceClient(userConnection)))
+	accessService := creator.NewAccessService(repository)
 
-	server := &http.Server{
-		Addr:              cfg.HTTPAddress,
-		Handler:           httpapi.NewRouter(databasePool),
+	httpServer := &http.Server{
+		Addr: cfg.HTTPAddress,
+		Handler: httpapi.NewRouter(httpapi.Dependencies{
+			Database: databasePool, Tokens: tokenVerifier, Creators: creatorService,
+			Members: memberService, Origins: cfg.Origins, Logger: logger,
+		}),
 		ReadHeaderTimeout: readHeaderTimeout,
 	}
+	grpcListener, err := net.Listen("tcp", cfg.GRPCAddress)
+	if err != nil {
+		logger.Error("failed to listen for gRPC", "error", err)
+		os.Exit(1)
+	}
+	grpcServer := grpc.NewServer()
+	contentv1.RegisterContentServiceServer(grpcServer, grpcapi.NewContentServer(accessService))
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
-	serverErrors := make(chan error, 1)
+	serverErrors := make(chan error, 2)
 	go func() {
 		logger.Info("content service started", "address", cfg.HTTPAddress)
-		serverErrors <- server.ListenAndServe()
+		serverErrors <- httpServer.ListenAndServe()
+	}()
+	go func() {
+		logger.Info("content gRPC service started", "address", cfg.GRPCAddress)
+		serverErrors <- grpcServer.Serve(grpcListener)
 	}()
 
 	select {
@@ -73,9 +112,16 @@ func main() {
 	}
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), shutdownTimeout)
 	defer shutdownCancel()
-	if err = server.Shutdown(shutdownCtx); err != nil {
+	if err = httpServer.Shutdown(shutdownCtx); err != nil {
 		logger.Error("failed to shut down content service", "error", err)
 		os.Exit(1)
+	}
+	grpcStopped := make(chan struct{})
+	go func() { grpcServer.GracefulStop(); close(grpcStopped) }()
+	select {
+	case <-grpcStopped:
+	case <-shutdownCtx.Done():
+		grpcServer.Stop()
 	}
 	logger.Info("content service stopped")
 }

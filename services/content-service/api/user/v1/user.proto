@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+package infinitune.user.v1;
+
+option go_package = "github.com/bevzick/Infinitune/services/content-service/api/user/v1;userv1";
+
+// Consumer-owned subset of the User service contract.
+service UserService {
+  rpc GetPublicProfile(GetPublicProfileRequest) returns (PublicProfile);
+}
+
+message GetPublicProfileRequest {
+  string user_id = 1;
+}
+
+message PublicProfile {
+  string user_id = 1;
+}

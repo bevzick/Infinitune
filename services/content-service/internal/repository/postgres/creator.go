@@ -74,6 +74,36 @@ func (repository *CreatorRepository) ByID(
 	return account, nil
 }
 
+func (repository *CreatorRepository) ListForUser(
+	ctx context.Context,
+	userID uuid.UUID,
+) ([]creator.Account, error) {
+	rows, err := repository.database.Query(ctx, `
+		SELECT account.id, account.account_type, account.display_name,
+		       account.verification_status, account.created_at, account.updated_at
+		FROM content.creator_accounts AS account
+		JOIN content.creator_members AS member ON member.creator_id = account.id
+		WHERE member.user_id = $1
+		ORDER BY account.updated_at DESC, account.id
+	`, userID)
+	if err != nil {
+		return nil, fmt.Errorf("query creator accounts for user: %w", err)
+	}
+	defer rows.Close()
+	accounts := make([]creator.Account, 0)
+	for rows.Next() {
+		account, scanErr := scanAccount(rows)
+		if scanErr != nil {
+			return nil, fmt.Errorf("scan creator account for user: %w", scanErr)
+		}
+		accounts = append(accounts, account)
+	}
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate creator accounts for user: %w", err)
+	}
+	return accounts, nil
+}
+
 func (repository *CreatorRepository) Member(
 	ctx context.Context,
 	creatorID uuid.UUID,
@@ -264,4 +294,5 @@ func mapError(err error) error {
 var (
 	_ creator.Store           = (*CreatorRepository)(nil)
 	_ creator.MembershipStore = (*CreatorRepository)(nil)
+	_ creator.AccessStore     = (*CreatorRepository)(nil)
 )

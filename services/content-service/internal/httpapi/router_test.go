@@ -26,7 +26,7 @@ func TestHealthReflectsDatabaseAvailability(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			request := httptest.NewRequest(http.MethodGet, "/health", nil)
 			response := httptest.NewRecorder()
-			NewRouter(test.database).ServeHTTP(response, request)
+			NewRouter(Dependencies{Database: test.database}).ServeHTTP(response, request)
 			if response.Code != test.wantStatus {
 				t.Fatalf("status = %d, want %d; body = %s",
 					response.Code, test.wantStatus, response.Body.String())

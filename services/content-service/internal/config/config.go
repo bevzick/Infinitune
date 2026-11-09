@@ -3,23 +3,39 @@ package config
 import (
 	"fmt"
 	"net"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/bevzick/Infinitune/services/content-service/internal/database"
+	"github.com/bevzick/Infinitune/services/content-service/internal/identity"
 )
 
 const (
 	defaultHTTPHost     = "0.0.0.0"
 	defaultHTTPPort     = "8080"
+	defaultGRPCHost     = "0.0.0.0"
+	defaultGRPCPort     = "9090"
+	defaultUserHost     = "127.0.0.1"
+	defaultUserPort     = "9090"
 	defaultPostgresHost = "127.0.0.1"
 	defaultPostgresPort = "5432"
+	defaultJWKSURL      = "http://auth-service:8080/v1/auth/jwks"
+	defaultJWTIssuer    = "infinitune-auth"
+	defaultJWTAudience  = "infinitune-api"
+	defaultJWTKeyID     = "auth-key-1"
+	defaultJWKSRefresh  = 5 * time.Minute
 )
 
 type Config struct {
 	HTTPAddress string
+	GRPCAddress string
+	UserAddress string
 	Database    database.Config
+	Identity    identity.Config
+	Origins     []string
 }
 
 func Load() (Config, error) {
@@ -27,14 +43,57 @@ func Load() (Config, error) {
 	if _, err := parsePort("CONTENT_HTTP_PORT", httpPort); err != nil {
 		return Config{}, err
 	}
+	grpcPort := envOrDefault("CONTENT_GRPC_PORT", defaultGRPCPort)
+	if _, err := parsePort("CONTENT_GRPC_PORT", grpcPort); err != nil {
+		return Config{}, err
+	}
+	userPort := envOrDefault("USER_GRPC_PORT", defaultUserPort)
+	if _, err := parsePort("USER_GRPC_PORT", userPort); err != nil {
+		return Config{}, err
+	}
 	databaseConfig, err := loadDatabaseConfig()
+	if err != nil {
+		return Config{}, err
+	}
+	origins, err := parseAllowedOrigins(envOrDefault("CONTENT_ALLOWED_ORIGINS", ""))
 	if err != nil {
 		return Config{}, err
 	}
 	return Config{
 		HTTPAddress: net.JoinHostPort(envOrDefault("CONTENT_HTTP_HOST", defaultHTTPHost), httpPort),
+		GRPCAddress: net.JoinHostPort(envOrDefault("CONTENT_GRPC_HOST", defaultGRPCHost), grpcPort),
+		UserAddress: net.JoinHostPort(envOrDefault("USER_GRPC_HOST", defaultUserHost), userPort),
 		Database:    databaseConfig,
+		Identity: identity.Config{
+			JWKSURL:         envOrDefault("CONTENT_AUTH_JWKS_URL", defaultJWKSURL),
+			Issuer:          envOrDefault("AUTH_JWT_ISSUER", defaultJWTIssuer),
+			Audience:        envOrDefault("AUTH_JWT_AUDIENCE", defaultJWTAudience),
+			KeyID:           envOrDefault("AUTH_JWT_KEY_ID", defaultJWTKeyID),
+			RefreshInterval: defaultJWKSRefresh,
+		},
+		Origins: origins,
 	}, nil
+}
+
+func parseAllowedOrigins(value string) ([]string, error) {
+	if strings.TrimSpace(value) == "" {
+		return nil, nil
+	}
+	seen := make(map[string]struct{})
+	origins := make([]string, 0)
+	for raw := range strings.SplitSeq(value, ",") {
+		origin := strings.TrimSpace(raw)
+		parsed, err := url.Parse(origin)
+		if err != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.Host == "" || parsed.User != nil || parsed.Path != "" || parsed.RawQuery != "" || parsed.Fragment != "" {
+			return nil, fmt.Errorf("invalid CONTENT_ALLOWED_ORIGINS entry %q", origin)
+		}
+		if _, exists := seen[origin]; exists {
+			continue
+		}
+		seen[origin] = struct{}{}
+		origins = append(origins, origin)
+	}
+	return origins, nil
 }
 
 func loadDatabaseConfig() (database.Config, error) {

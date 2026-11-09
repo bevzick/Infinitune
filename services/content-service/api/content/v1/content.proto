@@ -1,0 +1,21 @@
+syntax = "proto3";
+
+package infinitune.content.v1;
+
+option go_package = "github.com/bevzick/Infinitune/services/content-service/api/content/v1;contentv1";
+
+service ContentService {
+  rpc CheckPermission(CheckPermissionRequest) returns (CheckPermissionResponse);
+}
+
+message CheckPermissionRequest {
+  string creator_id = 1;
+  string user_id = 2;
+  string permission = 3;
+}
+
+message CheckPermissionResponse {
+  bool allowed = 1;
+  string member_role = 2;
+  string verification_status = 3;
+}

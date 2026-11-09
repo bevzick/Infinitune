@@ -13,6 +13,7 @@ import (
 type Store interface {
 	Create(context.Context, Account, Member) (Account, error)
 	ByID(context.Context, uuid.UUID) (Account, error)
+	ListForUser(context.Context, uuid.UUID) ([]Account, error)
 	Member(context.Context, uuid.UUID, uuid.UUID) (Member, error)
 	Update(context.Context, Account, time.Time) (Account, error)
 	TransitionVerification(
@@ -29,6 +30,45 @@ type Service struct {
 
 func NewService(store Store) *Service {
 	return &Service{store: store}
+}
+
+func (service *Service) List(ctx context.Context, actorID uuid.UUID) ([]Account, error) {
+	if actorID == uuid.Nil {
+		return nil, ErrForbidden
+	}
+	accounts, err := service.store.ListForUser(ctx, actorID)
+	if err != nil {
+		return nil, fmt.Errorf("list creator accounts: %w", err)
+	}
+	return accounts, nil
+}
+
+func (service *Service) ByID(
+	ctx context.Context,
+	actorID uuid.UUID,
+	accountID uuid.UUID,
+) (Account, error) {
+	if actorID == uuid.Nil {
+		return Account{}, ErrForbidden
+	}
+	if accountID == uuid.Nil {
+		return Account{}, validationError("creator_id", "must be a UUID")
+	}
+	account, err := service.store.ByID(ctx, accountID)
+	if err != nil {
+		return Account{}, fmt.Errorf("read creator account: %w", err)
+	}
+	membership, err := service.store.Member(ctx, accountID, actorID)
+	if errors.Is(err, ErrNotFound) {
+		return Account{}, ErrForbidden
+	}
+	if err != nil {
+		return Account{}, fmt.Errorf("read creator membership: %w", err)
+	}
+	if !HasPermission(membership.Role, PermissionAccountRead) {
+		return Account{}, ErrForbidden
+	}
+	return account, nil
 }
 
 func (service *Service) Create(

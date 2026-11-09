@@ -1,0 +1,63 @@
+package httpapi
+
+import (
+	"encoding/json"
+	"errors"
+	"io"
+	"log/slog"
+	"net/http"
+
+	"github.com/bevzick/Infinitune/services/content-service/internal/creator"
+	"github.com/gin-gonic/gin"
+)
+
+type errorResponse struct {
+	Error errorBody `json:"error"`
+}
+type errorBody struct {
+	Code    string `json:"code"`
+	Message string `json:"message"`
+}
+
+func writeError(c *gin.Context, status int, code, message string) {
+	c.AbortWithStatusJSON(status, errorResponse{Error: errorBody{Code: code, Message: message}})
+}
+func decodeJSON(c *gin.Context, destination any) error {
+	decoder := json.NewDecoder(c.Request.Body)
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(destination); err != nil {
+		if errors.Is(err, io.EOF) {
+			return errors.New("request body is required")
+		}
+		return err
+	}
+	if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
+		return errors.New("request body must contain one JSON object")
+	}
+	return nil
+}
+func writeDomainError(c *gin.Context, logger *slog.Logger, err error) {
+	switch {
+	case errors.Is(err, creator.ErrInvalid):
+		writeError(c, http.StatusUnprocessableEntity, "invalid_creator", err.Error())
+	case errors.Is(err, creator.ErrForbidden):
+		writeError(c, http.StatusForbidden, "forbidden", "Operation is forbidden")
+	case errors.Is(err, creator.ErrTargetUserNotFound):
+		writeError(c, http.StatusNotFound, "user_not_found", "User was not found")
+	case errors.Is(err, creator.ErrNotFound):
+		writeError(c, http.StatusNotFound, "not_found", "Requested resource was not found")
+	case errors.Is(err, creator.ErrMemberExists):
+		writeError(c, http.StatusConflict, "member_exists", "Creator member already exists")
+	case errors.Is(err, creator.ErrOwnerProtected):
+		writeError(c, http.StatusConflict, "owner_protected", "Creator owner cannot be changed")
+	case errors.Is(err, creator.ErrInvalidTransition):
+		writeError(c, http.StatusConflict, "invalid_verification_transition", "Verification status cannot be changed")
+	case errors.Is(err, creator.ErrConflict):
+		writeError(c, http.StatusConflict, "concurrent_change", "Resource changed concurrently")
+	case errors.Is(err, creator.ErrUserDirectoryUnavailable):
+		writeError(c, http.StatusServiceUnavailable, "user_service_unavailable", "User service is unavailable")
+	default:
+		logger.Error("creator request failed", "error", err)
+		writeError(c, http.StatusInternalServerError, "internal_error", "Request could not be completed")
+	}
+}

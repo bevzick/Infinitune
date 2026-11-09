@@ -8,15 +8,16 @@ import (
 )
 
 var (
-	ErrInvalid              = errors.New("invalid creator account")
-	ErrNotFound             = errors.New("creator account not found")
-	ErrForbidden            = errors.New("creator account operation forbidden")
-	ErrConflict             = errors.New("creator account changed concurrently")
-	ErrMemberExists         = errors.New("creator member already exists")
-	ErrOwnerProtected       = errors.New("creator account owner is protected")
-	ErrTargetUserNotFound   = errors.New("creator member user not found")
-	ErrInvalidTransition    = errors.New("invalid verification status transition")
-	ErrVerificationRequired = errors.New("verified creator account required")
+	ErrInvalid                  = errors.New("invalid creator account")
+	ErrNotFound                 = errors.New("creator account not found")
+	ErrForbidden                = errors.New("creator account operation forbidden")
+	ErrConflict                 = errors.New("creator account changed concurrently")
+	ErrMemberExists             = errors.New("creator member already exists")
+	ErrOwnerProtected           = errors.New("creator account owner is protected")
+	ErrTargetUserNotFound       = errors.New("creator member user not found")
+	ErrUserDirectoryUnavailable = errors.New("user directory unavailable")
+	ErrInvalidTransition        = errors.New("invalid verification status transition")
+	ErrVerificationRequired     = errors.New("verified creator account required")
 )
 
 type AccountType string
@@ -82,6 +83,12 @@ type Member struct {
 type Actor struct {
 	UserID uuid.UUID
 	Roles  []string
+}
+
+type AccessDecision struct {
+	Allowed            bool
+	Role               MemberRole
+	VerificationStatus VerificationStatus
 }
 
 type CreateInput struct {

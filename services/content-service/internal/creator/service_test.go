@@ -32,6 +32,32 @@ func TestServiceCreatesUnverifiedAccountWithOwner(t *testing.T) {
 	}
 }
 
+func TestServiceListsAndReadsMemberAccounts(t *testing.T) {
+	userID, accountID := uuid.New(), uuid.New()
+	account := Account{ID: accountID, DisplayName: "Member Artist"}
+	store := &storeStub{
+		account: account, accounts: []Account{account},
+		member: Member{CreatorID: accountID, UserID: userID, Role: RoleEditor},
+	}
+	service := NewService(store)
+	accounts, err := service.List(context.Background(), userID)
+	if err != nil || len(accounts) != 1 || accounts[0].ID != accountID {
+		t.Fatalf("List() = %+v, %v", accounts, err)
+	}
+	loaded, err := service.ByID(context.Background(), userID, accountID)
+	if err != nil || loaded.ID != accountID {
+		t.Fatalf("ByID() = %+v, %v", loaded, err)
+	}
+}
+
+func TestServiceHidesAccountFromNonMember(t *testing.T) {
+	_, err := NewService(&storeStub{account: Account{ID: uuid.New()}}).
+		ByID(context.Background(), uuid.New(), uuid.New())
+	if !errors.Is(err, ErrForbidden) {
+		t.Fatalf("ByID() error = %v, want %v", err, ErrForbidden)
+	}
+}
+
 func TestServiceRejectsInvalidCreatorAccount(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -256,6 +282,7 @@ func TestServiceRequiresVerifiedAccountForProtectedActions(t *testing.T) {
 
 type storeStub struct {
 	account            Account
+	accounts           []Account
 	member             Member
 	createdOwner       Member
 	expectedUpdatedAt  time.Time
@@ -263,6 +290,10 @@ type storeStub struct {
 	transitionTarget   VerificationStatus
 	createCalls        int
 	updateCalls        int
+}
+
+func (store *storeStub) ListForUser(context.Context, uuid.UUID) ([]Account, error) {
+	return store.accounts, nil
 }
 
 func (store *storeStub) Create(

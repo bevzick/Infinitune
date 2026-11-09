@@ -48,6 +48,10 @@ func TestCreatorRepositoryCreatesAccountAndOwnerAtomically(t *testing.T) {
 	if err != nil || loaded.DisplayName != "Integration Artist" {
 		t.Fatalf("ByID() = %+v, %v", loaded, err)
 	}
+	accounts, err := repository.ListForUser(ctx, ownerID)
+	if err != nil || len(accounts) != 1 || accounts[0].ID != accountID {
+		t.Fatalf("ListForUser() = %+v, %v", accounts, err)
+	}
 }
 
 func TestCreatorRepositoryRollsBackAccountWithoutOwner(t *testing.T) {
