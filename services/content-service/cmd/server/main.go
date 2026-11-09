@@ -22,6 +22,7 @@ import (
 	"github.com/bevzick/Infinitune/services/content-service/internal/httpapi"
 	"github.com/bevzick/Infinitune/services/content-service/internal/identity"
 	postgres_repository "github.com/bevzick/Infinitune/services/content-service/internal/repository/postgres"
+	"github.com/bevzick/Infinitune/services/content-service/internal/rights"
 	"github.com/bevzick/Infinitune/services/content-service/internal/upload"
 	"github.com/bevzick/Infinitune/services/content-service/internal/user"
 	"google.golang.org/grpc"
@@ -74,6 +75,9 @@ func main() {
 	memberService := creator.NewMemberService(repository,
 		user.NewDirectory(userv1.NewUserServiceClient(userConnection)))
 	accessService := creator.NewAccessService(repository)
+	rightsService := rights.NewService(
+		postgres_repository.NewRightsRepository(databasePool), accessService,
+	)
 	uploadService := upload.NewService(
 		postgres_repository.NewUploadRepository(databasePool), memberService,
 	)
@@ -82,7 +86,8 @@ func main() {
 		Addr: cfg.HTTPAddress,
 		Handler: httpapi.NewRouter(httpapi.Dependencies{
 			Database: databasePool, Tokens: tokenVerifier, Creators: creatorService,
-			Members: memberService, Origins: cfg.Origins, Logger: logger,
+			Members: memberService, Rights: rightsService,
+			Origins: cfg.Origins, Logger: logger,
 		}),
 		ReadHeaderTimeout: readHeaderTimeout,
 	}

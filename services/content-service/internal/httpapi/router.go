@@ -9,6 +9,7 @@ import (
 
 	"github.com/bevzick/Infinitune/services/content-service/internal/creator"
 	"github.com/bevzick/Infinitune/services/content-service/internal/identity"
+	"github.com/bevzick/Infinitune/services/content-service/internal/rights"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
@@ -33,11 +34,17 @@ type CreatorMembers interface {
 	ChangeRole(context.Context, uuid.UUID, uuid.UUID, uuid.UUID, creator.MemberRole) (creator.Member, error)
 	Remove(context.Context, uuid.UUID, uuid.UUID, uuid.UUID) error
 }
+type TrackRights interface {
+	Set(context.Context, uuid.UUID, rights.SetInput) (rights.Right, error)
+	List(context.Context, uuid.UUID, uuid.UUID) ([]rights.Right, error)
+	Delete(context.Context, uuid.UUID, uuid.UUID) error
+}
 type Dependencies struct {
 	Database DatabaseCheck
 	Tokens   IdentityVerifier
 	Creators CreatorAccounts
 	Members  CreatorMembers
+	Rights   TrackRights
 	Origins  []string
 	Logger   *slog.Logger
 }
@@ -62,6 +69,11 @@ func NewRouter(dependencies Dependencies) http.Handler {
 	protected.POST("/:creator_id/members", addMember(dependencies.Members, dependencies.Logger))
 	protected.PATCH("/:creator_id/members/:user_id", changeMemberRole(dependencies.Members, dependencies.Logger))
 	protected.DELETE("/:creator_id/members/:user_id", removeMember(dependencies.Members, dependencies.Logger))
+	content := router.Group("/v1")
+	content.Use(authenticate(dependencies.Tokens, dependencies.Logger))
+	content.PUT("/release-tracks/:release_track_id/rights", setTrackRights(dependencies.Rights, dependencies.Logger))
+	content.GET("/release-tracks/:release_track_id/rights", listTrackRights(dependencies.Rights, dependencies.Logger))
+	content.DELETE("/track-rights/:right_id", deleteTrackRights(dependencies.Rights, dependencies.Logger))
 	return router
 }
 

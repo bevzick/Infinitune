@@ -8,6 +8,7 @@ import (
 	"net/http"
 
 	"github.com/bevzick/Infinitune/services/content-service/internal/creator"
+	"github.com/bevzick/Infinitune/services/content-service/internal/rights"
 	"github.com/gin-gonic/gin"
 )
 
@@ -42,6 +43,14 @@ func writeDomainError(c *gin.Context, logger *slog.Logger, err error) {
 		writeError(c, http.StatusUnprocessableEntity, "invalid_creator", err.Error())
 	case errors.Is(err, creator.ErrForbidden):
 		writeError(c, http.StatusForbidden, "forbidden", "Operation is forbidden")
+	case errors.Is(err, creator.ErrVerificationRequired):
+		writeError(c, http.StatusForbidden, "verification_required", "Verified creator account is required")
+	case errors.Is(err, rights.ErrInvalid):
+		writeError(c, http.StatusUnprocessableEntity, "invalid_track_rights", err.Error())
+	case errors.Is(err, rights.ErrNotFound):
+		writeError(c, http.StatusNotFound, "track_rights_not_found", "Track or track rights were not found")
+	case errors.Is(err, rights.ErrImmutable):
+		writeError(c, http.StatusConflict, "track_rights_immutable", "Track rights cannot be changed in the current release status")
 	case errors.Is(err, creator.ErrTargetUserNotFound):
 		writeError(c, http.StatusNotFound, "user_not_found", "User was not found")
 	case errors.Is(err, creator.ErrNotFound):
