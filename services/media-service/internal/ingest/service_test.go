@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"strings"
 	"testing"
 
 	"github.com/bevzick/Infinitune/services/media-service/internal/content"
@@ -35,6 +36,9 @@ func TestServiceIngestsOriginalAndCompletesSession(t *testing.T) {
 	}
 	if objects.key != contentUploads.session.ObjectKey || objects.contentType != "audio/flac" {
 		t.Fatalf("stored object = key %q, type %q", objects.key, objects.contentType)
+	}
+	if assets.enqueuedAssetID != asset.ID {
+		t.Fatalf("enqueued asset = %s, want %s", assets.enqueuedAssetID, asset.ID)
 	}
 }
 
@@ -113,6 +117,19 @@ func TestServiceReturnsExistingCompletedAssetIdempotently(t *testing.T) {
 	}
 }
 
+func TestServiceReturnsErrorWhenProcessingCannotBeEnqueued(t *testing.T) {
+	actorID, uploadID := uuid.New(), uuid.New()
+	_, _, err := NewService(
+		&contentStub{session: uploadSession(actorID, uploadID, uuid.New())},
+		&assetStoreStub{findErr: media.ErrNotFound, enqueueErr: errors.New("database unavailable")},
+		&objectStoreStub{},
+	).Ingest(context.Background(), actorID, uploadID, "audio/flac", 5,
+		bytes.NewBufferString("audio"))
+	if err == nil || !strings.Contains(err.Error(), "enqueue media processing") {
+		t.Fatalf("Ingest() error = %v", err)
+	}
+}
+
 func TestServiceRejectsConcurrentUploadWithoutAsset(t *testing.T) {
 	actorID, uploadID := uuid.New(), uuid.New()
 	session := uploadSession(actorID, uploadID, uuid.New())
@@ -162,9 +179,19 @@ func (stub *contentStub) Transition(
 }
 
 type assetStoreStub struct {
-	existing  media.Asset
-	findErr   error
-	createErr error
+	existing        media.Asset
+	findErr         error
+	createErr       error
+	enqueueErr      error
+	enqueuedAssetID uuid.UUID
+}
+
+func (stub *assetStoreStub) EnqueueProcessing(
+	_ context.Context,
+	assetID uuid.UUID,
+) error {
+	stub.enqueuedAssetID = assetID
+	return stub.enqueueErr
 }
 
 func (stub *assetStoreStub) AssetBySourceUpload(

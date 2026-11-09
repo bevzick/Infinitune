@@ -31,6 +31,7 @@ type ContentUploads interface {
 type AssetStore interface {
 	AssetBySourceUpload(context.Context, uuid.UUID) (media.Asset, error)
 	CreateFromUpload(context.Context, media.Asset) (media.Asset, bool, error)
+	EnqueueProcessing(context.Context, uuid.UUID) error
 }
 
 type ObjectStore interface {
@@ -86,6 +87,9 @@ func (service *Service) Ingest(
 		if err = service.completeExisting(ctx, session); err != nil {
 			return media.Asset{}, false, err
 		}
+		if err = service.enqueueProcessing(ctx, existing.ID); err != nil {
+			return media.Asset{}, false, fmt.Errorf("enqueue media processing: %w", err)
+		}
 		return existing, false, nil
 	}
 	if !errors.Is(findErr, media.ErrNotFound) {
@@ -131,7 +135,16 @@ func (service *Service) Ingest(
 	); err != nil {
 		return media.Asset{}, false, fmt.Errorf("complete content upload session: %w", err)
 	}
+	if err = service.enqueueProcessing(ctx, stored.ID); err != nil {
+		return media.Asset{}, false, fmt.Errorf("enqueue media processing: %w", err)
+	}
 	return stored, created, nil
+}
+
+func (service *Service) enqueueProcessing(ctx context.Context, assetID uuid.UUID) error {
+	enqueueCtx, cancel := compensationContext(ctx)
+	defer cancel()
+	return service.assets.EnqueueProcessing(enqueueCtx, assetID)
 }
 
 func compensationContext(ctx context.Context) (context.Context, context.CancelFunc) {

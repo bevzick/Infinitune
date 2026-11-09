@@ -91,6 +91,121 @@ func TestMediaRepositoryCreatesCreatorAssetIdempotently(t *testing.T) {
 	}
 }
 
+func TestMediaRepositoryProcessesQueuedAudioVariants(t *testing.T) {
+	pool := openIntegrationDatabase(t)
+	ctx := context.Background()
+	assetID := uuid.New()
+	t.Cleanup(func() { removeMediaAsset(t, pool, assetID) })
+	repository := NewMediaRepository(pool)
+	_, _, err := repository.CreateFromUpload(ctx, media.Asset{
+		ID: assetID, ContentTrackID: uuid.New(), SourceUploadID: uuid.New(),
+		OriginalObjectKey: "creator-content/" + assetID.String() + "/source.flac",
+		OriginalFilename:  "source.flac", Status: media.StatusUploaded,
+	})
+	if err != nil {
+		t.Fatalf("CreateFromUpload() error = %v", err)
+	}
+	if err = repository.EnqueueProcessing(ctx, assetID); err != nil {
+		t.Fatalf("EnqueueProcessing() error = %v", err)
+	}
+	if err = repository.EnqueueProcessing(ctx, assetID); err != nil {
+		t.Fatalf("EnqueueProcessing(idempotent) error = %v", err)
+	}
+	var jobs int
+	if err = pool.QueryRow(ctx, `
+		SELECT count(*) FROM media.processing_jobs WHERE media_asset_id = $1
+	`, assetID).Scan(&jobs); err != nil || jobs != 1 {
+		t.Fatalf("processing jobs = %d, %v", jobs, err)
+	}
+
+	job, err := repository.ClaimProcessing(ctx)
+	if err != nil || job.Asset.ID != assetID || job.Attempts != 1 ||
+		job.Asset.Status != media.StatusProcessing {
+		t.Fatalf("ClaimProcessing() = %+v, %v", job, err)
+	}
+	terminal, err := repository.FailProcessing(
+		ctx, job, "temporary failure", time.Now().Add(-time.Second), 3,
+	)
+	if err != nil || terminal {
+		t.Fatalf("FailProcessing() = %v, %v", terminal, err)
+	}
+	job, err = repository.ClaimProcessing(ctx)
+	if err != nil || job.Attempts != 2 {
+		t.Fatalf("ClaimProcessing(retry) = %+v, %v", job, err)
+	}
+	variants := []media.AudioVariant{
+		{ID: uuid.New(), ObjectKey: "media/" + assetID.String() + "/variants/mp3-128.mp3",
+			Codec: "mp3", Container: "mp3", BitrateKbps: 128,
+			SampleRate: 48000, Channels: 2, SizeBytes: 16000},
+		{ID: uuid.New(), ObjectKey: "media/" + assetID.String() + "/variants/mp3-320.mp3",
+			Codec: "mp3", Container: "mp3", BitrateKbps: 320,
+			SampleRate: 48000, Channels: 2, SizeBytes: 40000},
+	}
+	if err = repository.CompleteProcessing(ctx, job, 1000, variants); err != nil {
+		t.Fatalf("CompleteProcessing() error = %v", err)
+	}
+	asset, err := repository.AssetByID(ctx, assetID)
+	if err != nil || asset.Status != media.StatusReady || asset.DurationMS == nil ||
+		*asset.DurationMS != 1000 || len(asset.Variants) != 2 {
+		t.Fatalf("AssetByID() = %+v, %v", asset, err)
+	}
+	if err = repository.EnqueueProcessing(ctx, assetID); err != nil {
+		t.Fatalf("EnqueueProcessing(completed) error = %v", err)
+	}
+	asset, err = repository.AssetByID(ctx, assetID)
+	if err != nil || asset.Status != media.StatusReady {
+		t.Fatalf("completed asset after enqueue = %+v, %v", asset, err)
+	}
+}
+
+func TestMediaRepositoryRequeuesTerminalFailureExplicitly(t *testing.T) {
+	pool := openIntegrationDatabase(t)
+	ctx := context.Background()
+	assetID := uuid.New()
+	t.Cleanup(func() { removeMediaAsset(t, pool, assetID) })
+	repository := NewMediaRepository(pool)
+	_, _, err := repository.CreateFromUpload(ctx, media.Asset{
+		ID: assetID, ContentTrackID: uuid.New(), SourceUploadID: uuid.New(),
+		OriginalObjectKey: "creator-content/" + assetID.String() + "/source.flac",
+		OriginalFilename:  "source.flac", Status: media.StatusUploaded,
+	})
+	if err != nil {
+		t.Fatalf("CreateFromUpload() error = %v", err)
+	}
+	if err = repository.EnqueueProcessing(ctx, assetID); err != nil {
+		t.Fatalf("EnqueueProcessing() error = %v", err)
+	}
+	job, err := repository.ClaimProcessing(ctx)
+	if err != nil {
+		t.Fatalf("ClaimProcessing() error = %v", err)
+	}
+	job.Attempts = 3
+	terminal, err := repository.FailProcessing(ctx, job, "invalid source", time.Now(), 3)
+	if err != nil || !terminal {
+		t.Fatalf("FailProcessing() = %v, %v", terminal, err)
+	}
+	if err = repository.EnqueueProcessing(ctx, assetID); err != nil {
+		t.Fatalf("EnqueueProcessing(retry) error = %v", err)
+	}
+	retried, err := repository.ClaimProcessing(ctx)
+	if err != nil || retried.Attempts != 1 || retried.Asset.Status != media.StatusProcessing {
+		t.Fatalf("ClaimProcessing(requeued) = %+v, %v", retried, err)
+	}
+	if _, err = pool.Exec(ctx, `
+		UPDATE media.processing_jobs SET started_at = now() - interval '2 hours' WHERE id = $1
+	`, retried.ID); err != nil {
+		t.Fatalf("age processing job: %v", err)
+	}
+	recovered, err := repository.RecoverStaleProcessing(ctx, time.Now().Add(-time.Hour))
+	if err != nil || recovered != 1 {
+		t.Fatalf("RecoverStaleProcessing() = %d, %v", recovered, err)
+	}
+	recoveredJob, err := repository.ClaimProcessing(ctx)
+	if err != nil || recoveredJob.ID != retried.ID || recoveredJob.Attempts != 2 {
+		t.Fatalf("ClaimProcessing(recovered) = %+v, %v", recoveredJob, err)
+	}
+}
+
 func openIntegrationDatabase(t *testing.T) *pgxpool.Pool {
 	t.Helper()
 	if os.Getenv("INFINITUNE_INTEGRATION_TESTS") != "1" {
@@ -141,6 +256,10 @@ func environmentOrDefault(key, fallback string) string {
 
 func removeMediaAsset(t *testing.T, pool *pgxpool.Pool, assetID uuid.UUID) {
 	t.Helper()
+	if _, err := pool.Exec(context.Background(),
+		`DELETE FROM media.processing_jobs WHERE media_asset_id = $1`, assetID); err != nil {
+		t.Errorf("delete processing jobs: %v", err)
+	}
 	if _, err := pool.Exec(context.Background(),
 		`DELETE FROM media.audio_variants WHERE media_asset_id = $1`, assetID); err != nil {
 		t.Errorf("delete audio variants: %v", err)

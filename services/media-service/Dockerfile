@@ -15,9 +15,12 @@ RUN CGO_ENABLED=0 GOOS=linux go build \
     -o /out/media-service \
     ./cmd/server
 
-FROM scratch
+FROM alpine:3.22.2
 
-COPY --from=source /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
+RUN apk add --no-cache ca-certificates ffmpeg && \
+    addgroup -S -g 65532 media && \
+    adduser -S -D -H -u 65532 -G media media
+
 COPY --from=build /out/media-service /media-service
 
 USER 65532:65532
