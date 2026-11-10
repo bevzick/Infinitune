@@ -20,7 +20,7 @@ func TestHealth(t *testing.T) {
 	}{{"available", nil, http.StatusOK}, {"unavailable", errors.New("down"), http.StatusServiceUnavailable}} {
 		t.Run(test.name, func(t *testing.T) {
 			response := httptest.NewRecorder()
-			NewRouter(databaseStub{err: test.err}).ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/health", nil))
+			NewRouter(Dependencies{Database: databaseStub{err: test.err}}).ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/health", nil))
 			if response.Code != test.want {
 				t.Fatalf("status = %d, want %d", response.Code, test.want)
 			}

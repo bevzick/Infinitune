@@ -15,6 +15,13 @@ const (
 
 var ErrEventConflict = errors.New("listening event id already belongs to different data")
 
+var (
+	ErrInvalidArgument    = errors.New("invalid listening event")
+	ErrTrackNotFound      = errors.New("track not found")
+	ErrCatalogTimeout     = errors.New("catalog request timed out")
+	ErrCatalogUnavailable = errors.New("catalog unavailable")
+)
+
 type Event struct {
 	ID          uuid.UUID
 	UserID      uuid.UUID
@@ -26,6 +33,23 @@ type Event struct {
 	ContextType string
 	ContextID   *uuid.UUID
 	DeviceType  string
+}
+
+type RecordInput struct {
+	EventID     uuid.UUID
+	TrackID     uuid.UUID
+	StartedAt   time.Time
+	FinishedAt  time.Time
+	ListenedMS  int
+	ContextType string
+	ContextID   *uuid.UUID
+	DeviceType  string
+}
+
+type RecordResult struct {
+	EventID   uuid.UUID
+	Recorded  bool
+	Completed bool
 }
 
 // Qualifies reports whether validated playback counts as a listen. Short tracks

@@ -13,9 +13,16 @@ import (
 	"syscall"
 	"time"
 
+	catalogv1 "github.com/bevzick/Infinitune/services/history-service/api/catalog/v1"
+	"github.com/bevzick/Infinitune/services/history-service/internal/catalog"
 	"github.com/bevzick/Infinitune/services/history-service/internal/config"
 	"github.com/bevzick/Infinitune/services/history-service/internal/database"
+	"github.com/bevzick/Infinitune/services/history-service/internal/history"
 	"github.com/bevzick/Infinitune/services/history-service/internal/httpapi"
+	"github.com/bevzick/Infinitune/services/history-service/internal/identity"
+	postgres_repository "github.com/bevzick/Infinitune/services/history-service/internal/repository/postgres"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 const (
@@ -47,7 +54,21 @@ func main() {
 		os.Exit(1)
 	}
 	defer databasePool.Close()
-	server := &http.Server{Addr: cfg.HTTPAddress, Handler: httpapi.NewRouter(databasePool), ReadHeaderTimeout: readHeaderTimeout}
+	tokenVerifier, err := identity.NewVerifier(cfg.Identity, nil)
+	if err != nil {
+		logger.Error("failed to initialize identity verifier", "error", err)
+		os.Exit(1)
+	}
+	catalogConnection, err := grpc.NewClient(cfg.CatalogAddress, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		logger.Error("failed to configure Catalog gRPC client", "error", err)
+		os.Exit(1)
+	}
+	defer catalogConnection.Close()
+	historyService := history.NewService(postgres_repository.NewEventRepository(databasePool), catalog.NewClient(catalogv1.NewCatalogServiceClient(catalogConnection)))
+	server := &http.Server{Addr: cfg.HTTPAddress, Handler: httpapi.NewRouter(httpapi.Dependencies{
+		Database: databasePool, Tokens: tokenVerifier, History: historyService, Origins: cfg.Origins, Logger: logger,
+	}), ReadHeaderTimeout: readHeaderTimeout}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	errorsChannel := make(chan error, 1)
