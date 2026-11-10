@@ -1,6 +1,6 @@
 .DEFAULT_GOAL := help
 
-.PHONY: help config ps up stop down down-volumes restart logs smoke frontend-install frontend-dev frontend-build frontend-typecheck frontend-lint media-storage-init media-storage-test media-test media-test-integration media-migrate-up media-migrate-version media-seed playlist-test playlist-test-integration playlist-migrate-up playlist-migrate-version content-test content-test-integration content-migrate-up content-migrate-version interaction-test interaction-test-integration interaction-migrate-up interaction-migrate-version comment-test comment-test-integration comment-migrate-up comment-migrate-version history-test history-test-integration history-migrate-up history-migrate-version auth-test auth-test-integration auth-migrate-up auth-migrate-version user-test user-test-integration user-migrate-up user-migrate-version catalog-test catalog-test-integration catalog-migrate-up catalog-migrate-version catalog-seed
+.PHONY: help config ps up stop down down-volumes restart logs smoke frontend-install frontend-dev frontend-build frontend-typecheck frontend-lint frontend-test media-storage-init media-storage-test media-test media-test-integration media-migrate-up media-migrate-version media-seed playlist-test playlist-test-integration playlist-migrate-up playlist-migrate-version content-test content-test-integration content-migrate-up content-migrate-version interaction-test interaction-test-integration interaction-migrate-up interaction-migrate-version comment-test comment-test-integration comment-migrate-up comment-migrate-version history-test history-test-integration history-migrate-up history-migrate-version auth-test auth-test-integration auth-migrate-up auth-migrate-version user-test user-test-integration user-migrate-up user-migrate-version catalog-test catalog-test-integration catalog-migrate-up catalog-migrate-version catalog-seed
 
 COMPOSE := docker compose -f compose.yml -f compose.auth.yml -f compose.user.yml -f compose.catalog.yml -f compose.media.yml -f compose.media-service.yml -f compose.playlist.yml -f compose.content.yml -f compose.interaction.yml -f compose.comment.yml -f compose.history.yml
 MEDIA_COMPOSE := docker compose -f compose.media.yml
@@ -24,6 +24,7 @@ help:
 	@echo "  frontend-build     - Build the production frontend bundle"
 	@echo "  frontend-typecheck - Type-check the frontend"
 	@echo "  frontend-lint      - Lint the frontend"
+	@echo "  frontend-test      - Run frontend unit tests"
 	@echo "  media-storage-init - Start MinIO and create the private media bucket"
 	@echo "  media-storage-test - Verify an object survives a MinIO restart"
 	@echo "  media-test            - Run Media Service unit tests"
@@ -106,6 +107,9 @@ frontend-typecheck:
 
 frontend-lint:
 	@cd frontend && npm run lint
+
+frontend-test:
+	@cd frontend && npm test
 
 media-storage-init:
 	@$(MEDIA_COMPOSE) up --detach --wait --build minio

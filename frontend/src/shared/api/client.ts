@@ -23,16 +23,24 @@ export class ApiError extends Error {
   }
 }
 
+export type ApiRequestOptions = RequestInit & {
+  accessToken?: string;
+};
+
 export async function apiRequest<T>(
   path: string,
-  init: RequestInit = {},
+  options: ApiRequestOptions = {},
 ): Promise<T> {
   if (!path.startsWith("/") || path.startsWith("//")) {
     throw new Error("API path must be root-relative");
   }
 
+  const { accessToken, ...init } = options;
   const headers = new Headers(init.headers);
   headers.set("Accept", "application/json");
+  if (accessToken) {
+    headers.set("Authorization", `Bearer ${accessToken}`);
+  }
   if (
     init.body &&
     !(init.body instanceof FormData) &&

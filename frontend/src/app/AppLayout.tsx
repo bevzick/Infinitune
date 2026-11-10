@@ -1,4 +1,7 @@
-import { NavLink, Outlet } from "react-router-dom";
+import { useState } from "react";
+import { NavLink, Outlet, useNavigate } from "react-router-dom";
+
+import { useSession } from "../features/session/SessionContext";
 
 const navigation = [
   { to: "/", label: "Discover", icon: "✦" },
@@ -7,6 +10,22 @@ const navigation = [
 ] as const;
 
 export function AppLayout() {
+  const session = useSession();
+  const navigate = useNavigate();
+  const [logoutError, setLogoutError] = useState("");
+
+  async function signOut() {
+    setLogoutError("");
+    try {
+      await session.logout();
+      navigate("/", { replace: true });
+    } catch {
+      setLogoutError(
+        "The server could not confirm sign out. Local session was cleared.",
+      );
+    }
+  }
+
   return (
     <div className="app-shell">
       <a className="skip-link" href="#main-content">
@@ -45,10 +64,25 @@ export function AppLayout() {
           <div>
             <span className="eyebrow">Your sound, uninterrupted</span>
           </div>
-          <NavLink className="sign-in-link" to="/login">
-            Sign in
-          </NavLink>
+          {session.status === "authenticated" ? (
+            <button
+              className="sign-in-link session-button"
+              type="button"
+              onClick={signOut}
+            >
+              Sign out
+            </button>
+          ) : (
+            <NavLink className="sign-in-link" to="/login">
+              Sign in
+            </NavLink>
+          )}
         </header>
+        {logoutError ? (
+          <p className="session-banner" role="alert">
+            {logoutError}
+          </p>
+        ) : null}
         <main id="main-content" className="page-content">
           <Outlet />
         </main>
