@@ -1,65 +1,142 @@
-import { gatewayUrl } from "../shared/api/client";
+import { Link } from "react-router-dom";
 
-const steps = [
-  {
-    number: "01",
-    title: "Discover",
-    copy: "Browse releases and shape your sound.",
-  },
-  {
-    number: "02",
-    title: "Collect",
-    copy: "Build playlists that stay in sync.",
-  },
-  {
-    number: "03",
-    title: "Listen",
-    copy: "Keep the player moving between pages.",
-  },
-] as const;
+import {
+  AlbumGrid,
+  ArtistGrid,
+  CatalogEmpty,
+  CatalogError,
+  CatalogLoading,
+  TrackList,
+} from "../features/catalog/CatalogViews";
+import {
+  type Album,
+  type Artist,
+  catalogPagePath,
+  type Track,
+  trackPagePath,
+} from "../features/catalog/catalogApi";
+import { useCatalogPage } from "../features/catalog/useCatalogPage";
 
 export function DiscoverPage() {
+  const tracks = useCatalogPage<Track>(trackPagePath({ limit: 6 }));
+  const albums = useCatalogPage<Album>(catalogPagePath("albums", 4));
+  const artists = useCatalogPage<Artist>(catalogPagePath("artists", 6));
+
   return (
     <section className="discover-page">
-      <div className="hero-grid">
-        <div className="hero-copy">
-          <span className="hero-kicker">A listening space without limits</span>
+      <div className="catalog-hero">
+        <div className="catalog-hero-copy">
+          <span className="hero-kicker">Fresh signals from the catalog</span>
           <h1>
-            Music that keeps
+            Find your next
             <br />
-            <em>finding you.</em>
+            <em>repeat.</em>
           </h1>
           <p>
-            Infinitune brings discovery, playlists, and uninterrupted playback
-            into one focused place.
+            Browse new releases, meet independent voices, or search every track
+            by the detail that matters.
           </p>
-          <div className="hero-actions">
-            <a className="primary-action" href="#foundation">
-              Explore the foundation
-            </a>
-            <span className="api-pill" title={gatewayUrl}>
-              API connected
-            </span>
-          </div>
+          <search>
+            <form className="hero-search" action="/search">
+              <label htmlFor="discover-search">Search the catalog</label>
+              <div>
+                <input
+                  id="discover-search"
+                  name="q"
+                  type="search"
+                  placeholder="Track title…"
+                />
+                <button type="submit">Search</button>
+              </div>
+            </form>
+          </search>
         </div>
-        <div className="orbit-card" aria-hidden="true">
-          <div className="orbit orbit-one" />
-          <div className="orbit orbit-two" />
-          <div className="orbit-core">∞</div>
-          <span className="orbit-label orbit-label-top">PLAY</span>
-          <span className="orbit-label orbit-label-bottom">REPEAT</span>
+        <div className="catalog-signal" aria-hidden="true">
+          <span>∞</span>
+          <i />
+          <i />
+          <i />
         </div>
       </div>
 
-      <div id="foundation" className="foundation-grid">
-        {steps.map((step) => (
-          <article className="foundation-card" key={step.number}>
-            <span>{step.number}</span>
-            <h2>{step.title}</h2>
-            <p>{step.copy}</p>
-          </article>
-        ))}
-      </div>
+      <CatalogSection
+        eyebrow="Recently published"
+        title="Tracks in motion"
+        link="/search"
+        linkLabel="Browse all tracks"
+      >
+        <CatalogResult state={tracks} empty="No tracks have been published yet">
+          {(page) => <TrackList tracks={page.items} />}
+        </CatalogResult>
+      </CatalogSection>
+
+      <CatalogSection
+        eyebrow="New releases"
+        title="Albums & EPs"
+        link="/albums"
+        linkLabel="See all releases"
+      >
+        <CatalogResult state={albums} empty="No releases are available yet">
+          {(page) => <AlbumGrid albums={page.items} />}
+        </CatalogResult>
+      </CatalogSection>
+
+      <CatalogSection
+        eyebrow="Voices to know"
+        title="Artists"
+        link="/artists"
+        linkLabel="Meet every artist"
+      >
+        <CatalogResult state={artists} empty="No artists are available yet">
+          {(page) => <ArtistGrid artists={page.items} />}
+        </CatalogResult>
+      </CatalogSection>
+    </section>
+  );
+}
+
+type ResultState<T> = ReturnType<typeof useCatalogPage<T>>;
+
+function CatalogResult<T>({
+  state,
+  empty,
+  children,
+}: {
+  state: ResultState<T>;
+  empty: string;
+  children(page: NonNullable<ResultState<T>["page"]>): React.ReactNode;
+}) {
+  if (state.status === "loading") return <CatalogLoading label="music" />;
+  if (state.status === "error") {
+    return <CatalogError message={state.message} onRetry={state.retry} />;
+  }
+  if (!state.page.items.length) return <CatalogEmpty>{empty}</CatalogEmpty>;
+  return children(state.page);
+}
+
+function CatalogSection({
+  eyebrow,
+  title,
+  link,
+  linkLabel,
+  children,
+}: {
+  eyebrow: string;
+  title: string;
+  link: string;
+  linkLabel: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="catalog-section">
+      <header className="section-heading">
+        <div>
+          <span className="eyebrow">{eyebrow}</span>
+          <h2>{title}</h2>
+        </div>
+        <Link to={link}>{linkLabel} →</Link>
+      </header>
+      {children}
     </section>
   );
 }

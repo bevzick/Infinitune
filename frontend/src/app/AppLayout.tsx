@@ -6,6 +6,8 @@ import { useSession } from "../features/session/SessionContext";
 const navigation = [
   { to: "/", label: "Discover", icon: "✦" },
   { to: "/search", label: "Search", icon: "⌕" },
+  { to: "/artists", label: "Artists", icon: "◉" },
+  { to: "/albums", label: "Albums", icon: "▣" },
   { to: "/library", label: "Library", icon: "◫" },
 ] as const;
 
@@ -48,8 +50,10 @@ export function AppLayout() {
               to={item.to}
               end={item.to === "/"}
             >
-              <span aria-hidden="true">{item.icon}</span>
-              {item.label}
+              <span className="nav-icon" aria-hidden="true">
+                {item.icon}
+              </span>
+              <span className="nav-label">{item.label}</span>
             </NavLink>
           ))}
         </nav>
