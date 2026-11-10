@@ -19,6 +19,9 @@ type Store interface {
 	LikeAlbum(context.Context, uuid.UUID, uuid.UUID) (Like, error)
 	UnlikeAlbum(context.Context, uuid.UUID, uuid.UUID) error
 	AlbumLikes(context.Context, uuid.UUID, PageRequest) (LikePage, error)
+	LikeComment(context.Context, uuid.UUID, uuid.UUID) (Like, error)
+	UnlikeComment(context.Context, uuid.UUID, uuid.UUID) error
+	CommentLikes(context.Context, uuid.UUID, PageRequest) (LikePage, error)
 	FollowArtist(context.Context, uuid.UUID, uuid.UUID) (Follow, error)
 	UnfollowArtist(context.Context, uuid.UUID, uuid.UUID) error
 	ArtistFollows(context.Context, uuid.UUID, PageRequest) (FollowPage, error)
@@ -30,13 +33,19 @@ type CatalogValidator interface {
 	ValidateArtist(context.Context, uuid.UUID) error
 }
 
+type CommentValidator interface {
+	ValidateComment(context.Context, uuid.UUID) error
+	ValidateComments(context.Context, []uuid.UUID) (map[uuid.UUID]struct{}, error)
+}
+
 type Service struct {
 	store     Store
 	validator CatalogValidator
+	comments  CommentValidator
 }
 
-func NewService(store Store, validator CatalogValidator) *Service {
-	return &Service{store: store, validator: validator}
+func NewService(store Store, validator CatalogValidator, comments CommentValidator) *Service {
+	return &Service{store: store, validator: validator, comments: comments}
 }
 
 func (service *Service) LikeTrack(
@@ -130,6 +139,68 @@ func (service *Service) AlbumLikes(
 	if err != nil {
 		return LikePage{}, fmt.Errorf("list album likes: %w", err)
 	}
+	return result, nil
+}
+
+func (service *Service) LikeComment(
+	ctx context.Context,
+	userID uuid.UUID,
+	commentID uuid.UUID,
+) (Like, error) {
+	if err := validateIDs(userID, commentID, "comment"); err != nil {
+		return Like{}, err
+	}
+	if err := service.comments.ValidateComment(ctx, commentID); err != nil {
+		return Like{}, fmt.Errorf("validate comment: %w", err)
+	}
+	liked, err := service.store.LikeComment(ctx, userID, commentID)
+	if err != nil {
+		return Like{}, fmt.Errorf("like comment: %w", err)
+	}
+	return liked, nil
+}
+
+func (service *Service) UnlikeComment(ctx context.Context, userID, commentID uuid.UUID) error {
+	if err := validateIDs(userID, commentID, "comment"); err != nil {
+		return err
+	}
+	if err := service.store.UnlikeComment(ctx, userID, commentID); err != nil {
+		return fmt.Errorf("unlike comment: %w", err)
+	}
+	return nil
+}
+
+func (service *Service) CommentLikes(
+	ctx context.Context,
+	userID uuid.UUID,
+	page PageRequest,
+) (LikePage, error) {
+	if userID == uuid.Nil {
+		return LikePage{}, invalidArgument("user id is required")
+	}
+	page, err := validatePage(page)
+	if err != nil {
+		return LikePage{}, err
+	}
+	result, err := service.store.CommentLikes(ctx, userID, page)
+	if err != nil {
+		return LikePage{}, fmt.Errorf("list comment likes: %w", err)
+	}
+	ids := make([]uuid.UUID, len(result.Items))
+	for index, item := range result.Items {
+		ids[index] = item.TargetID
+	}
+	visible, err := service.comments.ValidateComments(ctx, ids)
+	if err != nil {
+		return LikePage{}, fmt.Errorf("validate liked comments: %w", err)
+	}
+	items := result.Items[:0]
+	for _, item := range result.Items {
+		if _, ok := visible[item.TargetID]; ok {
+			items = append(items, item)
+		}
+	}
+	result.Items = items
 	return result, nil
 }
 

@@ -18,6 +18,8 @@ const (
 	defaultHTTPPort     = "8080"
 	defaultCatalogHost  = "127.0.0.1"
 	defaultCatalogPort  = "9090"
+	defaultCommentHost  = "127.0.0.1"
+	defaultCommentPort  = "9090"
 	defaultPostgresHost = "127.0.0.1"
 	defaultPostgresPort = "5432"
 	defaultJWKSURL      = "http://auth-service:8080/v1/auth/jwks"
@@ -30,6 +32,7 @@ const (
 type Config struct {
 	HTTPAddress    string
 	CatalogAddress string
+	CommentAddress string
 	Database       database.Config
 	Identity       identity.Config
 	Origins        []string
@@ -42,6 +45,10 @@ func Load() (Config, error) {
 	}
 	catalogPort := envOrDefault("CATALOG_GRPC_PORT", defaultCatalogPort)
 	if _, err := parsePort("CATALOG_GRPC_PORT", catalogPort); err != nil {
+		return Config{}, err
+	}
+	commentPort := envOrDefault("COMMENT_GRPC_PORT", defaultCommentPort)
+	if _, err := parsePort("COMMENT_GRPC_PORT", commentPort); err != nil {
 		return Config{}, err
 	}
 	databaseConfig, err := loadDatabaseConfig()
@@ -58,6 +65,9 @@ func Load() (Config, error) {
 		),
 		CatalogAddress: net.JoinHostPort(
 			envOrDefault("CATALOG_GRPC_HOST", defaultCatalogHost), catalogPort,
+		),
+		CommentAddress: net.JoinHostPort(
+			envOrDefault("COMMENT_GRPC_HOST", defaultCommentHost), commentPort,
 		),
 		Database: databaseConfig,
 		Identity: identity.Config{

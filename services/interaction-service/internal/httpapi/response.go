@@ -32,11 +32,18 @@ func writeDomainError(c *gin.Context, logger *slog.Logger, err error) {
 		writeError(c, http.StatusNotFound, "album_not_found", "Album was not found")
 	case errors.Is(err, interaction.ErrArtistNotFound):
 		writeError(c, http.StatusNotFound, "artist_not_found", "Artist was not found")
+	case errors.Is(err, interaction.ErrCommentNotFound):
+		writeError(c, http.StatusNotFound, "comment_not_found", "Comment was not found")
 	case errors.Is(err, interaction.ErrCatalogTimeout):
 		writeError(c, http.StatusGatewayTimeout, "catalog_timeout", "Catalog service did not respond in time")
 	case errors.Is(err, interaction.ErrCatalogUnavailable):
 		writeError(c, http.StatusServiceUnavailable,
 			"catalog_unavailable", "Catalog service is temporarily unavailable")
+	case errors.Is(err, interaction.ErrCommentTimeout):
+		writeError(c, http.StatusGatewayTimeout, "comment_timeout", "Comment service did not respond in time")
+	case errors.Is(err, interaction.ErrCommentUnavailable):
+		writeError(c, http.StatusServiceUnavailable,
+			"comment_unavailable", "Comment service is temporarily unavailable")
 	default:
 		logger.Error("interaction request failed", "error", err)
 		writeError(c, http.StatusInternalServerError, "internal_error", "Request could not be completed")

@@ -30,6 +30,9 @@ type Likes interface {
 	LikeAlbum(context.Context, uuid.UUID, uuid.UUID) (interaction.Like, error)
 	UnlikeAlbum(context.Context, uuid.UUID, uuid.UUID) error
 	AlbumLikes(context.Context, uuid.UUID, interaction.PageRequest) (interaction.LikePage, error)
+	LikeComment(context.Context, uuid.UUID, uuid.UUID) (interaction.Like, error)
+	UnlikeComment(context.Context, uuid.UUID, uuid.UUID) error
+	CommentLikes(context.Context, uuid.UUID, interaction.PageRequest) (interaction.LikePage, error)
 }
 
 type Follows interface {
@@ -65,6 +68,9 @@ func NewRouter(dependencies Dependencies) http.Handler {
 		protected.GET("/albums/likes", listAlbumLikes(dependencies.Likes, dependencies.Logger))
 		protected.PUT("/albums/:album_id/like", likeAlbum(dependencies.Likes, dependencies.Logger))
 		protected.DELETE("/albums/:album_id/like", unlikeAlbum(dependencies.Likes, dependencies.Logger))
+		protected.GET("/comments/likes", listCommentLikes(dependencies.Likes, dependencies.Logger))
+		protected.PUT("/comments/:comment_id/like", likeComment(dependencies.Likes, dependencies.Logger))
+		protected.DELETE("/comments/:comment_id/like", unlikeComment(dependencies.Likes, dependencies.Logger))
 	}
 	if dependencies.Follows != nil {
 		protected.GET("/artists/follows", listArtistFollows(dependencies.Follows, dependencies.Logger))

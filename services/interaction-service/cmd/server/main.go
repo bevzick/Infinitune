@@ -14,7 +14,9 @@ import (
 	"time"
 
 	catalogv1 "github.com/bevzick/Infinitune/services/interaction-service/api/catalog/v1"
+	commentv1 "github.com/bevzick/Infinitune/services/interaction-service/api/comment/v1"
 	"github.com/bevzick/Infinitune/services/interaction-service/internal/catalog"
+	"github.com/bevzick/Infinitune/services/interaction-service/internal/commentlookup"
 	"github.com/bevzick/Infinitune/services/interaction-service/internal/config"
 	"github.com/bevzick/Infinitune/services/interaction-service/internal/database"
 	"github.com/bevzick/Infinitune/services/interaction-service/internal/httpapi"
@@ -69,11 +71,21 @@ func main() {
 		os.Exit(1)
 	}
 	defer catalogConnection.Close()
+	commentConnection, err := grpc.NewClient(
+		cfg.CommentAddress,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+	)
+	if err != nil {
+		logger.Error("failed to configure Comment gRPC client", "error", err)
+		os.Exit(1)
+	}
+	defer commentConnection.Close()
 
 	repository := postgres_repository.NewLikeRepository(databasePool)
 	likes := interaction.NewService(
 		repository,
 		catalog.NewValidator(catalogv1.NewCatalogServiceClient(catalogConnection)),
+		commentlookup.NewValidator(commentv1.NewCommentServiceClient(commentConnection)),
 	)
 
 	server := &http.Server{

@@ -19,7 +19,7 @@ func TestLikeRepositoryIsIdempotentAndIsolatesOwners(t *testing.T) {
 	repository := NewLikeRepository(pool)
 	ctx := context.Background()
 	ownerID, strangerID := uuid.New(), uuid.New()
-	trackID, albumID := uuid.New(), uuid.New()
+	trackID, albumID, commentID := uuid.New(), uuid.New(), uuid.New()
 	firstArtistID, secondArtistID := uuid.New(), uuid.New()
 	t.Cleanup(func() {
 		cleanupCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -29,6 +29,8 @@ func TestLikeRepositoryIsIdempotentAndIsolatesOwners(t *testing.T) {
 		_, _ = pool.Exec(cleanupCtx, `DELETE FROM interaction.album_likes WHERE user_id = ANY($1::uuid[])`,
 			[]uuid.UUID{ownerID, strangerID})
 		_, _ = pool.Exec(cleanupCtx, `DELETE FROM interaction.artist_follows WHERE user_id = ANY($1::uuid[])`,
+			[]uuid.UUID{ownerID, strangerID})
+		_, _ = pool.Exec(cleanupCtx, `DELETE FROM interaction.comment_likes WHERE user_id = ANY($1::uuid[])`,
 			[]uuid.UUID{ownerID, strangerID})
 	})
 
@@ -42,6 +44,14 @@ func TestLikeRepositoryIsIdempotentAndIsolatesOwners(t *testing.T) {
 	}
 	if _, err = repository.LikeAlbum(ctx, ownerID, albumID); err != nil {
 		t.Fatalf("LikeAlbum() error = %v", err)
+	}
+	commentLike, err := repository.LikeComment(ctx, ownerID, commentID)
+	if err != nil {
+		t.Fatalf("LikeComment() error = %v", err)
+	}
+	again, err := repository.LikeComment(ctx, ownerID, commentID)
+	if err != nil || !again.CreatedAt.Equal(commentLike.CreatedAt) {
+		t.Fatalf("LikeComment(idempotent) = %+v, %v; first = %+v", again, err, commentLike)
 	}
 	if _, err = repository.LikeAlbum(ctx, ownerID, albumID); err != nil {
 		t.Fatalf("LikeAlbum(idempotent) error = %v", err)
@@ -57,6 +67,13 @@ func TestLikeRepositoryIsIdempotentAndIsolatesOwners(t *testing.T) {
 	albums, err := repository.AlbumLikes(ctx, strangerID, interaction.PageRequest{Limit: 10})
 	if err != nil || albums.Total != 0 || len(albums.Items) != 0 {
 		t.Fatalf("AlbumLikes(stranger) = %+v, %v", albums, err)
+	}
+	if err = repository.UnlikeComment(ctx, strangerID, commentID); err != nil {
+		t.Fatalf("UnlikeComment(stranger) error = %v", err)
+	}
+	comments, err := repository.CommentLikes(ctx, ownerID, interaction.PageRequest{Limit: 10})
+	if err != nil || comments.Total != 1 || len(comments.Items) != 1 || comments.Items[0].TargetID != commentID {
+		t.Fatalf("CommentLikes(owner) = %+v, %v", comments, err)
 	}
 
 	for _, artistID := range []uuid.UUID{firstArtistID, secondArtistID} {
@@ -88,6 +105,9 @@ func TestLikeRepositoryIsIdempotentAndIsolatesOwners(t *testing.T) {
 		}
 		if err = repository.UnfollowArtist(ctx, ownerID, firstArtistID); err != nil {
 			t.Fatalf("UnfollowArtist(idempotent) error = %v", err)
+		}
+		if err = repository.UnlikeComment(ctx, ownerID, commentID); err != nil {
+			t.Fatalf("UnlikeComment(idempotent) error = %v", err)
 		}
 	}
 }

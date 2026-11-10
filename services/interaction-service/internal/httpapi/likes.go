@@ -52,6 +52,18 @@ func listAlbumLikes(service Likes, logger *slog.Logger) gin.HandlerFunc {
 	return listLikes(service.AlbumLikes, logger)
 }
 
+func likeComment(service Likes, logger *slog.Logger) gin.HandlerFunc {
+	return likeTarget("comment_id", service.LikeComment, logger)
+}
+
+func unlikeComment(service Likes, logger *slog.Logger) gin.HandlerFunc {
+	return unlikeTarget("comment_id", service.UnlikeComment, logger)
+}
+
+func listCommentLikes(service Likes, logger *slog.Logger) gin.HandlerFunc {
+	return listLikes(service.CommentLikes, logger)
+}
+
 func likeTarget(
 	pathKey string,
 	like func(context.Context, uuid.UUID, uuid.UUID) (interaction.Like, error),

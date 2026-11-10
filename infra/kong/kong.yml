@@ -211,7 +211,7 @@ services:
 
       - name: interaction-protected
         paths:
-          - ~/v1/interactions/(?:(?:tracks|albums)/likes|artists/follows|(?:tracks|albums)/[0-9a-fA-F-]+/like|artists/[0-9a-fA-F-]+/follow)$
+          - ~/v1/interactions/(?:(?:tracks|albums|comments)/likes|artists/follows|(?:tracks|albums|comments)/[0-9a-fA-F-]+/like|artists/[0-9a-fA-F-]+/follow)$
         methods:
           - GET
           - PUT
