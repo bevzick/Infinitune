@@ -11,7 +11,7 @@ RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /out/history
 FROM scratch
 COPY --from=build /out/history-service /history-service
 USER 65532:65532
-EXPOSE 8080
+EXPOSE 8080 9090
 HEALTHCHECK --interval=10s --timeout=5s --start-period=10s --retries=5 \
     CMD ["/history-service", "healthcheck"]
 ENTRYPOINT ["/history-service"]

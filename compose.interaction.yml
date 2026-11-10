@@ -16,6 +16,8 @@ services:
     environment:
       INTERACTION_HTTP_HOST: 0.0.0.0
       INTERACTION_HTTP_PORT: 8080
+      INTERACTION_GRPC_HOST: 0.0.0.0
+      INTERACTION_GRPC_PORT: 9090
       INTERACTION_ALLOWED_ORIGINS: ${INTERACTION_ALLOWED_ORIGINS:-http://localhost:5173}
       INTERACTION_AUTH_JWKS_URL: ${INTERACTION_AUTH_JWKS_URL:-http://auth-service:8080/v1/auth/jwks}
       CATALOG_GRPC_HOST: catalog-service
@@ -32,6 +34,7 @@ services:
       POSTGRES_INTERACTION_DB: ${POSTGRES_INTERACTION_DB:-interaction_db}
     expose:
       - "8080"
+      - "9090"
     networks:
       - backend
 

@@ -16,6 +16,8 @@ import (
 const (
 	defaultHTTPHost     = "0.0.0.0"
 	defaultHTTPPort     = "8080"
+	defaultGRPCHost     = "0.0.0.0"
+	defaultGRPCPort     = "9090"
 	defaultCatalogHost  = "127.0.0.1"
 	defaultCatalogPort  = "9090"
 	defaultPostgresHost = "127.0.0.1"
@@ -29,6 +31,7 @@ const (
 
 type Config struct {
 	HTTPAddress    string
+	GRPCAddress    string
 	CatalogAddress string
 	Database       database.Config
 	Identity       identity.Config
@@ -38,6 +41,10 @@ type Config struct {
 func Load() (Config, error) {
 	httpPort := envOrDefault("HISTORY_HTTP_PORT", defaultHTTPPort)
 	if _, err := parsePort("HISTORY_HTTP_PORT", httpPort); err != nil {
+		return Config{}, err
+	}
+	grpcPort := envOrDefault("HISTORY_GRPC_PORT", defaultGRPCPort)
+	if _, err := parsePort("HISTORY_GRPC_PORT", grpcPort); err != nil {
 		return Config{}, err
 	}
 	catalogPort := envOrDefault("CATALOG_GRPC_PORT", defaultCatalogPort)
@@ -54,6 +61,7 @@ func Load() (Config, error) {
 	}
 	return Config{
 		HTTPAddress:    net.JoinHostPort(envOrDefault("HISTORY_HTTP_HOST", defaultHTTPHost), httpPort),
+		GRPCAddress:    net.JoinHostPort(envOrDefault("HISTORY_GRPC_HOST", defaultGRPCHost), grpcPort),
 		CatalogAddress: net.JoinHostPort(envOrDefault("CATALOG_GRPC_HOST", defaultCatalogHost), catalogPort),
 		Database:       databaseConfig,
 		Identity:       identity.Config{JWKSURL: envOrDefault("HISTORY_AUTH_JWKS_URL", defaultJWKSURL), Issuer: envOrDefault("AUTH_JWT_ISSUER", defaultJWTIssuer), Audience: envOrDefault("AUTH_JWT_AUDIENCE", defaultJWTAudience), KeyID: envOrDefault("AUTH_JWT_KEY_ID", defaultJWTKeyID), RefreshInterval: defaultJWKSRefresh},

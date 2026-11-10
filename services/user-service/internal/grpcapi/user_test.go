@@ -22,7 +22,7 @@ func TestGetPublicProfile(t *testing.T) {
 		UserID: userID, Username: "listener", DisplayName: "Listener",
 		Bio: "Music lover", CountryCode: "UA", Language: "uk-UA",
 		CreatedAt: createdAt, UpdatedAt: createdAt.Add(time.Hour),
-	}})
+	}}, nil)
 
 	response, err := server.GetPublicProfile(context.Background(), &userv1.GetPublicProfileRequest{
 		UserId: userID.String(),
@@ -61,11 +61,30 @@ func TestGetPublicProfileMapsErrors(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			_, err := NewUserServer(test.profiles).GetPublicProfile(context.Background(), test.request)
+			_, err := NewUserServer(test.profiles, nil).GetPublicProfile(context.Background(), test.request)
 			if status.Code(err) != test.wantCode {
 				t.Fatalf("GetPublicProfile() code = %s, want %s; error = %v", status.Code(err), test.wantCode, err)
 			}
 		})
+	}
+}
+
+func TestGetRecommendationPreferences(t *testing.T) {
+	userID, genreID, artistID, moodID := uuid.New(), uuid.New(), uuid.New(), uuid.New()
+	server := NewUserServer(nil, recommendationProfileStub{result: profile.Profile{
+		Settings: profile.Settings{ExplicitContent: true},
+		Preferences: profile.Preferences{
+			RecommendationsEnabled: true, PreferredMoodID: &moodID,
+			Genres:  []profile.WeightedPreference{{ID: genreID, Weight: 0.8}},
+			Artists: []profile.WeightedPreference{{ID: artistID, Weight: 1}},
+		},
+	}})
+	response, err := server.GetRecommendationPreferences(context.Background(), &userv1.GetRecommendationPreferencesRequest{UserId: userID.String()})
+	if err != nil {
+		t.Fatalf("GetRecommendationPreferences() error = %v", err)
+	}
+	if !response.GetRecommendationsEnabled() || !response.GetExplicitContentAllowed() || response.GetPreferredMoodId() != moodID.String() || response.GetGenres()[0].GetId() != genreID.String() || response.GetArtists()[0].GetId() != artistID.String() {
+		t.Fatalf("GetRecommendationPreferences() = %+v", response)
 	}
 }
 
@@ -75,5 +94,14 @@ type publicProfilesStub struct {
 }
 
 func (stub publicProfilesStub) Public(context.Context, uuid.UUID) (profile.PublicProfile, error) {
+	return stub.result, stub.err
+}
+
+type recommendationProfileStub struct {
+	result profile.Profile
+	err    error
+}
+
+func (stub recommendationProfileStub) ByUserID(context.Context, uuid.UUID) (profile.Profile, error) {
 	return stub.result, stub.err
 }

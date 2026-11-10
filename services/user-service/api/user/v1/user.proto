@@ -8,6 +8,24 @@ option go_package = "github.com/bevzick/Infinitune/services/user-service/api/use
 
 service UserService {
   rpc GetPublicProfile(GetPublicProfileRequest) returns (PublicProfile);
+  rpc GetRecommendationPreferences(GetRecommendationPreferencesRequest) returns (RecommendationPreferences);
+}
+
+message GetRecommendationPreferencesRequest {
+  string user_id = 1;
+}
+
+message WeightedPreference {
+  string id = 1;
+  double weight = 2;
+}
+
+message RecommendationPreferences {
+  bool recommendations_enabled = 1;
+  optional string preferred_mood_id = 2;
+  repeated WeightedPreference genres = 3;
+  repeated WeightedPreference artists = 4;
+  bool explicit_content_allowed = 5;
 }
 
 message GetPublicProfileRequest {

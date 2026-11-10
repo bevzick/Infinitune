@@ -5,6 +5,8 @@ import "testing"
 func TestLoadUsesInteractionDatabase(t *testing.T) {
 	t.Setenv("INTERACTION_HTTP_HOST", "127.0.0.1")
 	t.Setenv("INTERACTION_HTTP_PORT", "8087")
+	t.Setenv("INTERACTION_GRPC_HOST", "127.0.0.1")
+	t.Setenv("INTERACTION_GRPC_PORT", "9087")
 	t.Setenv("CATALOG_GRPC_HOST", "catalog-service")
 	t.Setenv("CATALOG_GRPC_PORT", "9091")
 	t.Setenv("COMMENT_GRPC_HOST", "comment-service")
@@ -21,8 +23,8 @@ func TestLoadUsesInteractionDatabase(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Load() error = %v", err)
 	}
-	if config.HTTPAddress != "127.0.0.1:8087" {
-		t.Fatalf("HTTPAddress = %q", config.HTTPAddress)
+	if config.HTTPAddress != "127.0.0.1:8087" || config.GRPCAddress != "127.0.0.1:9087" {
+		t.Fatalf("HTTPAddress/GRPCAddress = %q/%q", config.HTTPAddress, config.GRPCAddress)
 	}
 	if config.CatalogAddress != "catalog-service:9091" || config.CommentAddress != "comment-service:9092" ||
 		config.Identity.JWKSURL != "http://auth-service:8080/v1/auth/jwks" ||
@@ -45,6 +47,7 @@ func TestLoadRejectsInvalidConfiguration(t *testing.T) {
 		value string
 	}{
 		{name: "invalid HTTP port", key: "INTERACTION_HTTP_PORT", value: "0"},
+		{name: "invalid gRPC port", key: "INTERACTION_GRPC_PORT", value: "0"},
 		{name: "invalid database port", key: "POSTGRES_PORT", value: "invalid"},
 		{name: "invalid Catalog port", key: "CATALOG_GRPC_PORT", value: "70000"},
 		{name: "invalid Comment port", key: "COMMENT_GRPC_PORT", value: "0"},

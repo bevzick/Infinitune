@@ -1,0 +1,20 @@
+syntax = "proto3";
+
+package infinitune.user.v1;
+
+option go_package = "github.com/bevzick/Infinitune/services/recommendation-service/api/user/v1;userv1";
+
+// Consumer-owned subset of the User service contract.
+service UserService {
+  rpc GetRecommendationPreferences(GetRecommendationPreferencesRequest) returns (RecommendationPreferences);
+}
+
+message GetRecommendationPreferencesRequest { string user_id = 1; }
+message WeightedPreference { string id = 1; double weight = 2; }
+message RecommendationPreferences {
+  bool recommendations_enabled = 1;
+  optional string preferred_mood_id = 2;
+  repeated WeightedPreference genres = 3;
+  repeated WeightedPreference artists = 4;
+  bool explicit_content_allowed = 5;
+}

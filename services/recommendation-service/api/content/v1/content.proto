@@ -1,0 +1,12 @@
+syntax = "proto3";
+
+package infinitune.content.v1;
+
+option go_package = "github.com/bevzick/Infinitune/services/recommendation-service/api/content/v1;contentv1";
+
+// Consumer-owned subset of the Content service contract.
+service ContentService {
+  rpc CheckTrackPlayback(CheckTrackPlaybackRequest) returns (CheckTrackPlaybackResponse);
+}
+message CheckTrackPlaybackRequest { string release_track_id = 1; }
+message CheckTrackPlaybackResponse { bool allowed = 1; }

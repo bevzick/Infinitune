@@ -1,0 +1,24 @@
+syntax = "proto3";
+
+package infinitune.history.signal.v1;
+
+option go_package = "github.com/bevzick/Infinitune/services/history-service/api/signal/v1;signalv1";
+
+service SignalService {
+  rpc ListListeningSignals(ListListeningSignalsRequest) returns (ListeningSignals);
+}
+
+message ListListeningSignalsRequest {
+  string user_id = 1;
+  int32 limit = 2;
+}
+
+message ListeningSignal {
+  string track_id = 1;
+  int32 listened_ms = 2;
+  bool completed = 3;
+}
+
+message ListeningSignals {
+  repeated ListeningSignal items = 1;
+}

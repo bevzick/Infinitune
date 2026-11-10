@@ -14,9 +14,11 @@ import (
 	"time"
 
 	catalogv1 "github.com/bevzick/Infinitune/services/history-service/api/catalog/v1"
+	signalv1 "github.com/bevzick/Infinitune/services/history-service/api/signal/v1"
 	"github.com/bevzick/Infinitune/services/history-service/internal/catalog"
 	"github.com/bevzick/Infinitune/services/history-service/internal/config"
 	"github.com/bevzick/Infinitune/services/history-service/internal/database"
+	"github.com/bevzick/Infinitune/services/history-service/internal/grpcapi"
 	"github.com/bevzick/Infinitune/services/history-service/internal/history"
 	"github.com/bevzick/Infinitune/services/history-service/internal/httpapi"
 	"github.com/bevzick/Infinitune/services/history-service/internal/identity"
@@ -66,15 +68,26 @@ func main() {
 	}
 	defer catalogConnection.Close()
 	historyService := history.NewService(postgres_repository.NewEventRepository(databasePool), catalog.NewClient(catalogv1.NewCatalogServiceClient(catalogConnection)))
+	grpcListener, err := net.Listen("tcp", cfg.GRPCAddress)
+	if err != nil {
+		logger.Error("failed to listen for gRPC", "error", err)
+		os.Exit(1)
+	}
+	grpcServer := grpc.NewServer()
+	signalv1.RegisterSignalServiceServer(grpcServer, grpcapi.NewSignalServer(historyService))
 	server := &http.Server{Addr: cfg.HTTPAddress, Handler: httpapi.NewRouter(httpapi.Dependencies{
 		Database: databasePool, Tokens: tokenVerifier, History: historyService, Origins: cfg.Origins, Logger: logger,
 	}), ReadHeaderTimeout: readHeaderTimeout}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
-	errorsChannel := make(chan error, 1)
+	errorsChannel := make(chan error, 2)
 	go func() {
 		logger.Info("history service started", "address", cfg.HTTPAddress)
 		errorsChannel <- server.ListenAndServe()
+	}()
+	go func() {
+		logger.Info("history gRPC service started", "address", cfg.GRPCAddress)
+		errorsChannel <- grpcServer.Serve(grpcListener)
 	}()
 	select {
 	case err = <-errorsChannel:
@@ -90,6 +103,13 @@ func main() {
 	if err = server.Shutdown(shutdownCtx); err != nil {
 		logger.Error("failed to shut down history service", "error", err)
 		os.Exit(1)
+	}
+	grpcStopped := make(chan struct{})
+	go func() { grpcServer.GracefulStop(); close(grpcStopped) }()
+	select {
+	case <-grpcStopped:
+	case <-shutdownCtx.Done():
+		grpcServer.Stop()
 	}
 }
 

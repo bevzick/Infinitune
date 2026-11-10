@@ -16,6 +16,8 @@ import (
 const (
 	defaultHTTPHost     = "0.0.0.0"
 	defaultHTTPPort     = "8080"
+	defaultGRPCHost     = "0.0.0.0"
+	defaultGRPCPort     = "9090"
 	defaultCatalogHost  = "127.0.0.1"
 	defaultCatalogPort  = "9090"
 	defaultCommentHost  = "127.0.0.1"
@@ -31,6 +33,7 @@ const (
 
 type Config struct {
 	HTTPAddress    string
+	GRPCAddress    string
 	CatalogAddress string
 	CommentAddress string
 	Database       database.Config
@@ -41,6 +44,10 @@ type Config struct {
 func Load() (Config, error) {
 	httpPort := envOrDefault("INTERACTION_HTTP_PORT", defaultHTTPPort)
 	if _, err := parsePort("INTERACTION_HTTP_PORT", httpPort); err != nil {
+		return Config{}, err
+	}
+	grpcPort := envOrDefault("INTERACTION_GRPC_PORT", defaultGRPCPort)
+	if _, err := parsePort("INTERACTION_GRPC_PORT", grpcPort); err != nil {
 		return Config{}, err
 	}
 	catalogPort := envOrDefault("CATALOG_GRPC_PORT", defaultCatalogPort)
@@ -63,6 +70,7 @@ func Load() (Config, error) {
 		HTTPAddress: net.JoinHostPort(
 			envOrDefault("INTERACTION_HTTP_HOST", defaultHTTPHost), httpPort,
 		),
+		GRPCAddress: net.JoinHostPort(envOrDefault("INTERACTION_GRPC_HOST", defaultGRPCHost), grpcPort),
 		CatalogAddress: net.JoinHostPort(
 			envOrDefault("CATALOG_GRPC_HOST", defaultCatalogHost), catalogPort,
 		),

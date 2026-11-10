@@ -1,0 +1,133 @@
+services:
+  recommendation-service:
+    build:
+      context: ./services/recommendation-service
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      user-service:
+        condition: service_healthy
+      interaction-service:
+        condition: service_healthy
+      history-service:
+        condition: service_healthy
+      catalog-service:
+        condition: service_healthy
+      content-service:
+        condition: service_healthy
+      auth-service:
+        condition: service_healthy
+    environment:
+      RECOMMENDATION_HTTP_HOST: 0.0.0.0
+      RECOMMENDATION_HTTP_PORT: 8080
+      RECOMMENDATION_RUN_TTL: ${RECOMMENDATION_RUN_TTL:-1h}
+      RECOMMENDATION_AUTH_JWKS_URL: ${RECOMMENDATION_AUTH_JWKS_URL:-http://auth-service:8080/v1/auth/jwks}
+      RECOMMENDATION_ALLOWED_ORIGINS: ${RECOMMENDATION_ALLOWED_ORIGINS:-http://localhost:5173}
+      AUTH_JWT_ISSUER: ${AUTH_JWT_ISSUER:-infinitune-auth}
+      AUTH_JWT_AUDIENCE: ${AUTH_JWT_AUDIENCE:-infinitune-api}
+      AUTH_JWT_KEY_ID: ${AUTH_JWT_KEY_ID:-auth-key-1}
+      USER_GRPC_HOST: user-service
+      USER_GRPC_PORT: 9090
+      INTERACTION_GRPC_HOST: interaction-service
+      INTERACTION_GRPC_PORT: 9090
+      HISTORY_GRPC_HOST: history-service
+      HISTORY_GRPC_PORT: 9090
+      CATALOG_GRPC_HOST: catalog-service
+      CATALOG_GRPC_PORT: 9090
+      CONTENT_GRPC_HOST: content-service
+      CONTENT_GRPC_PORT: 9090
+      POSTGRES_HOST: ${POSTGRES_HOST:-postgres}
+      POSTGRES_PORT: ${POSTGRES_PORT:-5432}
+      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER is required}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_RECOMMENDATION_DB: ${POSTGRES_RECOMMENDATION_DB:-recommendation_db}
+    expose:
+      - "8080"
+    networks:
+      - backend
+
+  recommendation-db-init:
+    image: postgres:18.6-bookworm
+    profiles: ["tools"]
+    restart: "no"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PGHOST: ${POSTGRES_HOST:-postgres}
+      PGPORT: ${POSTGRES_PORT:-5432}
+      PGUSER: ${POSTGRES_USER:?POSTGRES_USER is required}
+      PGPASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_RECOMMENDATION_DB: ${POSTGRES_RECOMMENDATION_DB:-recommendation_db}
+    entrypoint: ["/bin/sh", "-ec"]
+    command:
+      - |
+        case "$$POSTGRES_RECOMMENDATION_DB" in
+          ""|*[!a-zA-Z0-9_]*)
+            echo "POSTGRES_RECOMMENDATION_DB must contain only letters, digits, and underscores" >&2
+            exit 1
+            ;;
+        esac
+        if [ "$$(psql --dbname=postgres --tuples-only --no-align --command="SELECT 1 FROM pg_database WHERE datname = '$$POSTGRES_RECOMMENDATION_DB'")" = "1" ]; then
+          echo "Database $$POSTGRES_RECOMMENDATION_DB already exists"
+        else
+          createdb --maintenance-db=postgres "$$POSTGRES_RECOMMENDATION_DB"
+          echo "Created database $$POSTGRES_RECOMMENDATION_DB"
+        fi
+    networks: [backend]
+
+  recommendation-migrate:
+    image: migrate/migrate:v4.20.1
+    profiles: ["tools"]
+    depends_on:
+      recommendation-db-init:
+        condition: service_completed_successfully
+    environment:
+      POSTGRES_HOST: ${POSTGRES_HOST:-postgres}
+      POSTGRES_PORT: ${POSTGRES_PORT:-5432}
+      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER is required}
+      PGPASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_RECOMMENDATION_DB: ${POSTGRES_RECOMMENDATION_DB:-recommendation_db}
+    entrypoint:
+      - /bin/sh
+      - -ec
+      - |
+        case "$$POSTGRES_USER" in
+          ""|*[!a-zA-Z0-9_]*) echo "POSTGRES_USER must contain only letters, digits, and underscores" >&2; exit 1;;
+        esac
+        case "$$POSTGRES_RECOMMENDATION_DB" in
+          ""|*[!a-zA-Z0-9_]*) echo "POSTGRES_RECOMMENDATION_DB must contain only letters, digits, and underscores" >&2; exit 1;;
+        esac
+        case "$$POSTGRES_HOST:$$POSTGRES_PORT" in
+          ""|*[!a-zA-Z0-9_.:-]*) echo "POSTGRES_HOST and POSTGRES_PORT contain unsupported characters" >&2; exit 1;;
+        esac
+        exec /migrate -path=/migrations -database="postgres://$$POSTGRES_USER@$$POSTGRES_HOST:$$POSTGRES_PORT/$$POSTGRES_RECOMMENDATION_DB?sslmode=disable" "$$@"
+      - --
+    command: ["version"]
+    volumes:
+      - ./services/recommendation-service/migrations:/migrations:ro
+    networks: [backend]
+
+  recommendation-integration-test:
+    build:
+      context: ./services/recommendation-service
+      dockerfile: Dockerfile
+      target: source
+    profiles: ["tools"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      recommendation-service:
+        condition: service_healthy
+    environment:
+      INFINITUNE_INTEGRATION_TESTS: "1"
+      POSTGRES_HOST: ${POSTGRES_HOST:-postgres}
+      POSTGRES_PORT: ${POSTGRES_PORT:-5432}
+      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER is required}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_RECOMMENDATION_DB: ${POSTGRES_RECOMMENDATION_DB:-recommendation_db}
+    entrypoint: ["go", "test", "-tags=integration", "-count=1"]
+    command: ["./internal/schema", "./internal/repository/postgres"]
+    networks: [backend]
