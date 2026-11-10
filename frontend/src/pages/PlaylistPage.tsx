@@ -378,7 +378,10 @@ export function PlaylistPage() {
               </p>
             ) : null}
             {tracks.length ? (
-              <TrackList tracks={tracks} />
+              <TrackList
+                tracks={tracks}
+                playbackContext={{ type: "playlist", id: playlist.id }}
+              />
             ) : (
               <CatalogEmpty>
                 {resolution === "empty"
@@ -415,6 +418,7 @@ export function PlaylistPage() {
             {tracks.length ? (
               <TrackList
                 tracks={tracks}
+                playbackContext={{ type: "playlist", id: playlist.id }}
                 actions={(track) => {
                   const entryIndex = entries.findIndex(
                     (entry) => entry.track_id === track.id,

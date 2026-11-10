@@ -10,6 +10,14 @@ import {
 } from "react";
 import { ApiError, apiBlobRequest } from "../../shared/api/client";
 import type { Track } from "../catalog/catalogApi";
+import {
+  type PlaybackContext,
+  recordListeningEvent,
+} from "../history/historyApi";
+import {
+  ListeningHistoryReporter,
+  PlaybackHistoryTracker,
+} from "../history/playbackHistory";
 import { useSession } from "../session/SessionContext";
 
 export type PlayerStatus = "idle" | "loading" | "playing" | "paused" | "error";
@@ -23,7 +31,11 @@ type PlayerContextValue = {
   hasPrevious: boolean;
   hasNext: boolean;
   error: string;
-  playQueue(tracks: Track[], index: number): Promise<void>;
+  playQueue(
+    tracks: Track[],
+    index: number,
+    context?: PlaybackContext,
+  ): Promise<void>;
   toggle(): Promise<void>;
   previous(): Promise<void>;
   next(): Promise<void>;
@@ -39,7 +51,14 @@ export function PlayerProvider({ children }: PropsWithChildren) {
   const request = useRef<AbortController | null>(null);
   const objectUrl = useRef<string | null>(null);
   const previousAccessToken = useRef(accessToken);
+  const history = useRef(new PlaybackHistoryTracker());
+  const historyReporter = useRef(
+    new ListeningHistoryReporter(recordListeningEvent),
+  );
   const [queue, setQueue] = useState<Track[]>([]);
+  const [queueContext, setQueueContext] = useState<PlaybackContext>({
+    type: "direct",
+  });
   const [currentIndex, setCurrentIndex] = useState(-1);
   const [status, setStatus] = useState<PlayerStatus>("idle");
   const [currentTime, setCurrentTime] = useState(0);
@@ -48,46 +67,87 @@ export function PlayerProvider({ children }: PropsWithChildren) {
   const [error, setError] = useState("");
   const currentTrack = queue[currentIndex] ?? null;
 
+  const flushHistory = useCallback((token: string, keepalive = false) => {
+    void historyReporter.current.flush(token, keepalive);
+  }, []);
+
+  const finishHistory = useCallback(
+    (token: string | null, keepalive = false) => {
+      const event = history.current.finish();
+      if (event && token) historyReporter.current.enqueue(event);
+      if (token) flushHistory(token, keepalive);
+    },
+    [flushHistory],
+  );
+
   const releaseObjectUrl = useCallback(() => {
     if (!objectUrl.current) return;
     URL.revokeObjectURL(objectUrl.current);
     objectUrl.current = null;
   }, []);
 
-  const clear = useCallback(() => {
-    request.current?.abort();
-    request.current = null;
-    audio.current?.pause();
-    if (audio.current) {
-      audio.current.removeAttribute("src");
-      audio.current.load();
+  const clear = useCallback(
+    (historyToken: string | null = accessToken) => {
+      request.current?.abort();
+      request.current = null;
+      audio.current?.pause();
+      finishHistory(historyToken);
+      if (audio.current) {
+        audio.current.removeAttribute("src");
+        audio.current.load();
+      }
+      releaseObjectUrl();
+      setQueue([]);
+      setQueueContext({ type: "direct" });
+      setCurrentIndex(-1);
+      setCurrentTime(0);
+      setDuration(0);
+      setError("");
+      setStatus("idle");
+    },
+    [accessToken, finishHistory, releaseObjectUrl],
+  );
+
+  useEffect(() => {
+    if (previousAccessToken.current && !accessToken) {
+      clear(previousAccessToken.current);
     }
-    releaseObjectUrl();
-    setQueue([]);
-    setCurrentIndex(-1);
-    setCurrentTime(0);
-    setDuration(0);
-    setError("");
-    setStatus("idle");
-  }, [releaseObjectUrl]);
-
-  useEffect(() => {
-    if (previousAccessToken.current && !accessToken) clear();
     previousAccessToken.current = accessToken;
-  }, [accessToken, clear]);
+    if (accessToken) flushHistory(accessToken);
+  }, [accessToken, clear, flushHistory]);
 
   useEffect(() => {
+    const retry = () => {
+      if (previousAccessToken.current) {
+        flushHistory(previousAccessToken.current);
+      }
+    };
+    const finishForPageExit = () => {
+      finishHistory(previousAccessToken.current, true);
+    };
+    window.addEventListener("online", retry);
+    window.addEventListener("pagehide", finishForPageExit);
     return () => {
+      window.removeEventListener("online", retry);
+      window.removeEventListener("pagehide", finishForPageExit);
+      finishHistory(previousAccessToken.current, true);
       request.current?.abort();
       releaseObjectUrl();
     };
-  }, [releaseObjectUrl]);
+  }, [finishHistory, flushHistory, releaseObjectUrl]);
 
   const playQueue = useCallback(
-    async (tracks: Track[], index: number) => {
+    async (
+      tracks: Track[],
+      index: number,
+      context: PlaybackContext = { type: "direct" },
+    ) => {
       const track = tracks[index];
       if (!track) return;
+      audio.current?.pause();
+      finishHistory(accessToken);
       setQueue(tracks);
+      setQueueContext(context);
       setCurrentIndex(index);
       setCurrentTime(0);
       setDuration(track.duration_ms / 1000);
@@ -103,7 +163,6 @@ export function PlayerProvider({ children }: PropsWithChildren) {
       request.current?.abort();
       const controller = new AbortController();
       request.current = controller;
-      audio.current.pause();
       setStatus("loading");
 
       try {
@@ -132,7 +191,7 @@ export function PlayerProvider({ children }: PropsWithChildren) {
         );
       }
     },
-    [accessToken, releaseObjectUrl],
+    [accessToken, finishHistory, releaseObjectUrl],
   );
 
   const toggle = useCallback(async () => {
@@ -154,11 +213,11 @@ export function PlayerProvider({ children }: PropsWithChildren) {
 
   const next = useCallback(async () => {
     if (currentIndex >= 0 && currentIndex < queue.length - 1) {
-      await playQueue(queue, currentIndex + 1);
+      await playQueue(queue, currentIndex + 1, queueContext);
     } else {
       setStatus("paused");
     }
-  }, [currentIndex, playQueue, queue]);
+  }, [currentIndex, playQueue, queue, queueContext]);
 
   const previous = useCallback(async () => {
     if (audio.current && audio.current.currentTime > 3) {
@@ -166,8 +225,10 @@ export function PlayerProvider({ children }: PropsWithChildren) {
       setCurrentTime(0);
       return;
     }
-    if (currentIndex > 0) await playQueue(queue, currentIndex - 1);
-  }, [currentIndex, playQueue, queue]);
+    if (currentIndex > 0) {
+      await playQueue(queue, currentIndex - 1, queueContext);
+    }
+  }, [currentIndex, playQueue, queue, queueContext]);
 
   const seek = useCallback((seconds: number) => {
     if (!audio.current || !Number.isFinite(seconds)) return;
@@ -232,10 +293,24 @@ export function PlayerProvider({ children }: PropsWithChildren) {
           }
         }}
         onPlay={() => setStatus("playing")}
-        onPause={() =>
-          setStatus((current) => (current === "playing" ? "paused" : current))
-        }
-        onEnded={() => void next()}
+        onPlaying={() => {
+          if (currentTrack) {
+            history.current.resume(
+              currentTrack.id,
+              currentTrack.duration_ms,
+              queueContext,
+            );
+          }
+        }}
+        onWaiting={() => history.current.suspend()}
+        onPause={() => {
+          history.current.suspend();
+          setStatus((current) => (current === "playing" ? "paused" : current));
+        }}
+        onEnded={() => {
+          finishHistory(accessToken);
+          void next();
+        }}
       />
     </PlayerContext.Provider>
   );

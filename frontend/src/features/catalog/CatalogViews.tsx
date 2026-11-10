@@ -1,13 +1,16 @@
 import { Link } from "react-router-dom";
+import type { PlaybackContext } from "../history/historyApi";
 import { usePlayer } from "../player/PlayerContext";
 import type { Album, Artist, Track } from "./catalogApi";
 
 export function TrackList({
   tracks,
   actions,
+  playbackContext,
 }: {
   tracks: Track[];
   actions?(track: Track, index: number): React.ReactNode;
+  playbackContext?: PlaybackContext;
 }) {
   const player = usePlayer();
   return (
@@ -26,7 +29,7 @@ export function TrackList({
             aria-label={`${player.currentTrack?.id === track.id && player.status === "playing" ? "Pause" : "Play"} ${track.title}`}
             onClick={() => {
               if (player.currentTrack?.id === track.id) void player.toggle();
-              else void player.playQueue(tracks, index);
+              else void player.playQueue(tracks, index, playbackContext);
             }}
           >
             {track.title.slice(0, 1).toUpperCase()}
