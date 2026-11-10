@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-
+import { DynamicPlaylistForm } from "../features/playlists/DynamicRuleForm";
 import { PlaylistForm } from "../features/playlists/PlaylistForm";
 import {
+  createDynamicPlaylist,
   createPlaylist,
   listPlaylists,
   type PlaylistPage,
@@ -24,6 +25,7 @@ export function LibraryPage() {
   const [error, setError] = useState("");
   const [creating, setCreating] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
+  const [createType, setCreateType] = useState<"manual" | "dynamic">("manual");
 
   const load = useCallback(async () => {
     if (!accessToken) return;
@@ -63,32 +65,81 @@ export function LibraryPage() {
           aria-labelledby="new-playlist-title"
         >
           <div>
-            <span className="eyebrow">Manual playlist</span>
+            <span className="eyebrow">New collection</span>
             <h2 id="new-playlist-title">Create a new playlist</h2>
           </div>
+          <fieldset className="playlist-type-picker">
+            <legend>Playlist type</legend>
+            <button
+              type="button"
+              aria-pressed={createType === "manual"}
+              onClick={() => setCreateType("manual")}
+            >
+              <strong>Manual</strong>
+              <span>You choose and order every track.</span>
+            </button>
+            <button
+              type="button"
+              aria-pressed={createType === "dynamic"}
+              onClick={() => setCreateType("dynamic")}
+            >
+              <strong>Dynamic</strong>
+              <span>Rules keep the track list up to date.</span>
+            </button>
+          </fieldset>
           {error && status !== "error" ? (
             <p className="form-error" role="alert">
               {error}
             </p>
           ) : null}
-          <PlaylistForm
-            submitLabel="Create playlist"
-            busy={creating}
-            onCancel={() => setShowCreate(false)}
-            onSubmit={async (input) => {
-              if (!accessToken) return;
-              setCreating(true);
-              setError("");
-              try {
-                const created = await createPlaylist(accessToken, input);
-                navigate(`/library/${created.id}`);
-              } catch (reason) {
-                setError(errorMessage(reason, "Could not create the playlist"));
-              } finally {
-                setCreating(false);
-              }
-            }}
-          />
+          {createType === "manual" ? (
+            <PlaylistForm
+              submitLabel="Create playlist"
+              busy={creating}
+              onCancel={() => setShowCreate(false)}
+              onSubmit={async (input) => {
+                if (!accessToken) return;
+                setCreating(true);
+                setError("");
+                try {
+                  const created = await createPlaylist(accessToken, input);
+                  navigate(`/library/${created.id}`);
+                } catch (reason) {
+                  setError(
+                    errorMessage(reason, "Could not create the playlist"),
+                  );
+                } finally {
+                  setCreating(false);
+                }
+              }}
+            />
+          ) : (
+            <DynamicPlaylistForm
+              busy={creating}
+              onCancel={() => setShowCreate(false)}
+              onSubmit={async (input) => {
+                if (!accessToken) return;
+                setCreating(true);
+                setError("");
+                try {
+                  const created = await createDynamicPlaylist(
+                    accessToken,
+                    input,
+                  );
+                  navigate(`/library/${created.playlist.id}`);
+                } catch (reason) {
+                  setError(
+                    errorMessage(
+                      reason,
+                      "Could not create the dynamic playlist",
+                    ),
+                  );
+                } finally {
+                  setCreating(false);
+                }
+              }}
+            />
+          )}
         </section>
       ) : null}
 

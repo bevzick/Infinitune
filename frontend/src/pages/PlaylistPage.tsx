@@ -11,17 +11,23 @@ import {
   type Track,
   trackPagePath,
 } from "../features/catalog/catalogApi";
+import { RuleEditor } from "../features/playlists/DynamicRuleForm";
 import { PlaylistForm } from "../features/playlists/PlaylistForm";
 import {
   addPlaylistTrack,
   deletePlaylist,
   getCatalogTrack,
+  getDynamicCriteria,
   getPlaylist,
   listPlaylistTracks,
   type Playlist,
   type PlaylistTrack,
+  type RuleCondition,
+  type RuleSet,
   removePlaylistTrack,
   reorderPlaylistTracks,
+  replaceDynamicCriteria,
+  resolveDynamicTracks,
   updatePlaylist,
 } from "../features/playlists/playlistApi";
 import { useSession } from "../features/session/SessionContext";
@@ -36,6 +42,9 @@ export function PlaylistPage() {
   const [entries, setEntries] = useState<PlaylistTrack[]>([]);
   const [tracks, setTracks] = useState<Track[]>([]);
   const [totalTracks, setTotalTracks] = useState(0);
+  const [resolvedCount, setResolvedCount] = useState(0);
+  const [resolution, setResolution] = useState<"ready" | "empty">("ready");
+  const [criteria, setCriteria] = useState<RuleSet | null>(null);
   const [status, setStatus] = useState<"loading" | "ready" | "error">(
     "loading",
   );
@@ -43,6 +52,7 @@ export function PlaylistPage() {
   const [mutationError, setMutationError] = useState("");
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState(false);
+  const [editingRules, setEditingRules] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [searchResults, setSearchResults] = useState<Track[]>([]);
   const [searching, setSearching] = useState(false);
@@ -60,10 +70,23 @@ export function PlaylistPage() {
           signal,
         );
         if (playlistResult.type === "dynamic") {
+          const [criteriaResult, trackPage] = await Promise.all([
+            playlistResult.owner_id === identity?.userId
+              ? getDynamicCriteria(accessToken, playlistId, signal)
+              : Promise.resolve(null),
+            resolveDynamicTracks(accessToken, playlistId, signal),
+          ]);
+          const resolved = await resolveCatalogTracks(
+            trackPage.items.map((entry) => entry.track_id),
+            signal,
+          );
           setPlaylist(playlistResult);
+          setCriteria(criteriaResult);
           setEntries([]);
-          setTracks([]);
-          setTotalTracks(0);
+          setTracks(resolved);
+          setResolvedCount(trackPage.items.length);
+          setTotalTracks(trackPage.page.total);
+          setResolution(trackPage.resolution.status);
           setStatus("ready");
           return;
         }
@@ -86,6 +109,7 @@ export function PlaylistPage() {
         setPlaylist(playlistResult);
         setEntries(trackPage.items);
         setTracks(resolved.filter((track): track is Track => track !== null));
+        setResolvedCount(0);
         setTotalTracks(trackPage.page.total);
         setStatus("ready");
       } catch (reason) {
@@ -94,7 +118,7 @@ export function PlaylistPage() {
         setStatus("error");
       }
     },
-    [accessToken, playlistId],
+    [accessToken, identity?.userId, playlistId],
   );
 
   useEffect(() => {
@@ -285,13 +309,85 @@ export function PlaylistPage() {
       ) : null}
 
       {playlist.type === "dynamic" ? (
-        <div className="library-empty">
-          <span className="library-empty-icon" aria-hidden="true">
-            ◇
-          </span>
-          <h2>This is a dynamic playlist.</h2>
-          <p>Its rule editor arrives in the next frontend commit.</p>
-        </div>
+        <>
+          {criteria ? (
+            <section
+              className="dynamic-rules"
+              aria-labelledby="dynamic-rules-title"
+            >
+              <div className="section-heading">
+                <div>
+                  <span className="eyebrow">Automatic selection</span>
+                  <h2 id="dynamic-rules-title">{criteria.name}</h2>
+                </div>
+                {isOwner && !editingRules ? (
+                  <button
+                    type="button"
+                    className="secondary-button"
+                    onClick={() => setEditingRules(true)}
+                  >
+                    Edit rules
+                  </button>
+                ) : null}
+              </div>
+              {editingRules ? (
+                <RuleEditor
+                  initial={criteria}
+                  busy={busy}
+                  onCancel={() => setEditingRules(false)}
+                  onSubmit={async (input) => {
+                    if (!accessToken) return;
+                    await mutate(async () => {
+                      setCriteria(
+                        await replaceDynamicCriteria(
+                          accessToken,
+                          playlist.id,
+                          input,
+                        ),
+                      );
+                      setEditingRules(false);
+                      await load();
+                    });
+                  }}
+                />
+              ) : (
+                <RuleSummary criteria={criteria} />
+              )}
+            </section>
+          ) : null}
+          <section
+            className="playlist-tracks dynamic-results"
+            aria-labelledby="dynamic-tracks-title"
+          >
+            <div className="section-heading">
+              <div>
+                <span className="eyebrow">Live catalog result</span>
+                <h2 id="dynamic-tracks-title">Matching tracks</h2>
+              </div>
+              <span className="result-count">{totalTracks} matches</span>
+            </div>
+            {resolvedCount > tracks.length ? (
+              <p className="playlist-note">
+                {resolvedCount - tracks.length} unavailable catalog tracks were
+                omitted from this view.
+              </p>
+            ) : null}
+            {totalTracks > resolvedCount ? (
+              <p className="playlist-note">
+                Showing the first {resolvedCount} of {totalTracks} matches.
+              </p>
+            ) : null}
+            {tracks.length ? (
+              <TrackList tracks={tracks} />
+            ) : (
+              <CatalogEmpty>
+                {resolution === "empty"
+                  ? "No tracks match these rules"
+                  : "No matching tracks are available"}
+              </CatalogEmpty>
+            )}
+          </section>
+        </>
       ) : (
         <>
           <section
@@ -413,4 +509,63 @@ export function PlaylistPage() {
       )}
     </section>
   );
+}
+
+function RuleSummary({ criteria }: { criteria: RuleSet }) {
+  return (
+    <div className="rule-summary">
+      <p>
+        Match <strong>{criteria.logic === "AND" ? "every" : "any"}</strong>{" "}
+        condition:
+      </p>
+      <ol>
+        {[...criteria.conditions]
+          .sort((left, right) => left.position - right.position)
+          .map((condition) => (
+            <li key={condition.id}>{conditionLabel(condition)}</li>
+          ))}
+      </ol>
+    </div>
+  );
+}
+
+function conditionLabel(condition: RuleCondition) {
+  const field = condition.field.replaceAll("_", " ");
+  const operator = condition.operator.replaceAll("_", " ");
+  const value = condition.value;
+  switch (value.kind) {
+    case "text":
+      return `${field} ${operator} “${value.text}”`;
+    case "uuid":
+      return `${field} ${operator} ${value.uuid}`;
+    case "uuid_list":
+      return `${field} ${operator} ${value.uuid_list.join(", ")}`;
+    case "integer":
+      return `${field} ${operator} ${formatRuleInteger(condition.field, value.integer)}`;
+    case "integer_range":
+      return `${field} ${operator} ${formatRuleInteger(condition.field, value.integer_range.minimum)} and ${formatRuleInteger(condition.field, value.integer_range.maximum)}`;
+    case "boolean":
+      return `${field} ${operator} ${value.boolean ? "yes" : "no"}`;
+  }
+}
+
+function formatRuleInteger(field: RuleCondition["field"], value: number) {
+  if (field !== "duration_ms") return String(value);
+  const minutes = Math.floor(value / 60_000);
+  const seconds = Math.floor((value % 60_000) / 1000);
+  return `${minutes}:${String(seconds).padStart(2, "0")}`;
+}
+
+async function resolveCatalogTracks(trackIDs: string[], signal?: AbortSignal) {
+  const resolved = await Promise.all(
+    trackIDs.map(async (trackID) => {
+      try {
+        return await getCatalogTrack(trackID, signal);
+      } catch (reason) {
+        if (reason instanceof ApiError && reason.status === 404) return null;
+        throw reason;
+      }
+    }),
+  );
+  return resolved.filter((track): track is Track => track !== null);
 }

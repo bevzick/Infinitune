@@ -8,6 +8,7 @@ import { LibraryPage } from "./LibraryPage";
 const playlistApi = vi.hoisted(() => ({
   listPlaylists: vi.fn(),
   createPlaylist: vi.fn(),
+  createDynamicPlaylist: vi.fn(),
 }));
 
 vi.mock("../features/playlists/playlistApi", async (importOriginal) => ({
@@ -61,5 +62,28 @@ describe("LibraryPage", () => {
       screen.getByRole("heading", { name: "Create a new playlist" }),
     ).toBeInTheDocument();
     expect(screen.getByLabelText("Name")).toBeInTheDocument();
+  });
+
+  it("switches the create flow to dynamic playlist rules", async () => {
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter>
+        <LibraryPage />
+      </MemoryRouter>,
+    );
+
+    await screen.findByText("Night signals");
+    await user.click(screen.getByRole("button", { name: "+ New playlist" }));
+    await user.click(screen.getByRole("button", { name: /Dynamic/ }));
+
+    expect(
+      screen.getByRole("group", { name: "Automatic selection rules" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "+ Add condition" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Create dynamic playlist" }),
+    ).toBeInTheDocument();
   });
 });
