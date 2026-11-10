@@ -22,6 +22,7 @@ type Store interface {
 	UpdateOwned(context.Context, uuid.UUID, uuid.UUID, string) (Comment, error)
 	DeleteOwned(context.Context, uuid.UUID, uuid.UUID) error
 	CreateReport(context.Context, Report) (Report, error)
+	ExistingVisibleIDs(context.Context, []uuid.UUID) (map[uuid.UUID]struct{}, error)
 }
 
 type TrackValidator interface {
@@ -151,6 +152,24 @@ func (service *Service) Report(
 		return Report{}, fmt.Errorf("report comment: %w", err)
 	}
 	return created, nil
+}
+
+func (service *Service) ValidateIDs(ctx context.Context, ids []uuid.UUID) (IDValidation, error) {
+	existing, err := service.store.ExistingVisibleIDs(ctx, ids)
+	if err != nil {
+		return IDValidation{}, fmt.Errorf("validate visible comment ids: %w", err)
+	}
+	result := IDValidation{
+		ValidIDs: make([]uuid.UUID, 0, len(ids)), MissingIDs: make([]uuid.UUID, 0),
+	}
+	for _, id := range ids {
+		if _, ok := existing[id]; ok {
+			result.ValidIDs = append(result.ValidIDs, id)
+		} else {
+			result.MissingIDs = append(result.MissingIDs, id)
+		}
+	}
+	return result, nil
 }
 
 func validReportReason(reason ReportReason) bool {

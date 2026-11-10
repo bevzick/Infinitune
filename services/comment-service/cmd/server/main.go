@@ -14,10 +14,12 @@ import (
 	"time"
 
 	catalogv1 "github.com/bevzick/Infinitune/services/comment-service/api/catalog/v1"
+	commentv1 "github.com/bevzick/Infinitune/services/comment-service/api/comment/v1"
 	"github.com/bevzick/Infinitune/services/comment-service/internal/catalog"
 	comment_domain "github.com/bevzick/Infinitune/services/comment-service/internal/comment"
 	"github.com/bevzick/Infinitune/services/comment-service/internal/config"
 	"github.com/bevzick/Infinitune/services/comment-service/internal/database"
+	"github.com/bevzick/Infinitune/services/comment-service/internal/grpcapi"
 	"github.com/bevzick/Infinitune/services/comment-service/internal/httpapi"
 	"github.com/bevzick/Infinitune/services/comment-service/internal/identity"
 	comment_moderation "github.com/bevzick/Infinitune/services/comment-service/internal/moderation"
@@ -75,6 +77,13 @@ func main() {
 		catalog.NewTrackValidator(catalogv1.NewCatalogServiceClient(catalogConnection)),
 	)
 	moderation := comment_moderation.NewService(repository)
+	grpcListener, err := net.Listen("tcp", cfg.GRPCAddress)
+	if err != nil {
+		logger.Error("failed to listen for gRPC", "error", err)
+		os.Exit(1)
+	}
+	grpcServer := grpc.NewServer()
+	commentv1.RegisterCommentServiceServer(grpcServer, grpcapi.NewCommentServer(comments))
 
 	server := &http.Server{
 		Addr: cfg.HTTPAddress,
@@ -87,10 +96,14 @@ func main() {
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
-	serverErrors := make(chan error, 1)
+	serverErrors := make(chan error, 2)
 	go func() {
 		logger.Info("comment service started", "address", cfg.HTTPAddress)
 		serverErrors <- server.ListenAndServe()
+	}()
+	go func() {
+		logger.Info("comment gRPC service started", "address", cfg.GRPCAddress)
+		serverErrors <- grpcServer.Serve(grpcListener)
 	}()
 
 	select {
@@ -107,6 +120,16 @@ func main() {
 	if err = server.Shutdown(shutdownCtx); err != nil {
 		logger.Error("failed to shut down comment service", "error", err)
 		os.Exit(1)
+	}
+	grpcStopped := make(chan struct{})
+	go func() {
+		grpcServer.GracefulStop()
+		close(grpcStopped)
+	}()
+	select {
+	case <-grpcStopped:
+	case <-shutdownCtx.Done():
+		grpcServer.Stop()
 	}
 	logger.Info("comment service stopped")
 }

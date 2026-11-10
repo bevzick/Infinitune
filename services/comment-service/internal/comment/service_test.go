@@ -158,3 +158,10 @@ func (stub *storeStub) CreateReport(_ context.Context, value Report) (Report, er
 	value.CreatedAt = time.Now()
 	return value, nil
 }
+func (stub *storeStub) ExistingVisibleIDs(_ context.Context, ids []uuid.UUID) (map[uuid.UUID]struct{}, error) {
+	result := make(map[uuid.UUID]struct{}, len(ids))
+	for _, id := range ids {
+		result[id] = struct{}{}
+	}
+	return result, nil
+}

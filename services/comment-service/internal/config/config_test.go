@@ -5,6 +5,8 @@ import "testing"
 func TestLoadUsesCommentDatabase(t *testing.T) {
 	t.Setenv("COMMENT_HTTP_HOST", "127.0.0.1")
 	t.Setenv("COMMENT_HTTP_PORT", "8088")
+	t.Setenv("COMMENT_GRPC_HOST", "127.0.0.1")
+	t.Setenv("COMMENT_GRPC_PORT", "9098")
 	t.Setenv("CATALOG_GRPC_HOST", "catalog-service")
 	t.Setenv("CATALOG_GRPC_PORT", "9091")
 	t.Setenv("COMMENT_AUTH_JWKS_URL", "http://auth-service:8080/v1/auth/jwks")
@@ -21,6 +23,9 @@ func TestLoadUsesCommentDatabase(t *testing.T) {
 	}
 	if config.HTTPAddress != "127.0.0.1:8088" {
 		t.Fatalf("HTTPAddress = %q", config.HTTPAddress)
+	}
+	if config.GRPCAddress != "127.0.0.1:9098" {
+		t.Fatalf("GRPCAddress = %q", config.GRPCAddress)
 	}
 	if config.CatalogAddress != "catalog-service:9091" || len(config.Origins) != 2 ||
 		config.Identity.JWKSURL != "http://auth-service:8080/v1/auth/jwks" {
@@ -42,6 +47,7 @@ func TestLoadRejectsInvalidConfiguration(t *testing.T) {
 		value string
 	}{
 		{name: "invalid HTTP port", key: "COMMENT_HTTP_PORT", value: "0"},
+		{name: "invalid gRPC port", key: "COMMENT_GRPC_PORT", value: "65536"},
 		{name: "invalid database port", key: "POSTGRES_PORT", value: "invalid"},
 		{name: "invalid Catalog port", key: "CATALOG_GRPC_PORT", value: "70000"},
 		{name: "invalid origin", key: "COMMENT_ALLOWED_ORIGINS", value: "localhost:5173"},

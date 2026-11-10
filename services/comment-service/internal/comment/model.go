@@ -98,6 +98,11 @@ type Page struct {
 	Total  int64
 }
 
+type IDValidation struct {
+	ValidIDs   []uuid.UUID
+	MissingIDs []uuid.UUID
+}
+
 func invalidArgument(message string) error {
 	return fmt.Errorf("%w: %s", ErrInvalidArgument, message)
 }

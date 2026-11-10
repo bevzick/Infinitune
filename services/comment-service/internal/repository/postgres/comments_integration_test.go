@@ -45,6 +45,10 @@ func TestCommentRepositoryManagesOwnedCommentsAndReplies(t *testing.T) {
 	if err != nil || page.Total != 2 || len(page.Items) != 2 {
 		t.Fatalf("List() = %+v, %v", page, err)
 	}
+	visible, err := repository.ExistingVisibleIDs(ctx, []uuid.UUID{rootID, replyID, uuid.New()})
+	if err != nil || len(visible) != 2 {
+		t.Fatalf("ExistingVisibleIDs() = %v, %v", visible, err)
+	}
 	if _, err = repository.UpdateOwned(ctx, rootID, strangerID, "Stolen"); !errors.Is(err, comment.ErrForbidden) {
 		t.Fatalf("UpdateOwned(stranger) error = %v", err)
 	}
@@ -91,6 +95,10 @@ func TestCommentRepositoryManagesOwnedCommentsAndReplies(t *testing.T) {
 	page, err = repository.List(ctx, trackID, comment.PageRequest{Limit: 10})
 	if err != nil || page.Total != 0 || len(page.Items) != 0 {
 		t.Fatalf("List(after root delete) = %+v, %v", page, err)
+	}
+	visible, err = repository.ExistingVisibleIDs(ctx, []uuid.UUID{rootID, replyID})
+	if err != nil || len(visible) != 0 {
+		t.Fatalf("ExistingVisibleIDs(after root delete) = %v, %v", visible, err)
 	}
 }
 
