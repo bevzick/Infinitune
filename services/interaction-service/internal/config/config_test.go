@@ -7,6 +7,8 @@ func TestLoadUsesInteractionDatabase(t *testing.T) {
 	t.Setenv("INTERACTION_HTTP_PORT", "8087")
 	t.Setenv("CATALOG_GRPC_HOST", "catalog-service")
 	t.Setenv("CATALOG_GRPC_PORT", "9091")
+	t.Setenv("COMMENT_GRPC_HOST", "comment-service")
+	t.Setenv("COMMENT_GRPC_PORT", "9092")
 	t.Setenv("INTERACTION_AUTH_JWKS_URL", "http://auth-service:8080/v1/auth/jwks")
 	t.Setenv("INTERACTION_ALLOWED_ORIGINS", "http://localhost:5173,https://app.example.test")
 	t.Setenv("POSTGRES_HOST", "postgres")
@@ -22,11 +24,11 @@ func TestLoadUsesInteractionDatabase(t *testing.T) {
 	if config.HTTPAddress != "127.0.0.1:8087" {
 		t.Fatalf("HTTPAddress = %q", config.HTTPAddress)
 	}
-	if config.CatalogAddress != "catalog-service:9091" ||
+	if config.CatalogAddress != "catalog-service:9091" || config.CommentAddress != "comment-service:9092" ||
 		config.Identity.JWKSURL != "http://auth-service:8080/v1/auth/jwks" ||
 		len(config.Origins) != 2 {
-		t.Fatalf("CatalogAddress = %q, Identity = %+v, Origins = %v",
-			config.CatalogAddress, config.Identity, config.Origins)
+		t.Fatalf("CatalogAddress = %q, CommentAddress = %q, Identity = %+v, Origins = %v",
+			config.CatalogAddress, config.CommentAddress, config.Identity, config.Origins)
 	}
 	if config.Database.Host != "postgres" || config.Database.Port != 5433 ||
 		config.Database.User != "interaction_user" ||
@@ -45,6 +47,7 @@ func TestLoadRejectsInvalidConfiguration(t *testing.T) {
 		{name: "invalid HTTP port", key: "INTERACTION_HTTP_PORT", value: "0"},
 		{name: "invalid database port", key: "POSTGRES_PORT", value: "invalid"},
 		{name: "invalid Catalog port", key: "CATALOG_GRPC_PORT", value: "70000"},
+		{name: "invalid Comment port", key: "COMMENT_GRPC_PORT", value: "0"},
 		{name: "invalid origin", key: "INTERACTION_ALLOWED_ORIGINS", value: "localhost:5173"},
 		{name: "missing database user", key: "POSTGRES_USER", value: ""},
 		{name: "missing database password", key: "POSTGRES_PASSWORD", value: ""},

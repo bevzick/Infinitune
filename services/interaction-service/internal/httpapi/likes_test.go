@@ -45,6 +45,34 @@ func TestLikeEndpointsRejectMissingTokenBeforeStorage(t *testing.T) {
 	}
 }
 
+func TestCommentLikeEndpointsUseVerifiedIdentityAndMapUnavailableTarget(t *testing.T) {
+	userID, commentID := uuid.New(), uuid.New()
+	for _, test := range []struct {
+		name string
+		err  error
+		want int
+	}{
+		{name: "visible", want: http.StatusOK},
+		{name: "unavailable", err: interaction.ErrCommentNotFound, want: http.StatusNotFound},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			likes := &likesStub{err: test.err}
+			router := NewRouter(Dependencies{
+				Database: databaseStub{}, Tokens: tokenStub{identity: identity.Identity{UserID: userID}}, Likes: likes,
+			})
+			request := httptest.NewRequest(http.MethodPut,
+				"/v1/interactions/comments/"+commentID.String()+"/like", nil)
+			request.Header.Set("Authorization", "Bearer verified-token")
+			response := httptest.NewRecorder()
+			router.ServeHTTP(response, request)
+			if response.Code != test.want || likes.userID != userID || likes.targetID != commentID {
+				t.Fatalf("status/owner/target = %d/%s/%s; body = %s",
+					response.Code, likes.userID, likes.targetID, response.Body.String())
+			}
+		})
+	}
+}
+
 func TestLikeEndpointsMapCatalogAndPaginationErrors(t *testing.T) {
 	userID := uuid.New()
 	tests := []struct {
@@ -136,5 +164,14 @@ func (stub *likesStub) UnlikeAlbum(_ context.Context, userID, id uuid.UUID) erro
 	return stub.unlike(userID, id)
 }
 func (stub *likesStub) AlbumLikes(_ context.Context, userID uuid.UUID, page interaction.PageRequest) (interaction.LikePage, error) {
+	return stub.list(userID, page)
+}
+func (stub *likesStub) LikeComment(_ context.Context, userID, id uuid.UUID) (interaction.Like, error) {
+	return stub.like(userID, id)
+}
+func (stub *likesStub) UnlikeComment(_ context.Context, userID, id uuid.UUID) error {
+	return stub.unlike(userID, id)
+}
+func (stub *likesStub) CommentLikes(_ context.Context, userID uuid.UUID, page interaction.PageRequest) (interaction.LikePage, error) {
 	return stub.list(userID, page)
 }

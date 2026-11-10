@@ -13,8 +13,11 @@ var (
 	ErrTrackNotFound      = errors.New("catalog track not found")
 	ErrAlbumNotFound      = errors.New("catalog album not found")
 	ErrArtistNotFound     = errors.New("catalog artist not found")
+	ErrCommentNotFound    = errors.New("comment not found or unavailable")
 	ErrCatalogUnavailable = errors.New("catalog service unavailable")
 	ErrCatalogTimeout     = errors.New("catalog request timed out")
+	ErrCommentUnavailable = errors.New("comment service unavailable")
+	ErrCommentTimeout     = errors.New("comment service request timed out")
 )
 
 type Like struct {

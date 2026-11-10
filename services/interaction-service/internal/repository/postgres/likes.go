@@ -80,6 +80,37 @@ func (repository *LikeRepository) AlbumLikes(
 	`, "album")
 }
 
+func (repository *LikeRepository) LikeComment(
+	ctx context.Context, userID, commentID uuid.UUID,
+) (interaction.Like, error) {
+	return repository.upsert(ctx, `
+		INSERT INTO interaction.comment_likes (user_id, comment_id)
+		VALUES ($1, $2)
+		ON CONFLICT (user_id, comment_id) DO UPDATE SET user_id = EXCLUDED.user_id
+		RETURNING user_id, comment_id, created_at
+	`, userID, commentID, "comment")
+}
+
+func (repository *LikeRepository) UnlikeComment(ctx context.Context, userID, commentID uuid.UUID) error {
+	return repository.remove(ctx, `
+		DELETE FROM interaction.comment_likes WHERE user_id = $1 AND comment_id = $2
+	`, userID, commentID, "comment")
+}
+
+func (repository *LikeRepository) CommentLikes(
+	ctx context.Context, userID uuid.UUID, page interaction.PageRequest,
+) (interaction.LikePage, error) {
+	return repository.list(ctx, userID, page, `
+		SELECT count(*) FROM interaction.comment_likes WHERE user_id = $1
+	`, `
+		SELECT user_id, comment_id, created_at
+		FROM interaction.comment_likes
+		WHERE user_id = $1
+		ORDER BY created_at DESC, comment_id DESC
+		LIMIT $2 OFFSET $3
+	`, "comment")
+}
+
 func (repository *LikeRepository) upsert(
 	ctx context.Context, query string, userID, targetID uuid.UUID, target string,
 ) (interaction.Like, error) {

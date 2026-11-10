@@ -14,7 +14,7 @@ func TestServiceLikesValidatedTrackAndAlbumForVerifiedOwner(t *testing.T) {
 	now := time.Now().UTC()
 	store := &storeStub{like: Like{CreatedAt: now}}
 	validator := &validatorStub{}
-	service := NewService(store, validator)
+	service := NewService(store, validator, &commentValidatorStub{})
 
 	trackLike, err := service.LikeTrack(context.Background(), userID, trackID)
 	if err != nil || trackLike.UserID != userID || trackLike.TargetID != trackID {
@@ -34,7 +34,7 @@ func TestServiceLikesValidatedTrackAndAlbumForVerifiedOwner(t *testing.T) {
 
 func TestServiceDoesNotStoreUnavailableCatalogTarget(t *testing.T) {
 	store := &storeStub{}
-	service := NewService(store, &validatorStub{trackErr: ErrTrackNotFound})
+	service := NewService(store, &validatorStub{trackErr: ErrTrackNotFound}, &commentValidatorStub{})
 	_, err := service.LikeTrack(context.Background(), uuid.New(), uuid.New())
 	if !errors.Is(err, ErrTrackNotFound) {
 		t.Fatalf("LikeTrack() error = %v, want %v", err, ErrTrackNotFound)
@@ -47,7 +47,7 @@ func TestServiceDoesNotStoreUnavailableCatalogTarget(t *testing.T) {
 func TestServiceUnlikeIsIdempotentAndScopedToOwner(t *testing.T) {
 	userID, trackID := uuid.New(), uuid.New()
 	store := &storeStub{}
-	service := NewService(store, &validatorStub{})
+	service := NewService(store, &validatorStub{}, &commentValidatorStub{})
 	for range 2 {
 		if err := service.UnlikeTrack(context.Background(), userID, trackID); err != nil {
 			t.Fatalf("UnlikeTrack() error = %v", err)
@@ -61,7 +61,7 @@ func TestServiceUnlikeIsIdempotentAndScopedToOwner(t *testing.T) {
 func TestServiceListUsesDefaultsAndRejectsInvalidPagination(t *testing.T) {
 	userID := uuid.New()
 	store := &storeStub{}
-	service := NewService(store, &validatorStub{})
+	service := NewService(store, &validatorStub{}, &commentValidatorStub{})
 	result, err := service.TrackLikes(context.Background(), userID, PageRequest{})
 	if err != nil || result.Limit != 50 || store.page != (PageRequest{Limit: 50}) {
 		t.Fatalf("TrackLikes() = %+v, %v; page = %+v", result, err, store.page)
@@ -75,7 +75,7 @@ func TestServiceFollowsValidatedArtistsForVerifiedOwner(t *testing.T) {
 	userID, firstArtistID, secondArtistID := uuid.New(), uuid.New(), uuid.New()
 	store := &storeStub{}
 	validator := &validatorStub{}
-	service := NewService(store, validator)
+	service := NewService(store, validator, &commentValidatorStub{})
 	for _, artistID := range []uuid.UUID{firstArtistID, secondArtistID} {
 		followed, err := service.FollowArtist(context.Background(), userID, artistID)
 		if err != nil || followed.UserID != userID || followed.ArtistID != artistID {
@@ -91,10 +91,45 @@ func TestServiceFollowsValidatedArtistsForVerifiedOwner(t *testing.T) {
 
 func TestServiceDoesNotFollowMissingArtist(t *testing.T) {
 	store := &storeStub{}
-	service := NewService(store, &validatorStub{artistErr: ErrArtistNotFound})
+	service := NewService(store, &validatorStub{artistErr: ErrArtistNotFound}, &commentValidatorStub{})
 	_, err := service.FollowArtist(context.Background(), uuid.New(), uuid.New())
 	if !errors.Is(err, ErrArtistNotFound) || store.followCalls != 0 {
 		t.Fatalf("FollowArtist() error = %v, store calls = %d", err, store.followCalls)
+	}
+}
+
+func TestServiceLikesOnlyVisibleCommentsAndAllowsIdempotentUnlike(t *testing.T) {
+	userID, commentID := uuid.New(), uuid.New()
+	store := &storeStub{}
+	validator := &commentValidatorStub{}
+	service := NewService(store, &validatorStub{}, validator)
+	liked, err := service.LikeComment(context.Background(), userID, commentID)
+	if err != nil || liked.UserID != userID || liked.TargetID != commentID || validator.commentID != commentID {
+		t.Fatalf("LikeComment() = %+v, %v; validated = %s", liked, err, validator.commentID)
+	}
+	validator.err = ErrCommentNotFound
+	if _, err = service.LikeComment(context.Background(), userID, uuid.New()); !errors.Is(err, ErrCommentNotFound) || store.likeCalls != 1 {
+		t.Fatalf("LikeComment(hidden) error/calls = %v/%d", err, store.likeCalls)
+	}
+	for range 2 {
+		if err = service.UnlikeComment(context.Background(), userID, commentID); err != nil {
+			t.Fatalf("UnlikeComment() error = %v", err)
+		}
+	}
+}
+
+func TestServiceFiltersUnavailableCommentLikes(t *testing.T) {
+	userID, visibleID, hiddenID := uuid.New(), uuid.New(), uuid.New()
+	store := &storeStub{likePage: LikePage{
+		Items: []Like{{UserID: userID, TargetID: visibleID}, {UserID: userID, TargetID: hiddenID}},
+		Limit: 10, Total: 2,
+	}}
+	validator := &commentValidatorStub{visible: map[uuid.UUID]struct{}{visibleID: {}}}
+	result, err := NewService(store, &validatorStub{}, validator).CommentLikes(
+		context.Background(), userID, PageRequest{Limit: 10},
+	)
+	if err != nil || len(result.Items) != 1 || result.Items[0].TargetID != visibleID {
+		t.Fatalf("CommentLikes() = %+v, %v", result, err)
 	}
 }
 
@@ -105,6 +140,28 @@ type validatorStub struct {
 	trackErr  error
 	albumErr  error
 	artistErr error
+}
+
+type commentValidatorStub struct {
+	commentID uuid.UUID
+	visible   map[uuid.UUID]struct{}
+	err       error
+}
+
+func (stub *commentValidatorStub) ValidateComment(_ context.Context, id uuid.UUID) error {
+	stub.commentID = id
+	return stub.err
+}
+
+func (stub *commentValidatorStub) ValidateComments(_ context.Context, ids []uuid.UUID) (map[uuid.UUID]struct{}, error) {
+	if stub.visible != nil {
+		return stub.visible, stub.err
+	}
+	result := make(map[uuid.UUID]struct{}, len(ids))
+	for _, id := range ids {
+		result[id] = struct{}{}
+	}
+	return result, stub.err
 }
 
 func (stub *validatorStub) ValidateTrack(_ context.Context, id uuid.UUID) error {
@@ -127,6 +184,7 @@ type storeStub struct {
 	userID        uuid.UUID
 	targetID      uuid.UUID
 	page          PageRequest
+	likePage      LikePage
 	likeCalls     int
 	unlikeCalls   int
 	followCalls   int
@@ -149,6 +207,9 @@ func (stub *storeStub) unliked(userID, targetID uuid.UUID) error {
 
 func (stub *storeStub) listed(userID uuid.UUID, page PageRequest) (LikePage, error) {
 	stub.userID, stub.page = userID, page
+	if stub.likePage.Items != nil {
+		return stub.likePage, nil
+	}
 	return LikePage{Items: []Like{}, Limit: page.Limit, Offset: page.Offset}, nil
 }
 
@@ -168,6 +229,15 @@ func (stub *storeStub) UnlikeAlbum(_ context.Context, userID, id uuid.UUID) erro
 	return stub.unliked(userID, id)
 }
 func (stub *storeStub) AlbumLikes(_ context.Context, userID uuid.UUID, page PageRequest) (LikePage, error) {
+	return stub.listed(userID, page)
+}
+func (stub *storeStub) LikeComment(_ context.Context, userID, id uuid.UUID) (Like, error) {
+	return stub.liked(userID, id)
+}
+func (stub *storeStub) UnlikeComment(_ context.Context, userID, id uuid.UUID) error {
+	return stub.unliked(userID, id)
+}
+func (stub *storeStub) CommentLikes(_ context.Context, userID uuid.UUID, page PageRequest) (LikePage, error) {
 	return stub.listed(userID, page)
 }
 
