@@ -1,0 +1,17 @@
+FROM golang:1.25-alpine AS source
+
+WORKDIR /src
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . .
+
+FROM source AS build
+RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /out/history-service ./cmd/server
+
+FROM scratch
+COPY --from=build /out/history-service /history-service
+USER 65532:65532
+EXPOSE 8080
+HEALTHCHECK --interval=10s --timeout=5s --start-period=10s --retries=5 \
+    CMD ["/history-service", "healthcheck"]
+ENTRYPOINT ["/history-service"]
