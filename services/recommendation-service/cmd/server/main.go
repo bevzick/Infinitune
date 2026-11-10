@@ -22,6 +22,8 @@ import (
 	"github.com/bevzick/Infinitune/services/recommendation-service/internal/database"
 	"github.com/bevzick/Infinitune/services/recommendation-service/internal/httpapi"
 	"github.com/bevzick/Infinitune/services/recommendation-service/internal/ranking"
+	"github.com/bevzick/Infinitune/services/recommendation-service/internal/recommendation"
+	postgres_repository "github.com/bevzick/Infinitune/services/recommendation-service/internal/repository/postgres"
 	preferencesignal "github.com/bevzick/Infinitune/services/recommendation-service/internal/signal"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -97,7 +99,17 @@ func main() {
 		ranking.NewCatalogSource(catalogv1.NewCatalogServiceClient(catalogConnection)),
 		ranking.NewContentClient(contentv1.NewContentServiceClient(contentConnection)),
 	)
-	_ = rankingService // consumed by run persistence introduced in the next stage
+	runService, err := recommendation.NewService(
+		rankingService,
+		postgres_repository.NewRunRepository(databasePool),
+		ranking.AlgorithmVersion,
+		cfg.RunTTL,
+	)
+	if err != nil {
+		logger.Error("failed to configure recommendation run service", "error", err)
+		os.Exit(1)
+	}
+	_ = runService // consumed by the HTTP API introduced in the next stage
 	server := &http.Server{
 		Addr: cfg.HTTPAddress, Handler: httpapi.NewRouter(databasePool),
 		ReadHeaderTimeout: readHeaderTimeout,

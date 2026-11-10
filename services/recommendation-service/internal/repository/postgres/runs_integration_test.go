@@ -65,6 +65,31 @@ func TestRunRepositoryPersistsAndReplaysVersionedRun(t *testing.T) {
 	if _, err = repository.Save(ctx, run); !errors.Is(err, recommendation.ErrConflict) {
 		t.Fatalf("duplicate Save() error = %v, want %v", err, recommendation.ErrConflict)
 	}
+	candidate, err := recommendation.NewRun(
+		uuid.New(), userID, "transparent-v1", now.Add(time.Minute), now.Add(61*time.Minute),
+		[]recommendation.Item{{TrackID: uuid.New(), Score: 0.7, Rank: 1, Reason: "preferred artist"}},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		_, _ = pool.Exec(context.Background(), `DELETE FROM recommendation.recommendation_items WHERE run_id = $1`, candidate.ID)
+		_, _ = pool.Exec(context.Background(), `DELETE FROM recommendation.recommendation_runs WHERE id = $1`, candidate.ID)
+	})
+	winner, created, err := repository.SaveIfNoValid(ctx, candidate, now.Add(30*time.Minute))
+	if err != nil || created || winner.ID != run.ID {
+		t.Fatalf("SaveIfNoValid(cached) = %+v, %v, %v", winner, created, err)
+	}
+	future, err := recommendation.NewRun(
+		candidate.ID, userID, "transparent-v1", now.Add(2*time.Hour), now.Add(3*time.Hour), candidate.Items,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	winner, created, err = repository.SaveIfNoValid(ctx, future, now.Add(2*time.Hour))
+	if err != nil || !created || winner.ID != future.ID {
+		t.Fatalf("SaveIfNoValid(expired) = %+v, %v, %v", winner, created, err)
+	}
 }
 
 func TestRunRepositoryRollsBackRunWhenAnItemFails(t *testing.T) {
@@ -93,6 +118,64 @@ func TestRunRepositoryRollsBackRunWhenAnItemFails(t *testing.T) {
 	}
 	if count != 0 {
 		t.Fatalf("recommendation run count = %d, want rollback", count)
+	}
+}
+
+func TestRunRepositorySerializesConcurrentGeneration(t *testing.T) {
+	pool := openIntegrationDatabase(t)
+	repository := NewRunRepository(pool)
+	now := time.Now().UTC().Truncate(time.Microsecond)
+	userID := uuid.New()
+	candidates := make([]recommendation.Run, 2)
+	for index := range candidates {
+		var err error
+		candidates[index], err = recommendation.NewRun(
+			uuid.New(), userID, "transparent-v1", now, now.Add(time.Hour),
+			[]recommendation.Item{{TrackID: uuid.New(), Score: float64(2 - index), Rank: 1, Reason: "preferred genre"}},
+		)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	t.Cleanup(func() {
+		for _, candidate := range candidates {
+			_, _ = pool.Exec(context.Background(), `DELETE FROM recommendation.recommendation_items WHERE run_id = $1`, candidate.ID)
+			_, _ = pool.Exec(context.Background(), `DELETE FROM recommendation.recommendation_runs WHERE id = $1`, candidate.ID)
+		}
+	})
+	type saveResult struct {
+		run     recommendation.Run
+		created bool
+		err     error
+	}
+	start := make(chan struct{})
+	results := make(chan saveResult, len(candidates))
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	for _, candidate := range candidates {
+		go func(run recommendation.Run) {
+			<-start
+			stored, created, err := repository.SaveIfNoValid(ctx, run, now)
+			results <- saveResult{run: stored, created: created, err: err}
+		}(candidate)
+	}
+	close(start)
+	first, second := <-results, <-results
+	if first.err != nil || second.err != nil {
+		t.Fatalf("SaveIfNoValid() errors = %v, %v", first.err, second.err)
+	}
+	if first.run.ID != second.run.ID {
+		t.Fatalf("concurrent runs differ: %s != %s", first.run.ID, second.run.ID)
+	}
+	createdCount := 0
+	if first.created {
+		createdCount++
+	}
+	if second.created {
+		createdCount++
+	}
+	if createdCount != 1 {
+		t.Fatalf("created count = %d, want 1", createdCount)
 	}
 }
 

@@ -6,6 +6,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/bevzick/Infinitune/services/recommendation-service/internal/database"
 )
@@ -17,6 +18,7 @@ const (
 	defaultPostgresPort = "5432"
 	defaultGRPCHost     = "127.0.0.1"
 	defaultGRPCPort     = "9090"
+	defaultRunTTL       = time.Hour
 )
 
 type Config struct {
@@ -26,6 +28,7 @@ type Config struct {
 	HistoryAddress     string
 	CatalogAddress     string
 	ContentAddress     string
+	RunTTL             time.Duration
 	Database           database.Config
 }
 
@@ -58,6 +61,10 @@ func Load() (Config, error) {
 	if _, err = parsePort("CONTENT_GRPC_PORT", contentPort); err != nil {
 		return Config{}, err
 	}
+	runTTL, err := parsePositiveDuration("RECOMMENDATION_RUN_TTL", envOrDefault("RECOMMENDATION_RUN_TTL", defaultRunTTL.String()))
+	if err != nil {
+		return Config{}, err
+	}
 	return Config{
 		HTTPAddress: net.JoinHostPort(
 			envOrDefault("RECOMMENDATION_HTTP_HOST", defaultHTTPHost),
@@ -68,8 +75,17 @@ func Load() (Config, error) {
 		HistoryAddress:     net.JoinHostPort(envOrDefault("HISTORY_GRPC_HOST", defaultGRPCHost), historyPort),
 		CatalogAddress:     net.JoinHostPort(envOrDefault("CATALOG_GRPC_HOST", defaultGRPCHost), catalogPort),
 		ContentAddress:     net.JoinHostPort(envOrDefault("CONTENT_GRPC_HOST", defaultGRPCHost), contentPort),
+		RunTTL:             runTTL,
 		Database:           databaseConfig,
 	}, nil
+}
+
+func parsePositiveDuration(key, value string) (time.Duration, error) {
+	duration, err := time.ParseDuration(value)
+	if err != nil || duration <= 0 {
+		return 0, fmt.Errorf("invalid %s %q: expected a positive duration", key, value)
+	}
+	return duration, nil
 }
 
 func loadDatabaseConfig() (database.Config, error) {

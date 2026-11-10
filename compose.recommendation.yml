@@ -20,6 +20,7 @@ services:
     environment:
       RECOMMENDATION_HTTP_HOST: 0.0.0.0
       RECOMMENDATION_HTTP_PORT: 8080
+      RECOMMENDATION_RUN_TTL: ${RECOMMENDATION_RUN_TTL:-1h}
       USER_GRPC_HOST: user-service
       USER_GRPC_PORT: 9090
       INTERACTION_GRPC_HOST: interaction-service
