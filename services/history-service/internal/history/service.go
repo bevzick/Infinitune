@@ -16,6 +16,72 @@ const (
 
 type EventStore interface {
 	Record(context.Context, Event) (Event, error)
+	List(context.Context, uuid.UUID, ListFilter, int) ([]Event, error)
+	Delete(context.Context, uuid.UUID, *time.Time) (int64, error)
+}
+
+func (service *Service) List(ctx context.Context, userID uuid.UUID, request ListRequest) (Page, error) {
+	if userID == uuid.Nil {
+		return Page{}, fmt.Errorf("%w: user identity is required", ErrInvalidArgument)
+	}
+	if err := validateListRequest(request); err != nil {
+		return Page{}, err
+	}
+	limit := request.Limit
+	if limit == 0 {
+		limit = 25
+	}
+	items, err := service.store.List(ctx, userID, request.Filter, limit+1)
+	if err != nil {
+		return Page{}, err
+	}
+	page := Page{Items: items}
+	if len(items) > limit {
+		page.Items = items[:limit]
+		last := page.Items[len(page.Items)-1]
+		page.NextCursor = &Cursor{StartedAt: last.StartedAt, EventID: last.ID}
+	}
+	return page, nil
+}
+
+func (service *Service) Clear(ctx context.Context, userID uuid.UUID, request ClearRequest) (ClearResult, error) {
+	if userID == uuid.Nil {
+		return ClearResult{}, fmt.Errorf("%w: user identity is required", ErrInvalidArgument)
+	}
+	if request.Before != nil && (request.Before.IsZero() || request.Before.After(service.now().UTC().Add(allowedClockSkew))) {
+		return ClearResult{}, fmt.Errorf("%w: before is invalid", ErrInvalidArgument)
+	}
+	deleted, err := service.store.Delete(ctx, userID, request.Before)
+	if err != nil {
+		return ClearResult{}, err
+	}
+	return ClearResult{Deleted: deleted}, nil
+}
+
+func validateListRequest(request ListRequest) error {
+	if request.Limit < 0 || request.Limit > 100 {
+		return fmt.Errorf("%w: limit must be between 1 and 100 when provided", ErrInvalidArgument)
+	}
+	filter := request.Filter
+	if filter.TrackID != nil && *filter.TrackID == uuid.Nil {
+		return fmt.Errorf("%w: track_id is invalid", ErrInvalidArgument)
+	}
+	if (filter.From != nil && filter.From.IsZero()) || (filter.To != nil && filter.To.IsZero()) {
+		return fmt.Errorf("%w: time filter is invalid", ErrInvalidArgument)
+	}
+	if filter.From != nil && filter.To != nil && !filter.From.Before(*filter.To) {
+		return fmt.Errorf("%w: from must be before to", ErrInvalidArgument)
+	}
+	if filter.ContextType != "" && !validContextType(filter.ContextType) {
+		return fmt.Errorf("%w: context_type is unsupported", ErrInvalidArgument)
+	}
+	if filter.DeviceType != "" && !validDeviceType(filter.DeviceType) {
+		return fmt.Errorf("%w: device_type is unsupported", ErrInvalidArgument)
+	}
+	if filter.Cursor != nil && (filter.Cursor.EventID == uuid.Nil || filter.Cursor.StartedAt.IsZero()) {
+		return fmt.Errorf("%w: cursor is invalid", ErrInvalidArgument)
+	}
+	return nil
 }
 
 type TrackCatalog interface {
@@ -87,9 +153,7 @@ func validateInput(userID uuid.UUID, input RecordInput, now time.Time) error {
 	if input.ListenedMS < 0 {
 		return fmt.Errorf("%w: listened_ms cannot be negative", ErrInvalidArgument)
 	}
-	validDevice := input.DeviceType == "web" || input.DeviceType == "mobile" ||
-		input.DeviceType == "desktop" || input.DeviceType == "tv" || input.DeviceType == "other"
-	if !validDevice {
+	if !validDeviceType(input.DeviceType) {
 		return fmt.Errorf("%w: device_type is unsupported", ErrInvalidArgument)
 	}
 	requiresContext := input.ContextType == "album" || input.ContextType == "playlist" ||
@@ -100,4 +164,11 @@ func validateInput(userID uuid.UUID, input RecordInput, now time.Time) error {
 		return fmt.Errorf("%w: playback context is invalid", ErrInvalidArgument)
 	}
 	return nil
+}
+
+func validContextType(value string) bool {
+	return value == "direct" || value == "album" || value == "playlist" || value == "artist" || value == "recommendation" || value == "search"
+}
+func validDeviceType(value string) bool {
+	return value == "web" || value == "mobile" || value == "desktop" || value == "tv" || value == "other"
 }

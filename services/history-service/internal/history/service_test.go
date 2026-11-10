@@ -70,15 +70,63 @@ func TestRecordRejectsFakePlayback(t *testing.T) {
 	}
 }
 
+func TestListIsOwnerScopedAndBuildsStableCursor(t *testing.T) {
+	now := time.Now().UTC()
+	userID := uuid.New()
+	store := &storeStub{items: []Event{
+		{ID: uuid.New(), UserID: userID, StartedAt: now},
+		{ID: uuid.New(), UserID: userID, StartedAt: now.Add(-time.Minute)},
+		{ID: uuid.New(), UserID: userID, StartedAt: now.Add(-2 * time.Minute)},
+	}}
+	service := NewService(store, catalogStub{})
+	page, err := service.List(context.Background(), userID, ListRequest{Limit: 2})
+	if err != nil || len(page.Items) != 2 || page.NextCursor == nil || page.NextCursor.EventID != store.items[1].ID || store.userID != userID || store.limit != 3 {
+		t.Fatalf("List()=%+v,%v store user/limit=%s/%d", page, err, store.userID, store.limit)
+	}
+}
+
+func TestClearOnlyForVerifiedOwnerAndValidCutoff(t *testing.T) {
+	now := time.Now().UTC()
+	userID := uuid.New()
+	before := now.Add(-time.Hour)
+	store := &storeStub{deleted: 4}
+	service := NewService(store, catalogStub{})
+	service.now = func() time.Time { return now }
+	result, err := service.Clear(context.Background(), userID, ClearRequest{Before: &before})
+	if err != nil || result.Deleted != 4 || store.userID != userID || store.before == nil || !store.before.Equal(before) {
+		t.Fatalf("Clear()=%+v,%v store=%+v", result, err, store)
+	}
+	future := now.Add(time.Hour)
+	if _, err = service.Clear(context.Background(), userID, ClearRequest{Before: &future}); !errors.Is(err, ErrInvalidArgument) {
+		t.Fatalf("Clear(future) error=%v", err)
+	}
+}
+
 func validInput(now time.Time, listenedMS int) RecordInput {
 	return RecordInput{EventID: uuid.New(), TrackID: uuid.New(), StartedAt: now.Add(-time.Minute),
 		FinishedAt: now, ListenedMS: listenedMS, ContextType: "direct", DeviceType: "mobile"}
 }
 
 type storeStub struct {
-	event Event
-	calls int
-	err   error
+	event   Event
+	calls   int
+	err     error
+	items   []Event
+	userID  uuid.UUID
+	limit   int
+	before  *time.Time
+	deleted int64
+}
+
+func (stub *storeStub) List(_ context.Context, userID uuid.UUID, _ ListFilter, limit int) ([]Event, error) {
+	stub.userID = userID
+	stub.limit = limit
+	return stub.items, stub.err
+}
+func (stub *storeStub) Delete(_ context.Context, userID uuid.UUID, before *time.Time) (int64, error) {
+	stub.userID = userID
+	stub.before = before
+	return stub.deleted, stub.err
 }
 
 func (stub *storeStub) Record(_ context.Context, event Event) (Event, error) {

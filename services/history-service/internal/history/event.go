@@ -52,6 +52,39 @@ type RecordResult struct {
 	Completed bool
 }
 
+type Cursor struct {
+	StartedAt time.Time
+	EventID   uuid.UUID
+}
+
+type ListFilter struct {
+	TrackID     *uuid.UUID
+	From        *time.Time
+	To          *time.Time
+	Completed   *bool
+	ContextType string
+	DeviceType  string
+	Cursor      *Cursor
+}
+
+type ListRequest struct {
+	Filter ListFilter
+	Limit  int
+}
+
+type Page struct {
+	Items      []Event
+	NextCursor *Cursor
+}
+
+type ClearRequest struct {
+	Before *time.Time
+}
+
+type ClearResult struct {
+	Deleted int64
+}
+
 // Qualifies reports whether validated playback counts as a listen. Short tracks
 // qualify at half their duration; longer tracks qualify after 30 seconds.
 func Qualifies(listenedMS, durationMS int) bool {

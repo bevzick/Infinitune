@@ -40,6 +40,48 @@ func TestRecordIsIdempotentAndRejectsChangedPayload(t *testing.T) {
 	}
 }
 
+func TestListAndDeleteRemainOwnerScoped(t *testing.T) {
+	pool := openDatabase(t)
+	repository := NewEventRepository(pool)
+	ctx := context.Background()
+	ownerID, foreignID, trackID := uuid.New(), uuid.New(), uuid.New()
+	base := time.Now().UTC().Truncate(time.Microsecond).Add(-time.Hour)
+	t.Cleanup(func() {
+		_, _ = pool.Exec(context.Background(), "DELETE FROM history.listening_events WHERE user_id=ANY($1)", []uuid.UUID{ownerID, foreignID})
+	})
+	newEvent := func(userID uuid.UUID, started time.Time, completed bool) history.Event {
+		finished := started.Add(time.Minute)
+		return history.Event{ID: uuid.New(), UserID: userID, TrackID: trackID, StartedAt: started, FinishedAt: &finished, ListenedMS: 60000, Completed: completed, ContextType: "direct", DeviceType: "web"}
+	}
+	first := newEvent(ownerID, base, false)
+	second := newEvent(ownerID, base.Add(time.Minute), true)
+	foreign := newEvent(foreignID, base.Add(2*time.Minute), true)
+	for _, event := range []history.Event{first, second, foreign} {
+		if _, err := repository.Record(ctx, event); err != nil {
+			t.Fatalf("Record: %v", err)
+		}
+	}
+	completed := true
+	items, err := repository.List(ctx, ownerID, history.ListFilter{TrackID: &trackID, Completed: &completed}, 10)
+	if err != nil || len(items) != 1 || items[0].ID != second.ID {
+		t.Fatalf("List()=%+v,%v", items, err)
+	}
+	cursor := history.Cursor{StartedAt: second.StartedAt, EventID: second.ID}
+	items, err = repository.List(ctx, ownerID, history.ListFilter{Cursor: &cursor}, 10)
+	if err != nil || len(items) != 1 || items[0].ID != first.ID {
+		t.Fatalf("List(cursor)=%+v,%v", items, err)
+	}
+	cutoff := base.Add(30 * time.Second)
+	deleted, err := repository.Delete(ctx, ownerID, &cutoff)
+	if err != nil || deleted != 1 {
+		t.Fatalf("Delete()=%d,%v", deleted, err)
+	}
+	var foreignCount int
+	if err = pool.QueryRow(ctx, "SELECT count(*) FROM history.listening_events WHERE user_id=$1", foreignID).Scan(&foreignCount); err != nil || foreignCount != 1 {
+		t.Fatalf("foreign count=%d,%v", foreignCount, err)
+	}
+}
+
 func openDatabase(t *testing.T) *pgxpool.Pool {
 	t.Helper()
 	if os.Getenv("INFINITUNE_INTEGRATION_TESTS") != "1" {

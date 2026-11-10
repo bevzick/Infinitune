@@ -21,6 +21,8 @@ type IdentityVerifier interface {
 }
 type History interface {
 	Record(context.Context, uuid.UUID, history.RecordInput) (history.RecordResult, error)
+	List(context.Context, uuid.UUID, history.ListRequest) (history.Page, error)
+	Clear(context.Context, uuid.UUID, history.ClearRequest) (history.ClearResult, error)
 }
 
 type Dependencies struct {
@@ -51,6 +53,8 @@ func NewRouter(dependencies Dependencies) http.Handler {
 		protected := router.Group("/v1/history")
 		protected.Use(authenticate(dependencies.Tokens, dependencies.Logger))
 		protected.POST("/events", recordEvent(dependencies.History, dependencies.Logger))
+		protected.GET("/events", listEvents(dependencies.History, dependencies.Logger))
+		protected.DELETE("/events", clearEvents(dependencies.History, dependencies.Logger))
 	}
 	return router
 }

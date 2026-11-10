@@ -4,8 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/bevzick/Infinitune/services/history-service/internal/history"
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -44,4 +46,59 @@ func (repository *EventRepository) Record(ctx context.Context, event history.Eve
 		return history.Event{}, fmt.Errorf("record listening event: %w", err)
 	}
 	return stored, nil
+}
+
+func (repository *EventRepository) List(ctx context.Context, userID uuid.UUID, filter history.ListFilter, limit int) ([]history.Event, error) {
+	var cursorTime *time.Time
+	var cursorID *uuid.UUID
+	if filter.Cursor != nil {
+		cursorTime = &filter.Cursor.StartedAt
+		cursorID = &filter.Cursor.EventID
+	}
+	rows, err := repository.pool.Query(ctx, `
+		SELECT id,user_id,track_id,started_at,finished_at,listened_ms,
+		       completed,context_type,context_id,device_type
+		FROM history.listening_events
+		WHERE user_id=$1
+		  AND ($2::uuid IS NULL OR track_id=$2)
+		  AND ($3::timestamptz IS NULL OR started_at >= $3)
+		  AND ($4::timestamptz IS NULL OR started_at < $4)
+		  AND ($5::boolean IS NULL OR completed=$5)
+		  AND ($6::text IS NULL OR context_type=$6)
+		  AND ($7::text IS NULL OR device_type=$7)
+		  AND ($8::timestamptz IS NULL OR (started_at,id) < ($8,$9))
+		ORDER BY started_at DESC,id DESC
+		LIMIT $10
+	`, userID, filter.TrackID, filter.From, filter.To, filter.Completed, nullableString(filter.ContextType), nullableString(filter.DeviceType), cursorTime, cursorID, limit)
+	if err != nil {
+		return nil, fmt.Errorf("list listening events: %w", err)
+	}
+	defer rows.Close()
+	items := make([]history.Event, 0)
+	for rows.Next() {
+		var event history.Event
+		if err = rows.Scan(&event.ID, &event.UserID, &event.TrackID, &event.StartedAt, &event.FinishedAt, &event.ListenedMS, &event.Completed, &event.ContextType, &event.ContextID, &event.DeviceType); err != nil {
+			return nil, fmt.Errorf("scan listening event: %w", err)
+		}
+		items = append(items, event)
+	}
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate listening events: %w", err)
+	}
+	return items, nil
+}
+
+func (repository *EventRepository) Delete(ctx context.Context, userID uuid.UUID, before *time.Time) (int64, error) {
+	result, err := repository.pool.Exec(ctx, `DELETE FROM history.listening_events WHERE user_id=$1 AND ($2::timestamptz IS NULL OR started_at < $2)`, userID, before)
+	if err != nil {
+		return 0, fmt.Errorf("delete listening events: %w", err)
+	}
+	return result.RowsAffected(), nil
+}
+
+func nullableString(value string) *string {
+	if value == "" {
+		return nil
+	}
+	return &value
 }

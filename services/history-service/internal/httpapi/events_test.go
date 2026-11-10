@@ -89,11 +89,28 @@ func (stub tokenStub) Verify(context.Context, string, time.Time) (identity.Ident
 }
 
 type historyStub struct {
-	userID uuid.UUID
-	input  history.RecordInput
-	result history.RecordResult
-	err    error
-	calls  int
+	userID       uuid.UUID
+	input        history.RecordInput
+	result       history.RecordResult
+	err          error
+	calls        int
+	page         history.Page
+	listRequest  history.ListRequest
+	clearRequest history.ClearRequest
+	clearResult  history.ClearResult
+}
+
+func (stub *historyStub) List(_ context.Context, userID uuid.UUID, request history.ListRequest) (history.Page, error) {
+	stub.userID = userID
+	stub.listRequest = request
+	stub.calls++
+	return stub.page, stub.err
+}
+func (stub *historyStub) Clear(_ context.Context, userID uuid.UUID, request history.ClearRequest) (history.ClearResult, error) {
+	stub.userID = userID
+	stub.clearRequest = request
+	stub.calls++
+	return stub.clearResult, stub.err
 }
 
 func (stub *historyStub) Record(_ context.Context, userID uuid.UUID, input history.RecordInput) (history.RecordResult, error) {
