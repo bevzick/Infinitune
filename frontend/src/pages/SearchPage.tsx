@@ -157,7 +157,10 @@ export function SearchPage() {
       ) : null}
       {results.status === "ready" && results.page.items.length ? (
         <>
-          <TrackList tracks={results.page.items} />
+          <TrackList
+            tracks={results.page.items}
+            playbackContext={{ type: "search" }}
+          />
           <CatalogPagination
             page={search.page}
             pageSize={searchPageSize}
