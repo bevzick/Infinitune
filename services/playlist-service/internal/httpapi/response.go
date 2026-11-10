@@ -49,6 +49,12 @@ func writeDomainError(c *gin.Context, logger *slog.Logger, err error) {
 	case errors.Is(err, playlist.ErrCatalogUnavailable):
 		writeError(c, http.StatusServiceUnavailable, "catalog_unavailable",
 			"Catalog service is temporarily unavailable")
+	case errors.Is(err, playlist.ErrRecommendationTimeout):
+		writeError(c, http.StatusGatewayTimeout, "recommendation_timeout", "Recommendation service did not respond in time")
+	case errors.Is(err, playlist.ErrRecommendationUnavailable):
+		writeError(c, http.StatusServiceUnavailable, "recommendation_unavailable", "Recommendation service is temporarily unavailable")
+	case errors.Is(err, playlist.ErrPersonalizationDisabled):
+		writeError(c, http.StatusConflict, "personalization_disabled", "Personalized recommendations are disabled")
 	default:
 		logger.Error("playlist request failed", "error", err)
 		writeError(c, http.StatusInternalServerError, "internal_error", "Request could not be completed")

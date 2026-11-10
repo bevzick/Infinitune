@@ -1,0 +1,27 @@
+syntax = "proto3";
+
+package infinitune.recommendation.ranking.v1;
+
+option go_package = "github.com/bevzick/Infinitune/services/recommendation-service/api/ranking/v1;rankingv1";
+
+// Internal contract for ranking an already filtered candidate set.
+service RankingService {
+  rpc RankCandidates(RankCandidatesRequest) returns (RankCandidatesResponse);
+}
+
+message RankCandidatesRequest {
+  string user_id = 1;
+  repeated string track_ids = 2;
+}
+
+message RankedTrack {
+  string track_id = 1;
+  double score = 2;
+  int32 rank = 3;
+  string reason = 4;
+}
+
+message RankCandidatesResponse {
+  repeated RankedTrack tracks = 1;
+  string algorithm_version = 2;
+}

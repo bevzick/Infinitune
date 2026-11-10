@@ -83,6 +83,9 @@ type candidateSourceStub struct {
 func (stub candidateSourceStub) Discover(context.Context, preferencesignal.Set) ([]Candidate, error) {
 	return stub.result, stub.err
 }
+func (stub candidateSourceStub) Candidates(context.Context, []uuid.UUID) ([]Candidate, error) {
+	return stub.result, stub.err
+}
 
 type eligibilityStub struct {
 	allowed    bool

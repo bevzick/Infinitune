@@ -14,12 +14,14 @@ import (
 	"time"
 
 	catalogv1 "github.com/bevzick/Infinitune/services/playlist-service/api/catalog/v1"
+	recommendationv1 "github.com/bevzick/Infinitune/services/playlist-service/api/recommendation/v1"
 	"github.com/bevzick/Infinitune/services/playlist-service/internal/catalog"
 	"github.com/bevzick/Infinitune/services/playlist-service/internal/config"
 	"github.com/bevzick/Infinitune/services/playlist-service/internal/database"
 	"github.com/bevzick/Infinitune/services/playlist-service/internal/httpapi"
 	"github.com/bevzick/Infinitune/services/playlist-service/internal/identity"
 	"github.com/bevzick/Infinitune/services/playlist-service/internal/playlist"
+	recommendation_client "github.com/bevzick/Infinitune/services/playlist-service/internal/recommendation"
 	postgres_repository "github.com/bevzick/Infinitune/services/playlist-service/internal/repository/postgres"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -69,6 +71,12 @@ func main() {
 		os.Exit(1)
 	}
 	defer catalogConnection.Close()
+	recommendationConnection, err := grpc.NewClient(cfg.RecommendationAddress, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		logger.Error("failed to configure Recommendation gRPC client", "error", err)
+		os.Exit(1)
+	}
+	defer recommendationConnection.Close()
 
 	repository := postgres_repository.NewPlaylistRepository(databasePool)
 	playlistService := playlist.NewService(repository)
@@ -83,6 +91,7 @@ func main() {
 		playlistService,
 		repository,
 		catalog.NewDynamicResolver(catalogClient),
+		recommendation_client.NewClient(recommendationv1.NewRankingServiceClient(recommendationConnection)),
 	)
 
 	server := &http.Server{

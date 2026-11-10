@@ -28,11 +28,12 @@ const (
 )
 
 type Config struct {
-	HTTPAddress    string
-	CatalogAddress string
-	Database       database.Config
-	Identity       identity.Config
-	Origins        []string
+	HTTPAddress           string
+	CatalogAddress        string
+	RecommendationAddress string
+	Database              database.Config
+	Identity              identity.Config
+	Origins               []string
 }
 
 func Load() (Config, error) {
@@ -42,6 +43,10 @@ func Load() (Config, error) {
 	}
 	catalogPort := envOrDefault("CATALOG_GRPC_PORT", defaultCatalogPort)
 	if _, err := parsePort("CATALOG_GRPC_PORT", catalogPort); err != nil {
+		return Config{}, err
+	}
+	recommendationPort := envOrDefault("RECOMMENDATION_GRPC_PORT", defaultCatalogPort)
+	if _, err := parsePort("RECOMMENDATION_GRPC_PORT", recommendationPort); err != nil {
 		return Config{}, err
 	}
 	databaseConfig, err := loadDatabaseConfig()
@@ -57,7 +62,8 @@ func Load() (Config, error) {
 		CatalogAddress: net.JoinHostPort(
 			envOrDefault("CATALOG_GRPC_HOST", defaultCatalogHost), catalogPort,
 		),
-		Database: databaseConfig,
+		RecommendationAddress: net.JoinHostPort(envOrDefault("RECOMMENDATION_GRPC_HOST", defaultCatalogHost), recommendationPort),
+		Database:              databaseConfig,
 		Identity: identity.Config{
 			JWKSURL:         envOrDefault("PLAYLIST_AUTH_JWKS_URL", defaultJWKSURL),
 			Issuer:          envOrDefault("AUTH_JWT_ISSUER", defaultJWTIssuer),

@@ -26,6 +26,25 @@ type CatalogSource struct{ client CatalogRPC }
 
 func NewCatalogSource(client CatalogRPC) *CatalogSource { return &CatalogSource{client: client} }
 
+func (source *CatalogSource) Candidates(ctx context.Context, trackIDs []uuid.UUID) ([]Candidate, error) {
+	ids := uniqueIDStrings(trackIDs)
+	if len(ids) != len(trackIDs) {
+		return nil, fmt.Errorf("candidate track ids must be valid and unique")
+	}
+	response, err := source.client.GetTracks(ctx, &catalogv1.GetTracksRequest{TrackIds: ids})
+	if err != nil {
+		return nil, fmt.Errorf("read Catalog candidates: %w", err)
+	}
+	result, err := appendCandidates(nil, make(map[uuid.UUID]struct{}, len(ids)), response.GetTracks(), true)
+	if err != nil {
+		return nil, err
+	}
+	if len(result) != len(trackIDs) {
+		return nil, fmt.Errorf("catalog returned incomplete candidate set")
+	}
+	return result, nil
+}
+
 func (source *CatalogSource) Discover(ctx context.Context, signals preferencesignal.Set) ([]Candidate, error) {
 	var explicit *bool
 	if !signals.Preferences.ExplicitAllowed {

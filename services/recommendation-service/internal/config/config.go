@@ -30,6 +30,7 @@ const (
 
 type Config struct {
 	HTTPAddress        string
+	GRPCAddress        string
 	UserAddress        string
 	InteractionAddress string
 	HistoryAddress     string
@@ -44,6 +45,10 @@ type Config struct {
 func Load() (Config, error) {
 	httpPort := envOrDefault("RECOMMENDATION_HTTP_PORT", defaultHTTPPort)
 	if _, err := parsePort("RECOMMENDATION_HTTP_PORT", httpPort); err != nil {
+		return Config{}, err
+	}
+	recommendationGRPCPort := envOrDefault("RECOMMENDATION_GRPC_PORT", defaultGRPCPort)
+	if _, err := parsePort("RECOMMENDATION_GRPC_PORT", recommendationGRPCPort); err != nil {
 		return Config{}, err
 	}
 	databaseConfig, err := loadDatabaseConfig()
@@ -83,6 +88,7 @@ func Load() (Config, error) {
 			envOrDefault("RECOMMENDATION_HTTP_HOST", defaultHTTPHost),
 			httpPort,
 		),
+		GRPCAddress:        net.JoinHostPort(envOrDefault("RECOMMENDATION_GRPC_HOST", defaultHTTPHost), recommendationGRPCPort),
 		UserAddress:        net.JoinHostPort(envOrDefault("USER_GRPC_HOST", defaultGRPCHost), grpcPort),
 		InteractionAddress: net.JoinHostPort(envOrDefault("INTERACTION_GRPC_HOST", defaultGRPCHost), interactionPort),
 		HistoryAddress:     net.JoinHostPort(envOrDefault("HISTORY_GRPC_HOST", defaultGRPCHost), historyPort),

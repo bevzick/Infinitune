@@ -36,19 +36,25 @@ type DynamicTrackResolver interface {
 	Resolve(context.Context, rules.RuleSet, PageRequest) (DynamicTrackPage, error)
 }
 
+type DynamicTrackRanker interface {
+	Rank(context.Context, uuid.UUID, []uuid.UUID) ([]DynamicTrack, error)
+}
+
 type DynamicTrackService struct {
 	playlists *Service
 	rules     DynamicRuleStore
 	resolver  DynamicTrackResolver
+	ranker    DynamicTrackRanker
 }
 
 func NewDynamicTrackService(
 	playlists *Service,
 	rulesStore DynamicRuleStore,
 	resolver DynamicTrackResolver,
+	ranker DynamicTrackRanker,
 ) *DynamicTrackService {
 	return &DynamicTrackService{
-		playlists: playlists, rules: rulesStore, resolver: resolver,
+		playlists: playlists, rules: rulesStore, resolver: resolver, ranker: ranker,
 	}
 }
 
@@ -77,9 +83,29 @@ func (service *DynamicTrackService) Resolve(
 		return DynamicTrackPage{}, fmt.Errorf("dynamic playlist criteria identity mismatch: %w", rules.ErrInvalid)
 	}
 
-	result, err := service.resolver.Resolve(ctx, ruleSet, page)
+	resolutionPage := page
+	if viewerID != uuid.Nil && service.ranker != nil {
+		resolutionPage = PageRequest{Limit: maximumTrackPageLimit}
+	}
+	result, err := service.resolver.Resolve(ctx, ruleSet, resolutionPage)
 	if err != nil {
 		return DynamicTrackPage{}, fmt.Errorf("resolve dynamic playlist tracks: %w", err)
+	}
+	if viewerID != uuid.Nil && service.ranker != nil && len(result.Items) > 0 {
+		trackIDs := make([]uuid.UUID, len(result.Items))
+		for index, item := range result.Items {
+			trackIDs[index] = item.TrackID
+		}
+		ranked, rankErr := service.ranker.Rank(ctx, viewerID, trackIDs)
+		if rankErr != nil {
+			return DynamicTrackPage{}, fmt.Errorf("rank dynamic playlist tracks: %w", rankErr)
+		}
+		start := min(page.Offset, len(ranked))
+		end := min(start+page.Limit, len(ranked))
+		result = DynamicTrackPage{Items: append([]DynamicTrack(nil), ranked[start:end]...), Limit: page.Limit, Offset: page.Offset, Total: int64(len(ranked))}
+		for index := range result.Items {
+			result.Items[index].Position = start + index + 1
+		}
 	}
 	if result.Total == 0 {
 		result.Status = DynamicResolutionEmpty

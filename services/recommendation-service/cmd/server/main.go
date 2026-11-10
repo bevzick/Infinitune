@@ -17,9 +17,11 @@ import (
 	contentv1 "github.com/bevzick/Infinitune/services/recommendation-service/api/content/v1"
 	historyv1 "github.com/bevzick/Infinitune/services/recommendation-service/api/history/v1"
 	interactionv1 "github.com/bevzick/Infinitune/services/recommendation-service/api/interaction/v1"
+	rankingv1 "github.com/bevzick/Infinitune/services/recommendation-service/api/ranking/v1"
 	userv1 "github.com/bevzick/Infinitune/services/recommendation-service/api/user/v1"
 	"github.com/bevzick/Infinitune/services/recommendation-service/internal/config"
 	"github.com/bevzick/Infinitune/services/recommendation-service/internal/database"
+	"github.com/bevzick/Infinitune/services/recommendation-service/internal/grpcapi"
 	"github.com/bevzick/Infinitune/services/recommendation-service/internal/httpapi"
 	"github.com/bevzick/Infinitune/services/recommendation-service/internal/identity"
 	"github.com/bevzick/Infinitune/services/recommendation-service/internal/ranking"
@@ -115,6 +117,13 @@ func main() {
 		logger.Error("failed to configure recommendation run service", "error", err)
 		os.Exit(1)
 	}
+	grpcListener, err := net.Listen("tcp", cfg.GRPCAddress)
+	if err != nil {
+		logger.Error("failed to listen for gRPC", "error", err)
+		os.Exit(1)
+	}
+	grpcServer := grpc.NewServer()
+	rankingv1.RegisterRankingServiceServer(grpcServer, grpcapi.NewRankingServer(rankingService))
 	server := &http.Server{
 		Addr: cfg.HTTPAddress, Handler: httpapi.NewRouter(httpapi.Dependencies{
 			Database: databasePool, Tokens: tokenVerifier, Recommendations: runService,
@@ -124,10 +133,14 @@ func main() {
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
-	errorsChannel := make(chan error, 1)
+	errorsChannel := make(chan error, 2)
 	go func() {
 		logger.Info("recommendation service started", "address", cfg.HTTPAddress)
 		errorsChannel <- server.ListenAndServe()
+	}()
+	go func() {
+		logger.Info("recommendation gRPC service started", "address", cfg.GRPCAddress)
+		errorsChannel <- grpcServer.Serve(grpcListener)
 	}()
 	select {
 	case err = <-errorsChannel:
@@ -143,6 +156,13 @@ func main() {
 	if err = server.Shutdown(shutdownCtx); err != nil {
 		logger.Error("failed to shut down recommendation service", "error", err)
 		os.Exit(1)
+	}
+	grpcStopped := make(chan struct{})
+	go func() { grpcServer.GracefulStop(); close(grpcStopped) }()
+	select {
+	case <-grpcStopped:
+	case <-shutdownCtx.Done():
+		grpcServer.Stop()
 	}
 }
 

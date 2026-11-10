@@ -25,7 +25,7 @@ func TestDynamicTrackServiceResolvesVisiblePlaylistWithCurrentRules(t *testing.T
 	resolver := &dynamicTrackResolverStub{page: DynamicTrackPage{
 		Items: []DynamicTrack{{TrackID: trackID, Position: 1}}, Limit: 50, Total: 1,
 	}}
-	service := NewDynamicTrackService(base, ruleStore, resolver)
+	service := NewDynamicTrackService(base, ruleStore, resolver, nil)
 
 	result, err := service.Resolve(context.Background(), viewerID, playlistID, PageRequest{})
 	if err != nil {
@@ -62,7 +62,7 @@ func TestDynamicTrackServiceMarksNoMatchesAsEmpty(t *testing.T) {
 			Visibility: VisibilityPrivate, RuleSetID: &ruleSetID,
 		}}),
 		&dynamicRuleStoreStub{ruleSet: rules.RuleSet{ID: ruleSetID, OwnerID: ownerID}},
-		&dynamicTrackResolverStub{page: DynamicTrackPage{Items: []DynamicTrack{}, Limit: 20}},
+		&dynamicTrackResolverStub{page: DynamicTrackPage{Items: []DynamicTrack{}, Limit: 20}}, nil,
 	)
 	result, err := service.Resolve(
 		context.Background(), ownerID, playlistID, PageRequest{Limit: 20},
@@ -97,7 +97,7 @@ func TestDynamicTrackServiceEnforcesVisibilityAndType(t *testing.T) {
 			resolver := &dynamicTrackResolverStub{}
 			service := NewDynamicTrackService(
 				NewService(&stubStore{playlist: test.playlist}),
-				&dynamicRuleStoreStub{}, resolver,
+				&dynamicRuleStoreStub{}, resolver, nil,
 			)
 			_, err := service.Resolve(
 				context.Background(), test.viewerID, test.playlist.ID, PageRequest{},
@@ -123,11 +123,29 @@ func TestDynamicTrackServicePropagatesCatalogFailure(t *testing.T) {
 			Visibility: VisibilityPrivate, RuleSetID: &ruleSetID,
 		}}),
 		&dynamicRuleStoreStub{ruleSet: rules.RuleSet{ID: ruleSetID, OwnerID: ownerID}},
-		resolver,
+		resolver, nil,
 	)
 	_, err := service.Resolve(context.Background(), ownerID, playlistID, PageRequest{})
 	if !errors.Is(err, ErrCatalogTimeout) {
 		t.Fatalf("Resolve() error = %v, want %v", err, ErrCatalogTimeout)
+	}
+}
+
+func TestDynamicTrackServiceRanksFullCandidateWindowForViewerBeforePagination(t *testing.T) {
+	ownerID, viewerID, playlistID, ruleSetID := uuid.New(), uuid.New(), uuid.New(), uuid.New()
+	first, second, third := uuid.New(), uuid.New(), uuid.New()
+	resolver := &dynamicTrackResolverStub{page: DynamicTrackPage{Items: []DynamicTrack{{TrackID: first}, {TrackID: second}, {TrackID: third}}, Limit: 100, Total: 3}}
+	ranker := &dynamicTrackRankerStub{items: []DynamicTrack{{TrackID: third}, {TrackID: first}, {TrackID: second}}}
+	service := NewDynamicTrackService(NewService(&stubStore{playlist: Playlist{ID: playlistID, OwnerID: ownerID, Type: TypeDynamic, Visibility: VisibilityPublic, RuleSetID: &ruleSetID}}), &dynamicRuleStoreStub{ruleSet: rules.RuleSet{ID: ruleSetID, OwnerID: ownerID}}, resolver, ranker)
+	result, err := service.Resolve(context.Background(), viewerID, playlistID, PageRequest{Limit: 2, Offset: 1})
+	if err != nil {
+		t.Fatalf("Resolve() error = %v", err)
+	}
+	if resolver.pageRequest.Limit != 100 || resolver.pageRequest.Offset != 0 {
+		t.Fatalf("resolver page = %+v", resolver.pageRequest)
+	}
+	if ranker.userID != viewerID || len(result.Items) != 2 || result.Items[0].TrackID != first || result.Items[0].Position != 2 || result.Total != 3 {
+		t.Fatalf("result = %+v; ranker = %+v", result, ranker)
 	}
 }
 
@@ -146,6 +164,17 @@ type dynamicTrackResolverStub struct {
 	ruleSet     rules.RuleSet
 	pageRequest PageRequest
 	calls       int
+}
+
+type dynamicTrackRankerStub struct {
+	items  []DynamicTrack
+	err    error
+	userID uuid.UUID
+}
+
+func (stub *dynamicTrackRankerStub) Rank(_ context.Context, userID uuid.UUID, _ []uuid.UUID) ([]DynamicTrack, error) {
+	stub.userID = userID
+	return stub.items, stub.err
 }
 
 func (stub *dynamicTrackResolverStub) Resolve(
