@@ -71,6 +71,13 @@ type PageRequest struct {
 	Offset int
 }
 
+type PlaylistPage struct {
+	Items  []Playlist
+	Limit  int
+	Offset int
+	Total  int64
+}
+
 type TrackPage struct {
 	Items  []Track
 	Limit  int

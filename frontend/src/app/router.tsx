@@ -5,6 +5,7 @@ import { DiscoverPage } from "../pages/DiscoverPage";
 import { LibraryPage } from "../pages/LibraryPage";
 import { LoginPage } from "../pages/LoginPage";
 import { NotFoundPage } from "../pages/NotFoundPage";
+import { PlaylistPage } from "../pages/PlaylistPage";
 import { RegisterPage } from "../pages/RegisterPage";
 import { RouteErrorPage } from "../pages/RouteErrorPage";
 import { SearchPage } from "../pages/SearchPage";
@@ -29,7 +30,10 @@ export const router = createBrowserRouter([
       { path: "albums", element: <AlbumsPage /> },
       {
         element: <ProtectedRoute />,
-        children: [{ path: "library", element: <LibraryPage /> }],
+        children: [
+          { path: "library", element: <LibraryPage /> },
+          { path: "library/:playlistId", element: <PlaylistPage /> },
+        ],
       },
       { path: "*", element: <NotFoundPage /> },
     ],

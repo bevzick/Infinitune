@@ -34,6 +34,46 @@ type playlistResponse struct {
 	UpdatedAt   time.Time           `json:"updated_at"`
 }
 
+type playlistPageResponse struct {
+	Items []playlistResponse `json:"items"`
+	Page  pageResponse       `json:"page"`
+}
+
+func listPlaylists(service Playlists, logger *slog.Logger) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		actor, ok := requestIdentity(c)
+		if !ok {
+			writeUnauthorized(c)
+			return
+		}
+		limit, ok := queryInteger(c, "limit")
+		if !ok {
+			return
+		}
+		offset, ok := queryInteger(c, "offset")
+		if !ok {
+			return
+		}
+		result, err := service.List(c.Request.Context(), actor.UserID, playlist.PageRequest{
+			Limit: limit, Offset: offset,
+		})
+		if err != nil {
+			writeDomainError(c, logger, err)
+			return
+		}
+		items := make([]playlistResponse, 0, len(result.Items))
+		for _, item := range result.Items {
+			items = append(items, playlistResponseFrom(item))
+		}
+		c.JSON(http.StatusOK, playlistPageResponse{
+			Items: items,
+			Page: pageResponse{
+				Limit: result.Limit, Offset: result.Offset, Total: result.Total,
+			},
+		})
+	}
+}
+
 func createPlaylist(service Playlists, logger *slog.Logger) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		actor, ok := requestIdentity(c)

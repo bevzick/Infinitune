@@ -2,12 +2,21 @@ import { Link } from "react-router-dom";
 import { usePlayer } from "../player/PlayerContext";
 import type { Album, Artist, Track } from "./catalogApi";
 
-export function TrackList({ tracks }: { tracks: Track[] }) {
+export function TrackList({
+  tracks,
+  actions,
+}: {
+  tracks: Track[];
+  actions?(track: Track, index: number): React.ReactNode;
+}) {
   const player = usePlayer();
   return (
     <div className="track-list">
       {tracks.map((track, index) => (
-        <article className="track-row" key={track.id}>
+        <article
+          className={`track-row${actions ? " track-row-with-actions" : ""}`}
+          key={track.id}
+        >
           <span className="track-index" aria-hidden="true">
             {String(index + 1).padStart(2, "0")}
           </span>
@@ -32,6 +41,9 @@ export function TrackList({ tracks }: { tracks: Track[] }) {
             ))}
           </div>
           {track.explicit ? <span className="explicit-mark">E</span> : null}
+          {actions ? (
+            <div className="track-actions">{actions(track, index)}</div>
+          ) : null}
           <time dateTime={`PT${Math.round(track.duration_ms / 1000)}S`}>
             {formatDuration(track.duration_ms)}
           </time>

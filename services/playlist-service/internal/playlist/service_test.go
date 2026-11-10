@@ -62,6 +62,28 @@ func TestByIDAppliesVisibilityPolicy(t *testing.T) {
 	}
 }
 
+func TestListReturnsOnlyActorPlaylistsWithValidatedPage(t *testing.T) {
+	actorID := uuid.New()
+	store := &stubStore{playlistPage: PlaylistPage{
+		Items: []Playlist{{ID: uuid.New(), OwnerID: actorID, Name: "Mine"}},
+		Limit: 20, Total: 1,
+	}}
+	result, err := NewService(store).List(context.Background(), actorID, PageRequest{})
+	if err != nil {
+		t.Fatalf("List() error = %v", err)
+	}
+	if store.listOwnerID != actorID || store.listPage.Limit != 20 ||
+		len(result.Items) != 1 || result.Items[0].OwnerID != actorID {
+		t.Fatalf("List() = %+v, owner = %s, request = %+v", result, store.listOwnerID, store.listPage)
+	}
+	if _, err = NewService(store).List(context.Background(), uuid.Nil, PageRequest{}); !errors.Is(err, ErrForbidden) {
+		t.Fatalf("List() without actor error = %v, want %v", err, ErrForbidden)
+	}
+	if _, err = NewService(store).List(context.Background(), actorID, PageRequest{Limit: 101}); !errors.Is(err, ErrInvalidArgument) {
+		t.Fatalf("List() invalid page error = %v, want %v", err, ErrInvalidArgument)
+	}
+}
+
 func TestUpdateAllowsOnlyOwnerAndKeepsOwner(t *testing.T) {
 	ownerID := uuid.New()
 	playlistID := uuid.New()
@@ -131,13 +153,26 @@ func TestCreateValidatesInput(t *testing.T) {
 }
 
 type stubStore struct {
-	playlist Playlist
-	deleted  bool
+	playlist     Playlist
+	playlistPage PlaylistPage
+	listOwnerID  uuid.UUID
+	listPage     PageRequest
+	deleted      bool
 }
 
 func (store *stubStore) Create(_ context.Context, value Playlist) (Playlist, error) {
 	store.playlist = value
 	return value, nil
+}
+
+func (store *stubStore) ListByOwner(
+	_ context.Context,
+	ownerID uuid.UUID,
+	page PageRequest,
+) (PlaylistPage, error) {
+	store.listOwnerID = ownerID
+	store.listPage = page
+	return store.playlistPage, nil
 }
 
 func (store *stubStore) ByID(_ context.Context, _ uuid.UUID) (Playlist, error) {

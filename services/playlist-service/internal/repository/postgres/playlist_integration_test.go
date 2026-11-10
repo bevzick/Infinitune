@@ -43,6 +43,13 @@ func TestPlaylistRepositoryLifecycle(t *testing.T) {
 		created.Visibility != playlist.VisibilityUnlisted || created.CreatedAt.IsZero() {
 		t.Fatalf("Create() = %+v", created)
 	}
+	listed, err := service.List(ctx, ownerID, playlist.PageRequest{Limit: 10})
+	if err != nil {
+		t.Fatalf("List() error = %v", err)
+	}
+	if listed.Total != 1 || len(listed.Items) != 1 || listed.Items[0].ID != created.ID {
+		t.Fatalf("List() = %+v", listed)
+	}
 
 	read, err := service.ByID(ctx, uuid.Nil, created.ID)
 	if err != nil {

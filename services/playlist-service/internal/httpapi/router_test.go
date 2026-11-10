@@ -92,6 +92,33 @@ func TestCreateUsesTokenOwnerAndRejectsBodyOwner(t *testing.T) {
 	}
 }
 
+func TestListUsesVerifiedOwnerAndPagination(t *testing.T) {
+	actorID := uuid.New()
+	playlists := &playlistsStub{page: playlist.PlaylistPage{
+		Items: []playlist.Playlist{{
+			ID: uuid.New(), OwnerID: actorID, Name: "Owned", Type: playlist.TypeManual,
+			Visibility: playlist.VisibilityPrivate,
+		}},
+		Limit: 10, Offset: 20, Total: 21,
+	}}
+	dependencies := testDependencies(databaseStub{})
+	dependencies.Tokens = identityVerifierStub{identity: identity.Identity{UserID: actorID}}
+	dependencies.Playlists = playlists
+	request := httptest.NewRequest(http.MethodGet, "/v1/playlists?limit=10&offset=20", nil)
+	request.Header.Set("Authorization", "Bearer valid")
+	response := httptest.NewRecorder()
+
+	NewRouter(dependencies).ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK || playlists.actorID != actorID ||
+		playlists.pageRequest != (playlist.PageRequest{Limit: 10, Offset: 20}) ||
+		!strings.Contains(response.Body.String(), `"total":21`) ||
+		!strings.Contains(response.Body.String(), `"name":"Owned"`) {
+		t.Fatalf("status = %d, actor = %s, page = %+v, body = %s",
+			response.Code, playlists.actorID, playlists.pageRequest, response.Body.String())
+	}
+}
+
 func TestReadsSupportAnonymousAndVerifiedViewer(t *testing.T) {
 	playlistID := uuid.New()
 	viewerID := uuid.New()
@@ -282,12 +309,14 @@ func (stub identityVerifierStub) Verify(context.Context, string, time.Time) (ide
 
 type playlistsStub struct {
 	result      playlist.Playlist
+	page        playlist.PlaylistPage
 	err         error
 	actorID     uuid.UUID
 	viewerID    uuid.UUID
 	playlistID  uuid.UUID
 	createInput playlist.CreateInput
 	updateInput playlist.UpdateInput
+	pageRequest playlist.PageRequest
 	createCalls int
 }
 
@@ -300,6 +329,16 @@ func (stub *playlistsStub) Create(
 	stub.createInput = input
 	stub.createCalls++
 	return stub.result, stub.err
+}
+
+func (stub *playlistsStub) List(
+	_ context.Context,
+	actorID uuid.UUID,
+	page playlist.PageRequest,
+) (playlist.PlaylistPage, error) {
+	stub.actorID = actorID
+	stub.pageRequest = page
+	return stub.page, stub.err
 }
 
 func (stub *playlistsStub) ByID(
