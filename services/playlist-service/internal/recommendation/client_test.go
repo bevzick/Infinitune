@@ -26,23 +26,23 @@ func (stub *rpcStub) RankCandidates(_ context.Context, request *recommendationv1
 
 func TestClientReturnsValidatedPersonalOrder(t *testing.T) {
 	userID, first, second := uuid.New(), uuid.New(), uuid.New()
-	rpc := &rpcStub{response: &recommendationv1.RankCandidatesResponse{Tracks: []*recommendationv1.RankedTrack{{TrackId: second.String(), Rank: 1}, {TrackId: first.String(), Rank: 2}}}}
-	result, err := NewClient(rpc).Rank(context.Background(), userID, []uuid.UUID{first, second})
+	rpc := &rpcStub{response: &recommendationv1.RankCandidatesResponse{Tracks: []*recommendationv1.RankedTrack{{TrackId: second.String(), Rank: 1}, {TrackId: first.String(), Rank: 2}}, Personalized: true}}
+	result, personalized, err := NewClient(rpc).Rank(context.Background(), userID, []uuid.UUID{first, second})
 	if err != nil {
 		t.Fatalf("Rank() error = %v", err)
 	}
-	if rpc.request.GetUserId() != userID.String() || len(result) != 2 || result[0].TrackID != second || result[1].Position != 2 {
+	if rpc.request.GetUserId() != userID.String() || len(result) != 2 || result[0].TrackID != second || result[1].Position != 2 || !personalized {
 		t.Fatalf("result = %+v; request = %+v", result, rpc.request)
 	}
 }
 
 func TestClientRejectsForeignTrackAndMapsDisabledPreference(t *testing.T) {
 	foreign := &rpcStub{response: &recommendationv1.RankCandidatesResponse{Tracks: []*recommendationv1.RankedTrack{{TrackId: uuid.NewString(), Rank: 1}}}}
-	if _, err := NewClient(foreign).Rank(context.Background(), uuid.New(), []uuid.UUID{uuid.New()}); !errors.Is(err, playlist.ErrRecommendationUnavailable) {
+	if _, _, err := NewClient(foreign).Rank(context.Background(), uuid.New(), []uuid.UUID{uuid.New()}); !errors.Is(err, playlist.ErrRecommendationUnavailable) {
 		t.Fatalf("foreign response error = %v", err)
 	}
 	disabled := &rpcStub{err: status.Error(codes.FailedPrecondition, "disabled")}
-	if _, err := NewClient(disabled).Rank(context.Background(), uuid.New(), []uuid.UUID{uuid.New()}); !errors.Is(err, playlist.ErrPersonalizationDisabled) {
+	if _, _, err := NewClient(disabled).Rank(context.Background(), uuid.New(), []uuid.UUID{uuid.New()}); !errors.Is(err, playlist.ErrPersonalizationDisabled) {
 		t.Fatalf("disabled error = %v", err)
 	}
 }

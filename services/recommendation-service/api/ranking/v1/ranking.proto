@@ -24,4 +24,5 @@ message RankedTrack {
 message RankCandidatesResponse {
   repeated RankedTrack tracks = 1;
   string algorithm_version = 2;
+  bool personalized = 3;
 }

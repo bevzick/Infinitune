@@ -12,24 +12,25 @@ import (
 )
 
 type rankerStub struct {
-	items    []recommendation.Item
-	userID   uuid.UUID
-	trackIDs []uuid.UUID
+	items        []recommendation.Item
+	personalized bool
+	userID       uuid.UUID
+	trackIDs     []uuid.UUID
 }
 
-func (stub *rankerStub) RankCandidates(_ context.Context, userID uuid.UUID, trackIDs []uuid.UUID) ([]recommendation.Item, error) {
+func (stub *rankerStub) RankCandidates(_ context.Context, userID uuid.UUID, trackIDs []uuid.UUID) ([]recommendation.Item, bool, error) {
 	stub.userID, stub.trackIDs = userID, trackIDs
-	return stub.items, nil
+	return stub.items, stub.personalized, nil
 }
 
 func TestRankingServerMapsCandidateOrder(t *testing.T) {
 	userID, first, second := uuid.New(), uuid.New(), uuid.New()
-	stub := &rankerStub{items: []recommendation.Item{{TrackID: second, Rank: 1, Score: 4, Reason: "preferred artist"}, {TrackID: first, Rank: 2, Score: 1, Reason: "catalog discovery"}}}
+	stub := &rankerStub{personalized: true, items: []recommendation.Item{{TrackID: second, Rank: 1, Score: 4, Reason: "preferred artist"}, {TrackID: first, Rank: 2, Score: 1, Reason: "catalog discovery"}}}
 	response, err := NewRankingServer(stub).RankCandidates(context.Background(), &rankingv1.RankCandidatesRequest{UserId: userID.String(), TrackIds: []string{first.String(), second.String()}})
 	if err != nil {
 		t.Fatalf("RankCandidates() error = %v", err)
 	}
-	if stub.userID != userID || len(stub.trackIDs) != 2 || len(response.GetTracks()) != 2 || response.GetTracks()[0].GetTrackId() != second.String() {
+	if stub.userID != userID || len(stub.trackIDs) != 2 || len(response.GetTracks()) != 2 || response.GetTracks()[0].GetTrackId() != second.String() || !response.GetPersonalized() {
 		t.Fatalf("response = %+v; stub = %+v", response, stub)
 	}
 }

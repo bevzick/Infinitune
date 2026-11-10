@@ -56,8 +56,7 @@ func rankAll(signals preferencesignal.Set, candidates []Candidate) []recommendat
 	for _, listen := range signals.Listening {
 		listenCounts[listen.TrackID]++
 	}
-	coldStart := len(genreWeights) == 0 && len(artistWeights) == 0 && signals.Preferences.PreferredMoodID == nil &&
-		len(followedArtists) == 0 && len(likedAlbums) == 0 && len(likedTracks) == 0 && len(listenCounts) == 0
+	coldStart := !hasPersonalSignals(signals)
 
 	seen := make(map[uuid.UUID]struct{}, len(candidates))
 	scored := make([]scoredCandidate, 0, len(candidates))
@@ -134,6 +133,13 @@ func rankAll(signals preferencesignal.Set, candidates []Candidate) []recommendat
 		items[index] = recommendation.Item{TrackID: value.candidate.TrackID, Score: value.score, Rank: index + 1, Reason: value.reason}
 	}
 	return items
+}
+
+func hasPersonalSignals(signals preferencesignal.Set) bool {
+	return len(signals.Preferences.Genres) > 0 || len(signals.Preferences.Artists) > 0 ||
+		signals.Preferences.PreferredMoodID != nil || len(signals.Interactions.FollowedArtistIDs) > 0 ||
+		len(signals.Interactions.LikedAlbumIDs) > 0 || len(signals.Interactions.LikedTrackIDs) > 0 ||
+		len(signals.Listening) > 0
 }
 
 func preferenceWeights(values []preferencesignal.WeightedPreference) map[uuid.UUID]float64 {

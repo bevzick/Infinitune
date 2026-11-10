@@ -211,9 +211,9 @@ func TestResolveDynamicTracksDescribesReadyAndEmptyResults(t *testing.T) {
 			name: "ready",
 			page: playlist.DynamicTrackPage{
 				Items: []playlist.DynamicTrack{{TrackID: trackID, Position: 3}},
-				Limit: 1, Offset: 2, Total: 4, Status: playlist.DynamicResolutionReady,
+				Limit: 1, Offset: 2, Total: 4, Status: playlist.DynamicResolutionReady, Personalized: true,
 			},
-			contains: []string{`"status":"ready"`, `"track_id":"` + trackID.String() + `"`, `"position":3`},
+			contains: []string{`"status":"ready"`, `"track_id":"` + trackID.String() + `"`, `"position":3`, `"personalized":true`},
 		},
 		{
 			name: "empty",
@@ -221,7 +221,7 @@ func TestResolveDynamicTracksDescribesReadyAndEmptyResults(t *testing.T) {
 				Items: []playlist.DynamicTrack{}, Limit: 1, Offset: 2,
 				Status: playlist.DynamicResolutionEmpty,
 			},
-			contains: []string{`"items":[]`, `"status":"empty"`, `"reason":"no_matches"`},
+			contains: []string{`"items":[]`, `"status":"empty"`, `"reason":"no_matches"`, `"personalized":false`},
 		},
 	}
 	for _, test := range tests {

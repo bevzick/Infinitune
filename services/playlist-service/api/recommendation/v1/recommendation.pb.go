@@ -76,9 +76,7 @@ func (x *RankCandidatesRequest) GetTrackIds() []string {
 type RankedTrack struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	TrackId       string                 `protobuf:"bytes,1,opt,name=track_id,json=trackId,proto3" json:"track_id,omitempty"`
-	Score         float64                `protobuf:"fixed64,2,opt,name=score,proto3" json:"score,omitempty"`
 	Rank          int32                  `protobuf:"varint,3,opt,name=rank,proto3" json:"rank,omitempty"`
-	Reason        string                 `protobuf:"bytes,4,opt,name=reason,proto3" json:"reason,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -120,13 +118,6 @@ func (x *RankedTrack) GetTrackId() string {
 	return ""
 }
 
-func (x *RankedTrack) GetScore() float64 {
-	if x != nil {
-		return x.Score
-	}
-	return 0
-}
-
 func (x *RankedTrack) GetRank() int32 {
 	if x != nil {
 		return x.Rank
@@ -134,17 +125,11 @@ func (x *RankedTrack) GetRank() int32 {
 	return 0
 }
 
-func (x *RankedTrack) GetReason() string {
-	if x != nil {
-		return x.Reason
-	}
-	return ""
-}
-
 type RankCandidatesResponse struct {
 	state            protoimpl.MessageState `protogen:"open.v1"`
 	Tracks           []*RankedTrack         `protobuf:"bytes,1,rep,name=tracks,proto3" json:"tracks,omitempty"`
 	AlgorithmVersion string                 `protobuf:"bytes,2,opt,name=algorithm_version,json=algorithmVersion,proto3" json:"algorithm_version,omitempty"`
+	Personalized     bool                   `protobuf:"varint,3,opt,name=personalized,proto3" json:"personalized,omitempty"`
 	unknownFields    protoimpl.UnknownFields
 	sizeCache        protoimpl.SizeCache
 }
@@ -193,6 +178,13 @@ func (x *RankCandidatesResponse) GetAlgorithmVersion() string {
 	return ""
 }
 
+func (x *RankCandidatesResponse) GetPersonalized() bool {
+	if x != nil {
+		return x.Personalized
+	}
+	return false
+}
+
 var File_api_recommendation_v1_recommendation_proto protoreflect.FileDescriptor
 
 const file_api_recommendation_v1_recommendation_proto_rawDesc = "" +
@@ -200,15 +192,14 @@ const file_api_recommendation_v1_recommendation_proto_rawDesc = "" +
 	"*api/recommendation/v1/recommendation.proto\x12$infinitune.recommendation.ranking.v1\"M\n" +
 	"\x15RankCandidatesRequest\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\tR\x06userId\x12\x1b\n" +
-	"\ttrack_ids\x18\x02 \x03(\tR\btrackIds\"j\n" +
+	"\ttrack_ids\x18\x02 \x03(\tR\btrackIds\"H\n" +
 	"\vRankedTrack\x12\x19\n" +
-	"\btrack_id\x18\x01 \x01(\tR\atrackId\x12\x14\n" +
-	"\x05score\x18\x02 \x01(\x01R\x05score\x12\x12\n" +
-	"\x04rank\x18\x03 \x01(\x05R\x04rank\x12\x16\n" +
-	"\x06reason\x18\x04 \x01(\tR\x06reason\"\x90\x01\n" +
+	"\btrack_id\x18\x01 \x01(\tR\atrackId\x12\x12\n" +
+	"\x04rank\x18\x03 \x01(\x05R\x04rankJ\x04\b\x02\x10\x03J\x04\b\x04\x10\x05\"\xb4\x01\n" +
 	"\x16RankCandidatesResponse\x12I\n" +
 	"\x06tracks\x18\x01 \x03(\v21.infinitune.recommendation.ranking.v1.RankedTrackR\x06tracks\x12+\n" +
-	"\x11algorithm_version\x18\x02 \x01(\tR\x10algorithmVersion2\x9e\x01\n" +
+	"\x11algorithm_version\x18\x02 \x01(\tR\x10algorithmVersion\x12\"\n" +
+	"\fpersonalized\x18\x03 \x01(\bR\fpersonalized2\x9e\x01\n" +
 	"\x0eRankingService\x12\x8b\x01\n" +
 	"\x0eRankCandidates\x12;.infinitune.recommendation.ranking.v1.RankCandidatesRequest\x1a<.infinitune.recommendation.ranking.v1.RankCandidatesResponseB`Z^github.com/bevzick/Infinitune/services/playlist-service/api/recommendation/v1;recommendationv1b\x06proto3"
 

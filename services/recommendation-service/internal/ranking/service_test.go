@@ -66,6 +66,39 @@ func TestServiceBackfillsBeyondFirstHundredDeniedCandidates(t *testing.T) {
 	}
 }
 
+func TestServiceReportsColdStartWithoutChangingCandidateOrder(t *testing.T) {
+	first, second := uuid.New(), uuid.New()
+	service := NewService(
+		signalCollectorStub{result: preferencesignal.Set{Preferences: preferencesignal.Preferences{Enabled: true, ExplicitAllowed: true}}},
+		candidateSourceStub{result: []Candidate{{TrackID: first, ContentID: uuid.New()}, {TrackID: second, ContentID: uuid.New(), DiscoveryRank: 1}}},
+		eligibilityStub{allowed: true},
+	)
+	items, personalized, err := service.RankCandidates(context.Background(), uuid.New(), []uuid.UUID{first, second})
+	if err != nil {
+		t.Fatalf("RankCandidates() error = %v", err)
+	}
+	if personalized || len(items) != 2 || items[0].TrackID != first || items[1].TrackID != second {
+		t.Fatalf("RankCandidates() = %+v, personalized=%t", items, personalized)
+	}
+}
+
+func TestServiceReportsAppliedPersonalization(t *testing.T) {
+	first, preferred := uuid.New(), uuid.New()
+	artistID := uuid.New()
+	service := NewService(
+		signalCollectorStub{result: preferencesignal.Set{Preferences: preferencesignal.Preferences{Enabled: true, ExplicitAllowed: true, Artists: []preferencesignal.WeightedPreference{{ID: artistID, Weight: 1}}}}},
+		candidateSourceStub{result: []Candidate{{TrackID: first, ContentID: uuid.New()}, {TrackID: preferred, ContentID: uuid.New(), ArtistIDs: []uuid.UUID{artistID}, DiscoveryRank: 1}}},
+		eligibilityStub{allowed: true},
+	)
+	items, personalized, err := service.RankCandidates(context.Background(), uuid.New(), []uuid.UUID{first, preferred})
+	if err != nil {
+		t.Fatalf("RankCandidates() error = %v", err)
+	}
+	if !personalized || len(items) != 2 || items[0].TrackID != preferred {
+		t.Fatalf("RankCandidates() = %+v, personalized=%t", items, personalized)
+	}
+}
+
 type signalCollectorStub struct {
 	result preferencesignal.Set
 	err    error
@@ -73,6 +106,9 @@ type signalCollectorStub struct {
 
 func (stub signalCollectorStub) Collect(context.Context, uuid.UUID) (preferencesignal.Set, error) {
 	return stub.result, stub.err
+}
+func (stub signalCollectorStub) CollectCandidates(context.Context, uuid.UUID) (preferencesignal.Set, bool, error) {
+	return stub.result, true, stub.err
 }
 
 type candidateSourceStub struct {

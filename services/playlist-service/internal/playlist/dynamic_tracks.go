@@ -21,11 +21,12 @@ type DynamicTrack struct {
 }
 
 type DynamicTrackPage struct {
-	Items  []DynamicTrack
-	Limit  int
-	Offset int
-	Total  int64
-	Status DynamicResolutionStatus
+	Items        []DynamicTrack
+	Limit        int
+	Offset       int
+	Total        int64
+	Status       DynamicResolutionStatus
+	Personalized bool
 }
 
 type DynamicRuleStore interface {
@@ -37,7 +38,7 @@ type DynamicTrackResolver interface {
 }
 
 type DynamicTrackRanker interface {
-	Rank(context.Context, uuid.UUID, []uuid.UUID) ([]DynamicTrack, error)
+	Rank(context.Context, uuid.UUID, []uuid.UUID) ([]DynamicTrack, bool, error)
 }
 
 type DynamicTrackService struct {
@@ -96,13 +97,13 @@ func (service *DynamicTrackService) Resolve(
 		for index, item := range result.Items {
 			trackIDs[index] = item.TrackID
 		}
-		ranked, rankErr := service.ranker.Rank(ctx, viewerID, trackIDs)
+		ranked, personalized, rankErr := service.ranker.Rank(ctx, viewerID, trackIDs)
 		if rankErr != nil {
 			return DynamicTrackPage{}, fmt.Errorf("rank dynamic playlist tracks: %w", rankErr)
 		}
 		start := min(page.Offset, len(ranked))
 		end := min(start+page.Limit, len(ranked))
-		result = DynamicTrackPage{Items: append([]DynamicTrack(nil), ranked[start:end]...), Limit: page.Limit, Offset: page.Offset, Total: int64(len(ranked))}
+		result = DynamicTrackPage{Items: append([]DynamicTrack(nil), ranked[start:end]...), Limit: page.Limit, Offset: page.Offset, Total: int64(len(ranked)), Personalized: personalized}
 		for index := range result.Items {
 			result.Items[index].Position = start + index + 1
 		}

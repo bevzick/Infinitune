@@ -27,7 +27,7 @@ type Client struct {
 
 func NewClient(rpc rankingRPC) *Client { return &Client{rpc: rpc, timeout: rankingTimeout} }
 
-func (client *Client) Rank(ctx context.Context, userID uuid.UUID, trackIDs []uuid.UUID) ([]playlist.DynamicTrack, error) {
+func (client *Client) Rank(ctx context.Context, userID uuid.UUID, trackIDs []uuid.UUID) ([]playlist.DynamicTrack, bool, error) {
 	ids := make([]string, len(trackIDs))
 	for index, trackID := range trackIDs {
 		ids[index] = trackID.String()
@@ -37,15 +37,15 @@ func (client *Client) Rank(ctx context.Context, userID uuid.UUID, trackIDs []uui
 	response, err := client.rpc.RankCandidates(callCtx, &recommendationv1.RankCandidatesRequest{UserId: userID.String(), TrackIds: ids})
 	if err != nil {
 		if ctx.Err() != nil {
-			return nil, ctx.Err()
+			return nil, false, ctx.Err()
 		}
 		if errors.Is(callCtx.Err(), context.DeadlineExceeded) || status.Code(err) == codes.DeadlineExceeded {
-			return nil, playlist.ErrRecommendationTimeout
+			return nil, false, playlist.ErrRecommendationTimeout
 		}
 		if status.Code(err) == codes.FailedPrecondition {
-			return nil, playlist.ErrPersonalizationDisabled
+			return nil, false, playlist.ErrPersonalizationDisabled
 		}
-		return nil, fmt.Errorf("%w: RankCandidates: %v", playlist.ErrRecommendationUnavailable, err)
+		return nil, false, fmt.Errorf("%w: RankCandidates: %v", playlist.ErrRecommendationUnavailable, err)
 	}
 	allowed := make(map[uuid.UUID]struct{}, len(trackIDs))
 	for _, id := range trackIDs {
@@ -56,16 +56,16 @@ func (client *Client) Rank(ctx context.Context, userID uuid.UUID, trackIDs []uui
 	for index, track := range response.GetTracks() {
 		id, parseErr := uuid.Parse(track.GetTrackId())
 		if parseErr != nil || id == uuid.Nil || track.GetRank() != int32(index+1) {
-			return nil, fmt.Errorf("%w: malformed ranking response", playlist.ErrRecommendationUnavailable)
+			return nil, false, fmt.Errorf("%w: malformed ranking response", playlist.ErrRecommendationUnavailable)
 		}
 		if _, exists := allowed[id]; !exists {
-			return nil, fmt.Errorf("%w: ranking introduced a foreign track", playlist.ErrRecommendationUnavailable)
+			return nil, false, fmt.Errorf("%w: ranking introduced a foreign track", playlist.ErrRecommendationUnavailable)
 		}
 		if _, exists := seen[id]; exists {
-			return nil, fmt.Errorf("%w: ranking duplicated a track", playlist.ErrRecommendationUnavailable)
+			return nil, false, fmt.Errorf("%w: ranking duplicated a track", playlist.ErrRecommendationUnavailable)
 		}
 		seen[id] = struct{}{}
 		result = append(result, playlist.DynamicTrack{TrackID: id, Position: index + 1})
 	}
-	return result, nil
+	return result, response.GetPersonalized(), nil
 }

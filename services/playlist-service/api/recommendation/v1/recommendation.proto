@@ -16,12 +16,13 @@ message RankCandidatesRequest {
 
 message RankedTrack {
   string track_id = 1;
-  double score = 2;
+  reserved 2;
   int32 rank = 3;
-  string reason = 4;
+  reserved 4;
 }
 
 message RankCandidatesResponse {
   repeated RankedTrack tracks = 1;
   string algorithm_version = 2;
+  bool personalized = 3;
 }

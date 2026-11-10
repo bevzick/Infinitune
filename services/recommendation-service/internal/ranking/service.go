@@ -11,25 +11,27 @@ import (
 
 type SignalCollector interface {
 	Collect(context.Context, uuid.UUID) (preferencesignal.Set, error)
+	CollectCandidates(context.Context, uuid.UUID) (preferencesignal.Set, bool, error)
 }
 type CandidateSource interface {
 	Discover(context.Context, preferencesignal.Set) ([]Candidate, error)
 	Candidates(context.Context, []uuid.UUID) ([]Candidate, error)
 }
 
-func (service *Service) RankCandidates(ctx context.Context, userID uuid.UUID, trackIDs []uuid.UUID) ([]recommendation.Item, error) {
+func (service *Service) RankCandidates(ctx context.Context, userID uuid.UUID, trackIDs []uuid.UUID) ([]recommendation.Item, bool, error) {
 	if userID == uuid.Nil || len(trackIDs) == 0 || len(trackIDs) > maximumLimit {
-		return nil, fmt.Errorf("rank candidates: user id and 1 to 100 track ids are required")
+		return nil, false, fmt.Errorf("rank candidates: user id and 1 to 100 track ids are required")
 	}
-	signals, err := service.signals.Collect(ctx, userID)
+	signals, enabled, err := service.signals.CollectCandidates(ctx, userID)
 	if err != nil {
-		return nil, fmt.Errorf("collect ranking signals: %w", err)
+		return nil, false, fmt.Errorf("collect ranking signals: %w", err)
 	}
 	candidates, err := service.candidates.Candidates(ctx, trackIDs)
 	if err != nil {
-		return nil, fmt.Errorf("load ranking candidates: %w", err)
+		return nil, false, fmt.Errorf("load ranking candidates: %w", err)
 	}
-	return service.rankEligible(ctx, signals, candidates, len(trackIDs))
+	items, err := service.rankEligible(ctx, signals, candidates, len(trackIDs))
+	return items, enabled && hasPersonalSignals(signals), err
 }
 
 type Eligibility interface {

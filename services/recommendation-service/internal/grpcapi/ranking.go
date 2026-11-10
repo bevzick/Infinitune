@@ -13,7 +13,7 @@ import (
 )
 
 type CandidateRanker interface {
-	RankCandidates(context.Context, uuid.UUID, []uuid.UUID) ([]recommendation.Item, error)
+	RankCandidates(context.Context, uuid.UUID, []uuid.UUID) ([]recommendation.Item, bool, error)
 }
 
 type RankingServer struct {
@@ -44,7 +44,7 @@ func (server *RankingServer) RankCandidates(ctx context.Context, request *rankin
 		seen[trackID] = struct{}{}
 		trackIDs = append(trackIDs, trackID)
 	}
-	items, err := server.ranker.RankCandidates(ctx, userID, trackIDs)
+	items, personalized, err := server.ranker.RankCandidates(ctx, userID, trackIDs)
 	if errors.Is(err, preferencesignal.ErrPersonalizationDisabled) {
 		return nil, status.Error(codes.FailedPrecondition, "personalized recommendations are disabled")
 	}
@@ -55,5 +55,5 @@ func (server *RankingServer) RankCandidates(ctx context.Context, request *rankin
 	for _, item := range items {
 		tracks = append(tracks, &rankingv1.RankedTrack{TrackId: item.TrackID.String(), Score: item.Score, Rank: int32(item.Rank), Reason: item.Reason})
 	}
-	return &rankingv1.RankCandidatesResponse{Tracks: tracks, AlgorithmVersion: "transparent-v1"}, nil
+	return &rankingv1.RankCandidatesResponse{Tracks: tracks, AlgorithmVersion: "transparent-v1", Personalized: personalized}, nil
 }
