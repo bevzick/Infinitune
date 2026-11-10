@@ -9,10 +9,15 @@ import (
 	"github.com/google/uuid"
 )
 
-const maxNameLength = 150
+const (
+	maxNameLength            = 150
+	defaultPlaylistPageLimit = 20
+	maximumPlaylistPageLimit = 100
+)
 
 type Store interface {
 	Create(context.Context, Playlist) (Playlist, error)
+	ListByOwner(context.Context, uuid.UUID, PageRequest) (PlaylistPage, error)
 	ByID(context.Context, uuid.UUID) (Playlist, error)
 	Update(context.Context, Playlist) (Playlist, error)
 	Delete(context.Context, uuid.UUID, uuid.UUID) error
@@ -40,6 +45,30 @@ func (service *Service) Create(
 		return Playlist{}, fmt.Errorf("create playlist: %w", err)
 	}
 	return created, nil
+}
+
+func (service *Service) List(
+	ctx context.Context,
+	actorID uuid.UUID,
+	page PageRequest,
+) (PlaylistPage, error) {
+	if actorID == uuid.Nil {
+		return PlaylistPage{}, ErrForbidden
+	}
+	if page.Limit == 0 {
+		page.Limit = defaultPlaylistPageLimit
+	}
+	if page.Limit < 1 || page.Limit > maximumPlaylistPageLimit {
+		return PlaylistPage{}, invalidArgument("playlist page limit must be from 1 to 100")
+	}
+	if page.Offset < 0 {
+		return PlaylistPage{}, invalidArgument("playlist page offset must not be negative")
+	}
+	result, err := service.store.ListByOwner(ctx, actorID, page)
+	if err != nil {
+		return PlaylistPage{}, fmt.Errorf("list playlists: %w", err)
+	}
+	return result, nil
 }
 
 func newPlaylist(

@@ -26,6 +26,7 @@ type IdentityVerifier interface {
 
 type Playlists interface {
 	Create(context.Context, uuid.UUID, playlist.CreateInput) (playlist.Playlist, error)
+	List(context.Context, uuid.UUID, playlist.PageRequest) (playlist.PlaylistPage, error)
 	ByID(context.Context, uuid.UUID, uuid.UUID) (playlist.Playlist, error)
 	Update(context.Context, uuid.UUID, uuid.UUID, playlist.UpdateInput) (playlist.Playlist, error)
 	Delete(context.Context, uuid.UUID, uuid.UUID) error
@@ -77,6 +78,7 @@ func NewRouter(dependencies Dependencies) http.Handler {
 
 	protected := router.Group("/v1/playlists")
 	protected.Use(authenticate(dependencies.Tokens, dependencies.Logger))
+	protected.GET("", listPlaylists(dependencies.Playlists, dependencies.Logger))
 	protected.POST("", createPlaylist(dependencies.Playlists, dependencies.Logger))
 	protected.POST("/dynamic", createDynamicPlaylist(dependencies.DynamicPlaylists, dependencies.Logger))
 	protected.PATCH("/:playlist_id", updatePlaylist(dependencies.Playlists, dependencies.Logger))

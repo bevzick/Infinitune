@@ -42,6 +42,47 @@ func (repository *PlaylistRepository) Create(
 		value.Visibility, value.RuleSetID))
 }
 
+func (repository *PlaylistRepository) ListByOwner(
+	ctx context.Context,
+	ownerID uuid.UUID,
+	page playlist.PageRequest,
+) (playlist.PlaylistPage, error) {
+	var total int64
+	if err := repository.database.QueryRow(ctx, `
+		SELECT count(*) FROM playlist.playlists WHERE owner_id = $1
+	`, ownerID).Scan(&total); err != nil {
+		return playlist.PlaylistPage{}, fmt.Errorf("count owner playlists: %w", err)
+	}
+	rows, err := repository.database.Query(ctx, `
+		SELECT
+			id, owner_id, name, description, playlist_type, visibility,
+			rule_set_id, created_at, updated_at
+		FROM playlist.playlists
+		WHERE owner_id = $1
+		ORDER BY updated_at DESC, id
+		LIMIT $2 OFFSET $3
+	`, ownerID, page.Limit, page.Offset)
+	if err != nil {
+		return playlist.PlaylistPage{}, fmt.Errorf("query owner playlists: %w", err)
+	}
+	defer rows.Close()
+
+	items := make([]playlist.Playlist, 0, page.Limit)
+	for rows.Next() {
+		value, scanErr := scanPlaylist(rows)
+		if scanErr != nil {
+			return playlist.PlaylistPage{}, fmt.Errorf("scan owner playlist: %w", scanErr)
+		}
+		items = append(items, value)
+	}
+	if err = rows.Err(); err != nil {
+		return playlist.PlaylistPage{}, fmt.Errorf("iterate owner playlists: %w", err)
+	}
+	return playlist.PlaylistPage{
+		Items: items, Limit: page.Limit, Offset: page.Offset, Total: total,
+	}, nil
+}
+
 func (repository *PlaylistRepository) ByID(
 	ctx context.Context,
 	id uuid.UUID,

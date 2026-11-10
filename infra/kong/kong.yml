@@ -154,6 +154,7 @@ services:
         paths:
           - ~/v1/playlists(?:/|$)
         methods:
+          - GET
           - POST
           - PATCH
           - PUT
