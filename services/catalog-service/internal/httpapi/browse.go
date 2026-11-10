@@ -86,6 +86,7 @@ type trackMoodResponse struct {
 type trackResponse struct {
 	ID          uuid.UUID             `json:"id"`
 	AlbumID     *uuid.UUID            `json:"album_id,omitempty"`
+	PlaybackURL string                `json:"playback_url"`
 	Title       string                `json:"title"`
 	DurationMS  int                   `json:"duration_ms"`
 	TrackNumber int16                 `json:"track_number"`
@@ -345,8 +346,10 @@ func trackResponseFrom(track metadata.Track) trackResponse {
 		})
 	}
 	return trackResponse{
-		ID: track.ID, AlbumID: track.AlbumID, Title: track.Title,
-		DurationMS: track.DurationMS, TrackNumber: track.TrackNumber,
+		ID: track.ID, AlbumID: track.AlbumID,
+		PlaybackURL: "/v1/media/assets/" + track.MediaAssetID.String() + "/playback",
+		Title:       track.Title,
+		DurationMS:  track.DurationMS, TrackNumber: track.TrackNumber,
 		DiscNumber: track.DiscNumber, Explicit: track.Explicit,
 		ReleaseDate: track.ReleaseDate.Format(dateLayout), Artists: artists,
 		Genres: genres, Moods: moods, CreatedAt: track.CreatedAt, UpdatedAt: track.UpdatedAt,

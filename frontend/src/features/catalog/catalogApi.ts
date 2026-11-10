@@ -45,6 +45,7 @@ export type Mood = Genre;
 export type Track = {
   id: string;
   album_id?: string;
+  playback_url: string;
   title: string;
   duration_ms: number;
   track_number: number;

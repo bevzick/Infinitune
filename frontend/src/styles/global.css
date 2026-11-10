@@ -35,6 +35,14 @@ a:focus-visible {
   outline: 3px solid rgba(156, 120, 255, 0.7);
   outline-offset: 3px;
 }
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
 
 .skip-link {
   position: fixed;
@@ -340,7 +348,9 @@ a:focus-visible {
   bottom: 0;
   height: 5.5rem;
   display: grid;
-  grid-template-columns: auto minmax(9rem, 15rem) auto minmax(8rem, 1fr) auto;
+  grid-template-columns:
+    auto minmax(8rem, 15rem) auto minmax(7rem, 1fr) auto
+    minmax(5rem, 8rem);
   align-items: center;
   gap: 1rem;
   padding: 0.8rem clamp(1.25rem, 3vw, 2.5rem);
@@ -359,8 +369,15 @@ a:focus-visible {
   background: linear-gradient(135deg, #7460a8, #c9b4ff);
 }
 .player-copy {
+  min-width: 0;
   display: grid;
   gap: 0.2rem;
+}
+.player-copy strong,
+.player-copy span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .player-copy strong {
   font-size: 0.84rem;
@@ -377,18 +394,89 @@ a:focus-visible {
   border-radius: 50%;
   color: #85899a;
   background: rgba(255, 255, 255, 0.06);
+  cursor: pointer;
+}
+.play-button:disabled,
+.player-transport button:disabled {
+  cursor: default;
+  opacity: 0.4;
+}
+.player-transport {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+.player-transport > button:not(.play-button) {
+  width: 1.8rem;
+  height: 1.8rem;
+  border: 0;
+  color: var(--muted);
+  background: transparent;
+  font-size: 1.45rem;
+  cursor: pointer;
 }
 .player-progress {
+  display: flex;
+  align-items: center;
+}
+.player-progress input,
+.player-volume input {
+  width: 100%;
+  height: 1rem;
+  margin: 0;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+}
+.player-progress input::-webkit-slider-runnable-track,
+.player-volume input::-webkit-slider-runnable-track {
+  height: 0.22rem;
+  border-radius: 99px;
+  background: linear-gradient(
+    to right,
+    var(--violet) var(--player-progress, 0%),
+    rgba(255, 255, 255, 0.11) var(--player-progress, 0%)
+  );
+}
+.player-progress input::-moz-range-track,
+.player-volume input::-moz-range-track {
   height: 0.22rem;
   border-radius: 99px;
   background: rgba(255, 255, 255, 0.11);
-  overflow: hidden;
 }
-.player-progress span {
-  display: block;
-  width: 0;
-  height: 100%;
+.player-progress input::-moz-range-progress {
+  height: 0.22rem;
+  border-radius: 99px;
   background: var(--violet);
+}
+.player-progress input::-webkit-slider-thumb,
+.player-volume input::-webkit-slider-thumb {
+  width: 0.8rem;
+  height: 0.8rem;
+  margin-top: -0.29rem;
+  appearance: none;
+  border: 0;
+  border-radius: 50%;
+  background: white;
+}
+.player-progress input::-moz-range-thumb,
+.player-volume input::-moz-range-thumb {
+  width: 0.8rem;
+  height: 0.8rem;
+  border: 0;
+  border-radius: 50%;
+  background: white;
+}
+.player-volume {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 0.45rem;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+.player-volume input {
+  --player-progress: 100%;
 }
 .message-page {
   min-height: 65vh;
@@ -771,6 +859,15 @@ a:focus-visible {
   background: linear-gradient(135deg, #ff9b7f, #9c78ff);
   font-weight: 800;
 }
+.track-play {
+  border: 0;
+  cursor: pointer;
+}
+.track-play:hover,
+.track-play-active {
+  color: white;
+  box-shadow: 0 0 0 2px rgba(156, 120, 255, 0.55);
+}
 .track-main {
   min-width: 0;
   display: grid;
@@ -1074,7 +1171,8 @@ a:focus-visible {
     width: 3.25rem;
   }
   .player-progress,
-  .player-time {
+  .player-time,
+  .player-volume {
     display: none;
   }
   .hero-grid {

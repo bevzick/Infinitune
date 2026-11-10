@@ -138,6 +138,10 @@ func TestTrackDetailReturnsPublicMetadataWithoutInternalIDs(t *testing.T) {
 	if body["release_date"] != "2026-11-08" {
 		t.Errorf("release_date = %v", body["release_date"])
 	}
+	wantPlaybackURL := "/v1/media/assets/" + stub.track.MediaAssetID.String() + "/playback"
+	if body["playback_url"] != wantPlaybackURL {
+		t.Errorf("playback_url = %v, want %q", body["playback_url"], wantPlaybackURL)
+	}
 	if !strings.Contains(response.Body.String(), `"role":"primary"`) {
 		t.Errorf("body does not contain artist role: %s", response.Body.String())
 	}

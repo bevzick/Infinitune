@@ -1,8 +1,9 @@
 import { Link } from "react-router-dom";
-
+import { usePlayer } from "../player/PlayerContext";
 import type { Album, Artist, Track } from "./catalogApi";
 
 export function TrackList({ tracks }: { tracks: Track[] }) {
+  const player = usePlayer();
   return (
     <div className="track-list">
       {tracks.map((track, index) => (
@@ -10,9 +11,17 @@ export function TrackList({ tracks }: { tracks: Track[] }) {
           <span className="track-index" aria-hidden="true">
             {String(index + 1).padStart(2, "0")}
           </span>
-          <div className="track-art" aria-hidden="true">
+          <button
+            className={`track-art track-play${player.currentTrack?.id === track.id ? " track-play-active" : ""}`}
+            type="button"
+            aria-label={`${player.currentTrack?.id === track.id && player.status === "playing" ? "Pause" : "Play"} ${track.title}`}
+            onClick={() => {
+              if (player.currentTrack?.id === track.id) void player.toggle();
+              else void player.playQueue(tracks, index);
+            }}
+          >
             {track.title.slice(0, 1).toUpperCase()}
-          </div>
+          </button>
           <div className="track-main">
             <strong>{track.title}</strong>
             <span>{primaryArtists(track)}</span>

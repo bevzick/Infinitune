@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 
+import { PlayerControls } from "../features/player/PlayerControls";
 import { useSession } from "../features/session/SessionContext";
 
 const navigation = [
@@ -92,27 +93,7 @@ export function AppLayout() {
         </main>
       </div>
 
-      <section className="player-shell" aria-label="Audio player">
-        <div className="player-art" aria-hidden="true">
-          ∞
-        </div>
-        <div className="player-copy">
-          <strong>Nothing playing yet</strong>
-          <span>Choose a track to begin</span>
-        </div>
-        <button
-          className="play-button"
-          type="button"
-          disabled
-          aria-label="Play"
-        >
-          ▶
-        </button>
-        <div className="player-progress" aria-hidden="true">
-          <span />
-        </div>
-        <span className="player-time">0:00</span>
-      </section>
+      <PlayerControls />
     </div>
   );
 }

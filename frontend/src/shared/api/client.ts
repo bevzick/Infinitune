@@ -31,6 +31,23 @@ export async function apiRequest<T>(
   path: string,
   options: ApiRequestOptions = {},
 ): Promise<T> {
+  const response = await sendRequest(path, options);
+
+  if (response.status === 204) {
+    return undefined as T;
+  }
+  return (await readJson<T>(response)) as T;
+}
+
+export async function apiBlobRequest(
+  path: string,
+  options: ApiRequestOptions = {},
+) {
+  const response = await sendRequest(path, options);
+  return response.blob();
+}
+
+async function sendRequest(path: string, options: ApiRequestOptions) {
   if (!path.startsWith("/") || path.startsWith("//")) {
     throw new Error("API path must be root-relative");
   }
@@ -65,10 +82,7 @@ export async function apiRequest<T>(
     );
   }
 
-  if (response.status === 204) {
-    return undefined as T;
-  }
-  return (await readJson<T>(response)) as T;
+  return response;
 }
 
 async function readJson<T>(response: Response): Promise<T | undefined> {
