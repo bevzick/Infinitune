@@ -16,6 +16,7 @@ type WeightedPreference struct {
 }
 type Preferences struct {
 	Enabled         bool
+	ExplicitAllowed bool
 	PreferredMoodID *uuid.UUID
 	Genres          []WeightedPreference
 	Artists         []WeightedPreference

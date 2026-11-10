@@ -71,16 +71,19 @@ func TestGetPublicProfileMapsErrors(t *testing.T) {
 
 func TestGetRecommendationPreferences(t *testing.T) {
 	userID, genreID, artistID, moodID := uuid.New(), uuid.New(), uuid.New(), uuid.New()
-	server := NewUserServer(nil, preferencesStub{result: profile.Preferences{
-		RecommendationsEnabled: true, PreferredMoodID: &moodID,
-		Genres:  []profile.WeightedPreference{{ID: genreID, Weight: 0.8}},
-		Artists: []profile.WeightedPreference{{ID: artistID, Weight: 1}},
+	server := NewUserServer(nil, recommendationProfileStub{result: profile.Profile{
+		Settings: profile.Settings{ExplicitContent: true},
+		Preferences: profile.Preferences{
+			RecommendationsEnabled: true, PreferredMoodID: &moodID,
+			Genres:  []profile.WeightedPreference{{ID: genreID, Weight: 0.8}},
+			Artists: []profile.WeightedPreference{{ID: artistID, Weight: 1}},
+		},
 	}})
 	response, err := server.GetRecommendationPreferences(context.Background(), &userv1.GetRecommendationPreferencesRequest{UserId: userID.String()})
 	if err != nil {
 		t.Fatalf("GetRecommendationPreferences() error = %v", err)
 	}
-	if !response.GetRecommendationsEnabled() || response.GetPreferredMoodId() != moodID.String() || response.GetGenres()[0].GetId() != genreID.String() || response.GetArtists()[0].GetId() != artistID.String() {
+	if !response.GetRecommendationsEnabled() || !response.GetExplicitContentAllowed() || response.GetPreferredMoodId() != moodID.String() || response.GetGenres()[0].GetId() != genreID.String() || response.GetArtists()[0].GetId() != artistID.String() {
 		t.Fatalf("GetRecommendationPreferences() = %+v", response)
 	}
 }
@@ -94,11 +97,11 @@ func (stub publicProfilesStub) Public(context.Context, uuid.UUID) (profile.Publi
 	return stub.result, stub.err
 }
 
-type preferencesStub struct {
-	result profile.Preferences
+type recommendationProfileStub struct {
+	result profile.Profile
 	err    error
 }
 
-func (stub preferencesStub) PreferencesByUserID(context.Context, uuid.UUID) (profile.Preferences, error) {
+func (stub recommendationProfileStub) ByUserID(context.Context, uuid.UUID) (profile.Profile, error) {
 	return stub.result, stub.err
 }

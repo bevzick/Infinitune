@@ -18,7 +18,10 @@ func (client *UserClient) Preferences(ctx context.Context, userID uuid.UUID) (Pr
 	if err != nil {
 		return Preferences{}, err
 	}
-	result := Preferences{Enabled: response.GetRecommendationsEnabled()}
+	result := Preferences{
+		Enabled:         response.GetRecommendationsEnabled(),
+		ExplicitAllowed: response.GetExplicitContentAllowed(),
+	}
 	if response.PreferredMoodId != nil {
 		id, parseErr := uuid.Parse(response.GetPreferredMoodId())
 		if parseErr != nil || id == uuid.Nil {

@@ -13,6 +13,10 @@ services:
         condition: service_healthy
       history-service:
         condition: service_healthy
+      catalog-service:
+        condition: service_healthy
+      content-service:
+        condition: service_healthy
     environment:
       RECOMMENDATION_HTTP_HOST: 0.0.0.0
       RECOMMENDATION_HTTP_PORT: 8080
@@ -22,6 +26,10 @@ services:
       INTERACTION_GRPC_PORT: 9090
       HISTORY_GRPC_HOST: history-service
       HISTORY_GRPC_PORT: 9090
+      CATALOG_GRPC_HOST: catalog-service
+      CATALOG_GRPC_PORT: 9090
+      CONTENT_GRPC_HOST: content-service
+      CONTENT_GRPC_PORT: 9090
       POSTGRES_HOST: ${POSTGRES_HOST:-postgres}
       POSTGRES_PORT: ${POSTGRES_PORT:-5432}
       POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER is required}

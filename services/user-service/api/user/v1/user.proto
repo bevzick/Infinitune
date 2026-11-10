@@ -25,6 +25,7 @@ message RecommendationPreferences {
   optional string preferred_mood_id = 2;
   repeated WeightedPreference genres = 3;
   repeated WeightedPreference artists = 4;
+  bool explicit_content_allowed = 5;
 }
 
 message GetPublicProfileRequest {

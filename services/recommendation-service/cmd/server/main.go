@@ -13,12 +13,15 @@ import (
 	"syscall"
 	"time"
 
+	catalogv1 "github.com/bevzick/Infinitune/services/recommendation-service/api/catalog/v1"
+	contentv1 "github.com/bevzick/Infinitune/services/recommendation-service/api/content/v1"
 	historyv1 "github.com/bevzick/Infinitune/services/recommendation-service/api/history/v1"
 	interactionv1 "github.com/bevzick/Infinitune/services/recommendation-service/api/interaction/v1"
 	userv1 "github.com/bevzick/Infinitune/services/recommendation-service/api/user/v1"
 	"github.com/bevzick/Infinitune/services/recommendation-service/internal/config"
 	"github.com/bevzick/Infinitune/services/recommendation-service/internal/database"
 	"github.com/bevzick/Infinitune/services/recommendation-service/internal/httpapi"
+	"github.com/bevzick/Infinitune/services/recommendation-service/internal/ranking"
 	preferencesignal "github.com/bevzick/Infinitune/services/recommendation-service/internal/signal"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -71,13 +74,30 @@ func main() {
 		os.Exit(1)
 	}
 	defer historyConnection.Close()
+	catalogConnection, err := grpc.NewClient(cfg.CatalogAddress, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		logger.Error("failed to configure Catalog gRPC client", "error", err)
+		os.Exit(1)
+	}
+	defer catalogConnection.Close()
+	contentConnection, err := grpc.NewClient(cfg.ContentAddress, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		logger.Error("failed to configure Content gRPC client", "error", err)
+		os.Exit(1)
+	}
+	defer contentConnection.Close()
 	collector := preferencesignal.NewCollector(
 		preferencesignal.NewUserClient(userv1.NewUserServiceClient(userConnection)),
 		preferencesignal.NewInteractionClient(interactionv1.NewSignalServiceClient(interactionConnection)),
 		preferencesignal.NewHistoryClient(historyv1.NewSignalServiceClient(historyConnection)),
 		100,
 	)
-	_ = collector // consumed by the ranking pipeline introduced in the next stage
+	rankingService := ranking.NewService(
+		collector,
+		ranking.NewCatalogSource(catalogv1.NewCatalogServiceClient(catalogConnection)),
+		ranking.NewContentClient(contentv1.NewContentServiceClient(contentConnection)),
+	)
+	_ = rankingService // consumed by run persistence introduced in the next stage
 	server := &http.Server{
 		Addr: cfg.HTTPAddress, Handler: httpapi.NewRouter(databasePool),
 		ReadHeaderTimeout: readHeaderTimeout,

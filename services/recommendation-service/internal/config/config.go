@@ -24,6 +24,8 @@ type Config struct {
 	UserAddress        string
 	InteractionAddress string
 	HistoryAddress     string
+	CatalogAddress     string
+	ContentAddress     string
 	Database           database.Config
 }
 
@@ -48,6 +50,14 @@ func Load() (Config, error) {
 	if _, err = parsePort("HISTORY_GRPC_PORT", historyPort); err != nil {
 		return Config{}, err
 	}
+	catalogPort := envOrDefault("CATALOG_GRPC_PORT", defaultGRPCPort)
+	if _, err = parsePort("CATALOG_GRPC_PORT", catalogPort); err != nil {
+		return Config{}, err
+	}
+	contentPort := envOrDefault("CONTENT_GRPC_PORT", defaultGRPCPort)
+	if _, err = parsePort("CONTENT_GRPC_PORT", contentPort); err != nil {
+		return Config{}, err
+	}
 	return Config{
 		HTTPAddress: net.JoinHostPort(
 			envOrDefault("RECOMMENDATION_HTTP_HOST", defaultHTTPHost),
@@ -56,6 +66,8 @@ func Load() (Config, error) {
 		UserAddress:        net.JoinHostPort(envOrDefault("USER_GRPC_HOST", defaultGRPCHost), grpcPort),
 		InteractionAddress: net.JoinHostPort(envOrDefault("INTERACTION_GRPC_HOST", defaultGRPCHost), interactionPort),
 		HistoryAddress:     net.JoinHostPort(envOrDefault("HISTORY_GRPC_HOST", defaultGRPCHost), historyPort),
+		CatalogAddress:     net.JoinHostPort(envOrDefault("CATALOG_GRPC_HOST", defaultGRPCHost), catalogPort),
+		ContentAddress:     net.JoinHostPort(envOrDefault("CONTENT_GRPC_HOST", defaultGRPCHost), contentPort),
 		Database:           databaseConfig,
 	}, nil
 }

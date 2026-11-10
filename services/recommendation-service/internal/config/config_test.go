@@ -11,6 +11,8 @@ func TestLoadUsesRecommendationDatabaseEnvironment(t *testing.T) {
 	t.Setenv("USER_GRPC_HOST", "user-service")
 	t.Setenv("INTERACTION_GRPC_HOST", "interaction-service")
 	t.Setenv("HISTORY_GRPC_HOST", "history-service")
+	t.Setenv("CATALOG_GRPC_HOST", "catalog-service")
+	t.Setenv("CONTENT_GRPC_HOST", "content-service")
 
 	cfg, err := Load()
 	if err != nil {
@@ -23,8 +25,8 @@ func TestLoadUsesRecommendationDatabaseEnvironment(t *testing.T) {
 		cfg.Database.Name != "recommendation_db" {
 		t.Fatalf("Database = %+v", cfg.Database)
 	}
-	if cfg.UserAddress != "user-service:9090" || cfg.InteractionAddress != "interaction-service:9090" || cfg.HistoryAddress != "history-service:9090" {
-		t.Fatalf("gRPC addresses = %q, %q, %q", cfg.UserAddress, cfg.InteractionAddress, cfg.HistoryAddress)
+	if cfg.UserAddress != "user-service:9090" || cfg.InteractionAddress != "interaction-service:9090" || cfg.HistoryAddress != "history-service:9090" || cfg.CatalogAddress != "catalog-service:9090" || cfg.ContentAddress != "content-service:9090" {
+		t.Fatalf("gRPC addresses = %q, %q, %q, %q, %q", cfg.UserAddress, cfg.InteractionAddress, cfg.HistoryAddress, cfg.CatalogAddress, cfg.ContentAddress)
 	}
 }
 

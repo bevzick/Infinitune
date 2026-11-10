@@ -123,6 +123,7 @@ type RecommendationPreferences struct {
 	PreferredMoodId        *string                `protobuf:"bytes,2,opt,name=preferred_mood_id,json=preferredMoodId,proto3,oneof" json:"preferred_mood_id,omitempty"`
 	Genres                 []*WeightedPreference  `protobuf:"bytes,3,rep,name=genres,proto3" json:"genres,omitempty"`
 	Artists                []*WeightedPreference  `protobuf:"bytes,4,rep,name=artists,proto3" json:"artists,omitempty"`
+	ExplicitContentAllowed bool                   `protobuf:"varint,5,opt,name=explicit_content_allowed,json=explicitContentAllowed,proto3" json:"explicit_content_allowed,omitempty"`
 	unknownFields          protoimpl.UnknownFields
 	sizeCache              protoimpl.SizeCache
 }
@@ -185,6 +186,13 @@ func (x *RecommendationPreferences) GetArtists() []*WeightedPreference {
 	return nil
 }
 
+func (x *RecommendationPreferences) GetExplicitContentAllowed() bool {
+	if x != nil {
+		return x.ExplicitContentAllowed
+	}
+	return false
+}
+
 var File_api_user_v1_user_proto protoreflect.FileDescriptor
 
 const file_api_user_v1_user_proto_rawDesc = "" +
@@ -194,12 +202,13 @@ const file_api_user_v1_user_proto_rawDesc = "" +
 	"\auser_id\x18\x01 \x01(\tR\x06userId\"<\n" +
 	"\x12WeightedPreference\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x16\n" +
-	"\x06weight\x18\x02 \x01(\x01R\x06weight\"\x9d\x02\n" +
+	"\x06weight\x18\x02 \x01(\x01R\x06weight\"\xd7\x02\n" +
 	"\x19RecommendationPreferences\x127\n" +
 	"\x17recommendations_enabled\x18\x01 \x01(\bR\x16recommendationsEnabled\x12/\n" +
 	"\x11preferred_mood_id\x18\x02 \x01(\tH\x00R\x0fpreferredMoodId\x88\x01\x01\x12>\n" +
 	"\x06genres\x18\x03 \x03(\v2&.infinitune.user.v1.WeightedPreferenceR\x06genres\x12@\n" +
-	"\aartists\x18\x04 \x03(\v2&.infinitune.user.v1.WeightedPreferenceR\aartistsB\x14\n" +
+	"\aartists\x18\x04 \x03(\v2&.infinitune.user.v1.WeightedPreferenceR\aartists\x128\n" +
+	"\x18explicit_content_allowed\x18\x05 \x01(\bR\x16explicitContentAllowedB\x14\n" +
 	"\x12_preferred_mood_id2\x96\x01\n" +
 	"\vUserService\x12\x86\x01\n" +
 	"\x1cGetRecommendationPreferences\x127.infinitune.user.v1.GetRecommendationPreferencesRequest\x1a-.infinitune.user.v1.RecommendationPreferencesBRZPgithub.com/bevzick/Infinitune/services/recommendation-service/api/user/v1;userv1b\x06proto3"

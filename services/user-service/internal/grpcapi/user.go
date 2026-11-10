@@ -16,18 +16,18 @@ type PublicProfiles interface {
 	Public(context.Context, uuid.UUID) (profile.PublicProfile, error)
 }
 
-type RecommendationPreferences interface {
-	PreferencesByUserID(context.Context, uuid.UUID) (profile.Preferences, error)
+type RecommendationProfiles interface {
+	ByUserID(context.Context, uuid.UUID) (profile.Profile, error)
 }
 
 type UserServer struct {
 	userv1.UnimplementedUserServiceServer
-	profiles    PublicProfiles
-	preferences RecommendationPreferences
+	profiles        PublicProfiles
+	recommendations RecommendationProfiles
 }
 
-func NewUserServer(profiles PublicProfiles, preferences RecommendationPreferences) *UserServer {
-	return &UserServer{profiles: profiles, preferences: preferences}
+func NewUserServer(profiles PublicProfiles, recommendations RecommendationProfiles) *UserServer {
+	return &UserServer{profiles: profiles, recommendations: recommendations}
 }
 
 func (server *UserServer) GetRecommendationPreferences(
@@ -38,7 +38,7 @@ func (server *UserServer) GetRecommendationPreferences(
 	if err != nil || userID == uuid.Nil {
 		return nil, status.Error(codes.InvalidArgument, "user_id must be a UUID")
 	}
-	result, err := server.preferences.PreferencesByUserID(ctx, userID)
+	result, err := server.recommendations.ByUserID(ctx, userID)
 	if errors.Is(err, profile.ErrNotFound) {
 		return nil, status.Error(codes.NotFound, "preferences were not found")
 	}
@@ -46,12 +46,13 @@ func (server *UserServer) GetRecommendationPreferences(
 		return nil, status.Error(codes.Internal, "preference lookup failed")
 	}
 	response := &userv1.RecommendationPreferences{
-		RecommendationsEnabled: result.RecommendationsEnabled,
-		Genres:                 mapPreferences(result.Genres),
-		Artists:                mapPreferences(result.Artists),
+		RecommendationsEnabled: result.Preferences.RecommendationsEnabled,
+		ExplicitContentAllowed: result.Settings.ExplicitContent,
+		Genres:                 mapPreferences(result.Preferences.Genres),
+		Artists:                mapPreferences(result.Preferences.Artists),
 	}
-	if result.PreferredMoodID != nil {
-		value := result.PreferredMoodID.String()
+	if result.Preferences.PreferredMoodID != nil {
+		value := result.Preferences.PreferredMoodID.String()
 		response.PreferredMoodId = &value
 	}
 	return response, nil
