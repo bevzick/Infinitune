@@ -17,6 +17,8 @@ func TestLoadUsesRecommendationDatabaseEnvironment(t *testing.T) {
 	t.Setenv("CATALOG_GRPC_HOST", "catalog-service")
 	t.Setenv("CONTENT_GRPC_HOST", "content-service")
 	t.Setenv("RECOMMENDATION_RUN_TTL", "45m")
+	t.Setenv("RECOMMENDATION_AUTH_JWKS_URL", "https://auth.example.test/v1/auth/jwks")
+	t.Setenv("RECOMMENDATION_ALLOWED_ORIGINS", "https://app.example.test")
 
 	cfg, err := Load()
 	if err != nil {
@@ -35,6 +37,9 @@ func TestLoadUsesRecommendationDatabaseEnvironment(t *testing.T) {
 	if cfg.RunTTL != 45*time.Minute {
 		t.Fatalf("RunTTL = %s", cfg.RunTTL)
 	}
+	if cfg.Identity.JWKSURL != "https://auth.example.test/v1/auth/jwks" || len(cfg.Origins) != 1 || cfg.Origins[0] != "https://app.example.test" {
+		t.Fatalf("identity/origins = %+v, %v", cfg.Identity, cfg.Origins)
+	}
 }
 
 func TestLoadRejectsInvalidRunTTL(t *testing.T) {
@@ -42,6 +47,16 @@ func TestLoadRejectsInvalidRunTTL(t *testing.T) {
 	t.Setenv("POSTGRES_PASSWORD", "secret")
 	t.Setenv("POSTGRES_RECOMMENDATION_DB", "recommendation_db")
 	t.Setenv("RECOMMENDATION_RUN_TTL", "0s")
+	if _, err := Load(); err == nil {
+		t.Fatal("Load() error = nil")
+	}
+}
+
+func TestLoadRejectsInvalidAllowedOrigin(t *testing.T) {
+	t.Setenv("POSTGRES_USER", "recommendation_user")
+	t.Setenv("POSTGRES_PASSWORD", "secret")
+	t.Setenv("POSTGRES_RECOMMENDATION_DB", "recommendation_db")
+	t.Setenv("RECOMMENDATION_ALLOWED_ORIGINS", "http://localhost:5173/path")
 	if _, err := Load(); err == nil {
 		t.Fatal("Load() error = nil")
 	}

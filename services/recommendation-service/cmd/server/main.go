@@ -21,6 +21,7 @@ import (
 	"github.com/bevzick/Infinitune/services/recommendation-service/internal/config"
 	"github.com/bevzick/Infinitune/services/recommendation-service/internal/database"
 	"github.com/bevzick/Infinitune/services/recommendation-service/internal/httpapi"
+	"github.com/bevzick/Infinitune/services/recommendation-service/internal/identity"
 	"github.com/bevzick/Infinitune/services/recommendation-service/internal/ranking"
 	"github.com/bevzick/Infinitune/services/recommendation-service/internal/recommendation"
 	postgres_repository "github.com/bevzick/Infinitune/services/recommendation-service/internal/repository/postgres"
@@ -58,6 +59,11 @@ func main() {
 		os.Exit(1)
 	}
 	defer databasePool.Close()
+	tokenVerifier, err := identity.NewVerifier(cfg.Identity, nil)
+	if err != nil {
+		logger.Error("failed to initialize identity verifier", "error", err)
+		os.Exit(1)
+	}
 	userConnection, err := grpc.NewClient(cfg.UserAddress, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		logger.Error("failed to configure User gRPC client", "error", err)
@@ -109,9 +115,11 @@ func main() {
 		logger.Error("failed to configure recommendation run service", "error", err)
 		os.Exit(1)
 	}
-	_ = runService // consumed by the HTTP API introduced in the next stage
 	server := &http.Server{
-		Addr: cfg.HTTPAddress, Handler: httpapi.NewRouter(databasePool),
+		Addr: cfg.HTTPAddress, Handler: httpapi.NewRouter(httpapi.Dependencies{
+			Database: databasePool, Tokens: tokenVerifier, Recommendations: runService,
+			Origins: cfg.Origins, Logger: logger,
+		}),
 		ReadHeaderTimeout: readHeaderTimeout,
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)

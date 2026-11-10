@@ -3,12 +3,14 @@ package config
 import (
 	"fmt"
 	"net"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/bevzick/Infinitune/services/recommendation-service/internal/database"
+	"github.com/bevzick/Infinitune/services/recommendation-service/internal/identity"
 )
 
 const (
@@ -19,6 +21,11 @@ const (
 	defaultGRPCHost     = "127.0.0.1"
 	defaultGRPCPort     = "9090"
 	defaultRunTTL       = time.Hour
+	defaultJWKSURL      = "http://auth-service:8080/v1/auth/jwks"
+	defaultJWTIssuer    = "infinitune-auth"
+	defaultJWTAudience  = "infinitune-api"
+	defaultJWTKeyID     = "auth-key-1"
+	defaultJWKSRefresh  = 5 * time.Minute
 )
 
 type Config struct {
@@ -30,6 +37,8 @@ type Config struct {
 	ContentAddress     string
 	RunTTL             time.Duration
 	Database           database.Config
+	Identity           identity.Config
+	Origins            []string
 }
 
 func Load() (Config, error) {
@@ -65,6 +74,10 @@ func Load() (Config, error) {
 	if err != nil {
 		return Config{}, err
 	}
+	origins, err := parseAllowedOrigins(envOrDefault("RECOMMENDATION_ALLOWED_ORIGINS", ""))
+	if err != nil {
+		return Config{}, err
+	}
 	return Config{
 		HTTPAddress: net.JoinHostPort(
 			envOrDefault("RECOMMENDATION_HTTP_HOST", defaultHTTPHost),
@@ -77,7 +90,36 @@ func Load() (Config, error) {
 		ContentAddress:     net.JoinHostPort(envOrDefault("CONTENT_GRPC_HOST", defaultGRPCHost), contentPort),
 		RunTTL:             runTTL,
 		Database:           databaseConfig,
+		Identity: identity.Config{
+			JWKSURL:         envOrDefault("RECOMMENDATION_AUTH_JWKS_URL", defaultJWKSURL),
+			Issuer:          envOrDefault("AUTH_JWT_ISSUER", defaultJWTIssuer),
+			Audience:        envOrDefault("AUTH_JWT_AUDIENCE", defaultJWTAudience),
+			KeyID:           envOrDefault("AUTH_JWT_KEY_ID", defaultJWTKeyID),
+			RefreshInterval: defaultJWKSRefresh,
+		},
+		Origins: origins,
 	}, nil
+}
+
+func parseAllowedOrigins(value string) ([]string, error) {
+	if strings.TrimSpace(value) == "" {
+		return nil, nil
+	}
+	seen := make(map[string]struct{})
+	result := make([]string, 0)
+	for raw := range strings.SplitSeq(value, ",") {
+		origin := strings.TrimSpace(raw)
+		parsed, err := url.Parse(origin)
+		if err != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.Host == "" || parsed.User != nil || parsed.Path != "" || parsed.RawQuery != "" || parsed.Fragment != "" {
+			return nil, fmt.Errorf("invalid RECOMMENDATION_ALLOWED_ORIGINS entry %q", origin)
+		}
+		if _, exists := seen[origin]; exists {
+			continue
+		}
+		seen[origin] = struct{}{}
+		result = append(result, origin)
+	}
+	return result, nil
 }
 
 func parsePositiveDuration(key, value string) (time.Duration, error) {
