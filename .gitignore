@@ -20,6 +20,11 @@ profile.cov
 
 # Dependency directories (remove the comment below to include it)
 # vendor/
+node_modules/
+
+# Frontend build and tool caches
+dist/
+.vite/
 
 # Go workspace file
 go.work
