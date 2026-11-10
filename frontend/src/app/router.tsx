@@ -6,6 +6,7 @@ import { LibraryPage } from "../pages/LibraryPage";
 import { LoginPage } from "../pages/LoginPage";
 import { NotFoundPage } from "../pages/NotFoundPage";
 import { PlaylistPage } from "../pages/PlaylistPage";
+import { ProfilePage } from "../pages/ProfilePage";
 import { RegisterPage } from "../pages/RegisterPage";
 import { RouteErrorPage } from "../pages/RouteErrorPage";
 import { SearchPage } from "../pages/SearchPage";
@@ -33,6 +34,7 @@ export const router = createBrowserRouter([
         children: [
           { path: "library", element: <LibraryPage /> },
           { path: "library/:playlistId", element: <PlaylistPage /> },
+          { path: "profile", element: <ProfilePage /> },
         ],
       },
       { path: "*", element: <NotFoundPage /> },

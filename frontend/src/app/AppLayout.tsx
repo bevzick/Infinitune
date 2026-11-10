@@ -10,6 +10,7 @@ const navigation = [
   { to: "/artists", label: "Artists", icon: "◉" },
   { to: "/albums", label: "Albums", icon: "▣" },
   { to: "/library", label: "Library", icon: "◫" },
+  { to: "/profile", label: "Profile", icon: "◎" },
 ] as const;
 
 export function AppLayout() {
