@@ -13,9 +13,15 @@ import (
 	"syscall"
 	"time"
 
+	historyv1 "github.com/bevzick/Infinitune/services/recommendation-service/api/history/v1"
+	interactionv1 "github.com/bevzick/Infinitune/services/recommendation-service/api/interaction/v1"
+	userv1 "github.com/bevzick/Infinitune/services/recommendation-service/api/user/v1"
 	"github.com/bevzick/Infinitune/services/recommendation-service/internal/config"
 	"github.com/bevzick/Infinitune/services/recommendation-service/internal/database"
 	"github.com/bevzick/Infinitune/services/recommendation-service/internal/httpapi"
+	preferencesignal "github.com/bevzick/Infinitune/services/recommendation-service/internal/signal"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 const (
@@ -47,6 +53,31 @@ func main() {
 		os.Exit(1)
 	}
 	defer databasePool.Close()
+	userConnection, err := grpc.NewClient(cfg.UserAddress, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		logger.Error("failed to configure User gRPC client", "error", err)
+		os.Exit(1)
+	}
+	defer userConnection.Close()
+	interactionConnection, err := grpc.NewClient(cfg.InteractionAddress, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		logger.Error("failed to configure Interaction gRPC client", "error", err)
+		os.Exit(1)
+	}
+	defer interactionConnection.Close()
+	historyConnection, err := grpc.NewClient(cfg.HistoryAddress, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		logger.Error("failed to configure History gRPC client", "error", err)
+		os.Exit(1)
+	}
+	defer historyConnection.Close()
+	collector := preferencesignal.NewCollector(
+		preferencesignal.NewUserClient(userv1.NewUserServiceClient(userConnection)),
+		preferencesignal.NewInteractionClient(interactionv1.NewSignalServiceClient(interactionConnection)),
+		preferencesignal.NewHistoryClient(historyv1.NewSignalServiceClient(historyConnection)),
+		100,
+	)
+	_ = collector // consumed by the ranking pipeline introduced in the next stage
 	server := &http.Server{
 		Addr: cfg.HTTPAddress, Handler: httpapi.NewRouter(databasePool),
 		ReadHeaderTimeout: readHeaderTimeout,

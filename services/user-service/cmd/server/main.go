@@ -56,7 +56,8 @@ func main() {
 		os.Exit(1)
 	}
 	defer databasePool.Close()
-	profileService := profile.NewService(postgres_repository.NewProfileRepository(databasePool))
+	profileRepository := postgres_repository.NewProfileRepository(databasePool)
+	profileService := profile.NewService(profileRepository)
 	tokenVerifier, err := identity.NewVerifier(cfg.Identity, nil)
 	if err != nil {
 		logger.Error("failed to initialize identity verifier", "error", err)
@@ -80,7 +81,7 @@ func main() {
 		os.Exit(1)
 	}
 	grpcServer := grpc.NewServer()
-	userv1.RegisterUserServiceServer(grpcServer, grpcapi.NewUserServer(profileService))
+	userv1.RegisterUserServiceServer(grpcServer, grpcapi.NewUserServer(profileService, profileRepository))
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()

@@ -1,0 +1,16 @@
+syntax = "proto3";
+
+package infinitune.interaction.signal.v1;
+
+option go_package = "github.com/bevzick/Infinitune/services/recommendation-service/api/interaction/v1;interactionv1";
+
+// Consumer-owned subset of the Interaction signal contract.
+service SignalService {
+  rpc ListPreferenceSignals(ListPreferenceSignalsRequest) returns (PreferenceSignals);
+}
+message ListPreferenceSignalsRequest { string user_id = 1; int32 limit_per_type = 2; }
+message PreferenceSignals {
+  repeated string liked_track_ids = 1;
+  repeated string liked_album_ids = 2;
+  repeated string followed_artist_ids = 3;
+}

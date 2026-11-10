@@ -20,7 +20,7 @@ FROM scratch
 COPY --from=build /out/interaction-service /interaction-service
 
 USER 65532:65532
-EXPOSE 8080
+EXPOSE 8080 9090
 HEALTHCHECK --interval=10s --timeout=5s --start-period=10s --retries=5 \
     CMD ["/interaction-service", "healthcheck"]
 

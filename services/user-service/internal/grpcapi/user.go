@@ -16,13 +16,53 @@ type PublicProfiles interface {
 	Public(context.Context, uuid.UUID) (profile.PublicProfile, error)
 }
 
-type UserServer struct {
-	userv1.UnimplementedUserServiceServer
-	profiles PublicProfiles
+type RecommendationPreferences interface {
+	PreferencesByUserID(context.Context, uuid.UUID) (profile.Preferences, error)
 }
 
-func NewUserServer(profiles PublicProfiles) *UserServer {
-	return &UserServer{profiles: profiles}
+type UserServer struct {
+	userv1.UnimplementedUserServiceServer
+	profiles    PublicProfiles
+	preferences RecommendationPreferences
+}
+
+func NewUserServer(profiles PublicProfiles, preferences RecommendationPreferences) *UserServer {
+	return &UserServer{profiles: profiles, preferences: preferences}
+}
+
+func (server *UserServer) GetRecommendationPreferences(
+	ctx context.Context,
+	request *userv1.GetRecommendationPreferencesRequest,
+) (*userv1.RecommendationPreferences, error) {
+	userID, err := uuid.Parse(request.GetUserId())
+	if err != nil || userID == uuid.Nil {
+		return nil, status.Error(codes.InvalidArgument, "user_id must be a UUID")
+	}
+	result, err := server.preferences.PreferencesByUserID(ctx, userID)
+	if errors.Is(err, profile.ErrNotFound) {
+		return nil, status.Error(codes.NotFound, "preferences were not found")
+	}
+	if err != nil {
+		return nil, status.Error(codes.Internal, "preference lookup failed")
+	}
+	response := &userv1.RecommendationPreferences{
+		RecommendationsEnabled: result.RecommendationsEnabled,
+		Genres:                 mapPreferences(result.Genres),
+		Artists:                mapPreferences(result.Artists),
+	}
+	if result.PreferredMoodID != nil {
+		value := result.PreferredMoodID.String()
+		response.PreferredMoodId = &value
+	}
+	return response, nil
+}
+
+func mapPreferences(values []profile.WeightedPreference) []*userv1.WeightedPreference {
+	result := make([]*userv1.WeightedPreference, len(values))
+	for index, value := range values {
+		result[index] = &userv1.WeightedPreference{Id: value.ID.String(), Weight: value.Weight}
+	}
+	return result
 }
 
 func (server *UserServer) GetPublicProfile(

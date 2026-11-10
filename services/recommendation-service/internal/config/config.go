@@ -15,11 +15,16 @@ const (
 	defaultHTTPPort     = "8080"
 	defaultPostgresHost = "127.0.0.1"
 	defaultPostgresPort = "5432"
+	defaultGRPCHost     = "127.0.0.1"
+	defaultGRPCPort     = "9090"
 )
 
 type Config struct {
-	HTTPAddress string
-	Database    database.Config
+	HTTPAddress        string
+	UserAddress        string
+	InteractionAddress string
+	HistoryAddress     string
+	Database           database.Config
 }
 
 func Load() (Config, error) {
@@ -31,12 +36,27 @@ func Load() (Config, error) {
 	if err != nil {
 		return Config{}, err
 	}
+	grpcPort := envOrDefault("USER_GRPC_PORT", defaultGRPCPort)
+	if _, err = parsePort("USER_GRPC_PORT", grpcPort); err != nil {
+		return Config{}, err
+	}
+	interactionPort := envOrDefault("INTERACTION_GRPC_PORT", defaultGRPCPort)
+	if _, err = parsePort("INTERACTION_GRPC_PORT", interactionPort); err != nil {
+		return Config{}, err
+	}
+	historyPort := envOrDefault("HISTORY_GRPC_PORT", defaultGRPCPort)
+	if _, err = parsePort("HISTORY_GRPC_PORT", historyPort); err != nil {
+		return Config{}, err
+	}
 	return Config{
 		HTTPAddress: net.JoinHostPort(
 			envOrDefault("RECOMMENDATION_HTTP_HOST", defaultHTTPHost),
 			httpPort,
 		),
-		Database: databaseConfig,
+		UserAddress:        net.JoinHostPort(envOrDefault("USER_GRPC_HOST", defaultGRPCHost), grpcPort),
+		InteractionAddress: net.JoinHostPort(envOrDefault("INTERACTION_GRPC_HOST", defaultGRPCHost), interactionPort),
+		HistoryAddress:     net.JoinHostPort(envOrDefault("HISTORY_GRPC_HOST", defaultGRPCHost), historyPort),
+		Database:           databaseConfig,
 	}, nil
 }
 

@@ -8,6 +8,9 @@ func TestLoadUsesRecommendationDatabaseEnvironment(t *testing.T) {
 	t.Setenv("POSTGRES_RECOMMENDATION_DB", "recommendation_db")
 	t.Setenv("RECOMMENDATION_HTTP_HOST", "127.0.0.1")
 	t.Setenv("RECOMMENDATION_HTTP_PORT", "9080")
+	t.Setenv("USER_GRPC_HOST", "user-service")
+	t.Setenv("INTERACTION_GRPC_HOST", "interaction-service")
+	t.Setenv("HISTORY_GRPC_HOST", "history-service")
 
 	cfg, err := Load()
 	if err != nil {
@@ -19,6 +22,9 @@ func TestLoadUsesRecommendationDatabaseEnvironment(t *testing.T) {
 	if cfg.Database.User != "recommendation_user" ||
 		cfg.Database.Name != "recommendation_db" {
 		t.Fatalf("Database = %+v", cfg.Database)
+	}
+	if cfg.UserAddress != "user-service:9090" || cfg.InteractionAddress != "interaction-service:9090" || cfg.HistoryAddress != "history-service:9090" {
+		t.Fatalf("gRPC addresses = %q, %q, %q", cfg.UserAddress, cfg.InteractionAddress, cfg.HistoryAddress)
 	}
 }
 

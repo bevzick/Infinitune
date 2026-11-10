@@ -15,10 +15,12 @@ import (
 
 	catalogv1 "github.com/bevzick/Infinitune/services/interaction-service/api/catalog/v1"
 	commentv1 "github.com/bevzick/Infinitune/services/interaction-service/api/comment/v1"
+	signalv1 "github.com/bevzick/Infinitune/services/interaction-service/api/signal/v1"
 	"github.com/bevzick/Infinitune/services/interaction-service/internal/catalog"
 	"github.com/bevzick/Infinitune/services/interaction-service/internal/commentlookup"
 	"github.com/bevzick/Infinitune/services/interaction-service/internal/config"
 	"github.com/bevzick/Infinitune/services/interaction-service/internal/database"
+	"github.com/bevzick/Infinitune/services/interaction-service/internal/grpcapi"
 	"github.com/bevzick/Infinitune/services/interaction-service/internal/httpapi"
 	"github.com/bevzick/Infinitune/services/interaction-service/internal/identity"
 	"github.com/bevzick/Infinitune/services/interaction-service/internal/interaction"
@@ -96,12 +98,23 @@ func main() {
 		}),
 		ReadHeaderTimeout: readHeaderTimeout,
 	}
+	grpcListener, err := net.Listen("tcp", cfg.GRPCAddress)
+	if err != nil {
+		logger.Error("failed to listen for gRPC", "error", err)
+		os.Exit(1)
+	}
+	grpcServer := grpc.NewServer()
+	signalv1.RegisterSignalServiceServer(grpcServer, grpcapi.NewSignalServer(likes))
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
-	serverErrors := make(chan error, 1)
+	serverErrors := make(chan error, 2)
 	go func() {
 		logger.Info("interaction service started", "address", cfg.HTTPAddress)
 		serverErrors <- server.ListenAndServe()
+	}()
+	go func() {
+		logger.Info("interaction gRPC service started", "address", cfg.GRPCAddress)
+		serverErrors <- grpcServer.Serve(grpcListener)
 	}()
 
 	select {
@@ -118,6 +131,13 @@ func main() {
 	if err = server.Shutdown(shutdownCtx); err != nil {
 		logger.Error("failed to shut down interaction service", "error", err)
 		os.Exit(1)
+	}
+	grpcStopped := make(chan struct{})
+	go func() { grpcServer.GracefulStop(); close(grpcStopped) }()
+	select {
+	case <-grpcStopped:
+	case <-shutdownCtx.Done():
+		grpcServer.Stop()
 	}
 	logger.Info("interaction service stopped")
 }

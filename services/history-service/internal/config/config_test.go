@@ -8,6 +8,8 @@ func TestLoadUsesHistoryDatabaseEnvironment(t *testing.T) {
 	t.Setenv("POSTGRES_HISTORY_DB", "history_db")
 	t.Setenv("HISTORY_HTTP_HOST", "127.0.0.1")
 	t.Setenv("HISTORY_HTTP_PORT", "9080")
+	t.Setenv("HISTORY_GRPC_HOST", "127.0.0.1")
+	t.Setenv("HISTORY_GRPC_PORT", "9095")
 	t.Setenv("CATALOG_GRPC_HOST", "catalog")
 	t.Setenv("CATALOG_GRPC_PORT", "9091")
 	t.Setenv("HISTORY_ALLOWED_ORIGINS", "https://app.example.test")
@@ -15,8 +17,8 @@ func TestLoadUsesHistoryDatabaseEnvironment(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Load() error = %v", err)
 	}
-	if cfg.HTTPAddress != "127.0.0.1:9080" {
-		t.Fatalf("HTTPAddress = %q", cfg.HTTPAddress)
+	if cfg.HTTPAddress != "127.0.0.1:9080" || cfg.GRPCAddress != "127.0.0.1:9095" {
+		t.Fatalf("HTTPAddress/GRPCAddress = %q/%q", cfg.HTTPAddress, cfg.GRPCAddress)
 	}
 	if cfg.Database.User != "history_user" || cfg.Database.Name != "history_db" {
 		t.Fatalf("Database = %+v", cfg.Database)
