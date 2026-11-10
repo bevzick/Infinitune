@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/bevzick/Infinitune/services/comment-service/internal/comment"
+	"github.com/bevzick/Infinitune/services/comment-service/internal/moderation"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -120,6 +121,63 @@ func TestCommentRepositoryRateLimitsReporter(t *testing.T) {
 	}
 }
 
+func TestCommentRepositoryModeratesReportWithAuditHistory(t *testing.T) {
+	pool := openIntegrationDatabase(t)
+	repository := NewCommentRepository(pool)
+	ctx := context.Background()
+	ownerID, reporterID, moderatorID := uuid.New(), uuid.New(), uuid.New()
+	trackID, commentID, reportID := uuid.New(), uuid.New(), uuid.New()
+	cleanupUsers(t, pool, ownerID, reporterID, moderatorID)
+	if _, err := repository.Create(ctx, comment.Comment{
+		ID: commentID, UserID: ownerID, TrackID: trackID, Content: "Moderate me",
+	}); err != nil {
+		t.Fatalf("create comment: %v", err)
+	}
+	if _, err := repository.CreateReport(ctx, comment.Report{
+		ID: reportID, CommentID: commentID, ReporterUserID: reporterID,
+		Reason: comment.ReportReasonHarassment, Description: "Abusive",
+	}); err != nil {
+		t.Fatalf("create report: %v", err)
+	}
+	status := comment.ReportStatusPending
+	queue, err := repository.ListModerationCases(ctx, moderation.PageRequest{Status: &status, Limit: 10})
+	if err != nil || queue.Total < 1 || len(queue.Items) < 1 {
+		t.Fatalf("ListModerationCases() = %+v, %v", queue, err)
+	}
+	actions := []struct {
+		action        moderation.Action
+		reportStatus  comment.ReportStatus
+		commentStatus comment.Status
+	}{
+		{moderation.ActionStartReview, comment.ReportStatusReviewing, comment.StatusPublished},
+		{moderation.ActionHideComment, comment.ReportStatusReviewing, comment.StatusHidden},
+		{moderation.ActionRestoreComment, comment.ReportStatusReviewing, comment.StatusPublished},
+		{moderation.ActionResolveReport, comment.ReportStatusResolved, comment.StatusPublished},
+	}
+	for _, step := range actions {
+		result, actionErr := repository.ApplyModerationAction(ctx, moderation.Decision{
+			ID: uuid.New(), ReportID: reportID, ModeratorUserID: moderatorID,
+			Action: step.action, Note: "Audit note",
+		})
+		if actionErr != nil || result.ResultingReportStatus != step.reportStatus ||
+			result.ResultingCommentStatus != step.commentStatus || result.CreatedAt.IsZero() {
+			t.Fatalf("ApplyModerationAction(%s) = %+v, %v", step.action, result, actionErr)
+		}
+	}
+	if _, err = repository.ApplyModerationAction(ctx, moderation.Decision{
+		ID: uuid.New(), ReportID: reportID, ModeratorUserID: moderatorID,
+		Action: moderation.ActionRejectReport, Note: "Too late",
+	}); !errors.Is(err, moderation.ErrConflict) {
+		t.Fatalf("ApplyModerationAction(terminal) error = %v, want %v", err, moderation.ErrConflict)
+	}
+	var auditCount int
+	if err = pool.QueryRow(ctx, `
+		SELECT count(*) FROM comment.report_moderation_actions WHERE report_id = $1
+	`, reportID).Scan(&auditCount); err != nil || auditCount != len(actions) {
+		t.Fatalf("audit count = %d, %v", auditCount, err)
+	}
+}
+
 func TestCommentRepositoryRateLimitsAuthor(t *testing.T) {
 	pool := openIntegrationDatabase(t)
 	repository := NewCommentRepository(pool)
@@ -147,6 +205,16 @@ func cleanupUsers(t *testing.T, pool *pgxpool.Pool, userIDs ...uuid.UUID) {
 	t.Cleanup(func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
+		_, _ = pool.Exec(ctx, `
+			DELETE FROM comment.report_moderation_actions
+			WHERE report_id IN (
+				SELECT report.id
+				FROM comment.comment_reports AS report
+				JOIN comment.comments AS subject ON subject.id = report.comment_id
+				WHERE report.reporter_user_id = ANY($1::uuid[])
+				   OR subject.user_id = ANY($1::uuid[])
+			)
+		`, userIDs)
 		_, _ = pool.Exec(ctx, `
 			DELETE FROM comment.comment_reports
 			WHERE reporter_user_id = ANY($1::uuid[])

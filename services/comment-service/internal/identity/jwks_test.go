@@ -34,7 +34,7 @@ func TestVerifierAcceptsValidSubjectAndRejectsExpiredToken(t *testing.T) {
 	now := time.Date(2026, time.November, 10, 12, 0, 0, 0, time.UTC)
 	userID := uuid.New()
 	verified, err := verifier.Verify(context.Background(), signToken(t, privateKey, userID, now, now.Add(15*time.Minute)), now)
-	if err != nil || verified.UserID != userID {
+	if err != nil || verified.UserID != userID || len(verified.Roles) != 1 || verified.Roles[0] != "moderator" {
 		t.Fatalf("Verify(valid) = %+v, %v", verified, err)
 	}
 	_, err = verifier.Verify(context.Background(), signToken(t, privateKey, userID, now.Add(-time.Hour), now.Add(-time.Minute)), now)
@@ -52,7 +52,7 @@ func (function roundTripperFunc) RoundTrip(request *http.Request) (*http.Respons
 func signToken(t *testing.T, privateKey ed25519.PrivateKey, userID uuid.UUID, issuedAt, expiresAt time.Time) string {
 	t.Helper()
 	header, _ := json.Marshal(tokenHeader{Algorithm: "EdDSA", Type: "JWT", KeyID: "auth-key-1"})
-	claims, _ := json.Marshal(tokenClaims{Subject: userID.String(), Issuer: "infinitune-auth", Audience: "infinitune-api", IssuedAt: issuedAt.Unix(), ExpiresAt: expiresAt.Unix()})
+	claims, _ := json.Marshal(tokenClaims{Subject: userID.String(), Issuer: "infinitune-auth", Audience: "infinitune-api", IssuedAt: issuedAt.Unix(), ExpiresAt: expiresAt.Unix(), Roles: []string{"moderator", "moderator"}})
 	encoding := base64.RawURLEncoding
 	input := encoding.EncodeToString(header) + "." + encoding.EncodeToString(claims)
 	return input + "." + encoding.EncodeToString(ed25519.Sign(privateKey, []byte(input)))

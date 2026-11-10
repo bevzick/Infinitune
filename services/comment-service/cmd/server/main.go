@@ -20,6 +20,7 @@ import (
 	"github.com/bevzick/Infinitune/services/comment-service/internal/database"
 	"github.com/bevzick/Infinitune/services/comment-service/internal/httpapi"
 	"github.com/bevzick/Infinitune/services/comment-service/internal/identity"
+	comment_moderation "github.com/bevzick/Infinitune/services/comment-service/internal/moderation"
 	postgres_repository "github.com/bevzick/Infinitune/services/comment-service/internal/repository/postgres"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -73,12 +74,14 @@ func main() {
 		repository,
 		catalog.NewTrackValidator(catalogv1.NewCatalogServiceClient(catalogConnection)),
 	)
+	moderation := comment_moderation.NewService(repository)
 
 	server := &http.Server{
 		Addr: cfg.HTTPAddress,
 		Handler: httpapi.NewRouter(httpapi.Dependencies{
 			Database: databasePool, Tokens: tokenVerifier, Comments: comments,
-			Origins: cfg.Origins, Logger: logger,
+			Moderation: moderation,
+			Origins:    cfg.Origins, Logger: logger,
 		}),
 		ReadHeaderTimeout: readHeaderTimeout,
 	}

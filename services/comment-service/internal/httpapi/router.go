@@ -9,6 +9,7 @@ import (
 
 	"github.com/bevzick/Infinitune/services/comment-service/internal/comment"
 	"github.com/bevzick/Infinitune/services/comment-service/internal/identity"
+	"github.com/bevzick/Infinitune/services/comment-service/internal/moderation"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
@@ -29,12 +30,17 @@ type Comments interface {
 	Delete(context.Context, uuid.UUID, uuid.UUID) error
 	Report(context.Context, uuid.UUID, uuid.UUID, comment.ReportInput) (comment.Report, error)
 }
+type CommentModeration interface {
+	List(context.Context, moderation.Actor, moderation.PageRequest) (moderation.Page, error)
+	Apply(context.Context, moderation.Actor, moderation.Input) (moderation.Decision, error)
+}
 type Dependencies struct {
-	Database DatabaseCheck
-	Tokens   IdentityVerifier
-	Comments Comments
-	Origins  []string
-	Logger   *slog.Logger
+	Database   DatabaseCheck
+	Tokens     IdentityVerifier
+	Comments   Comments
+	Moderation CommentModeration
+	Origins    []string
+	Logger     *slog.Logger
 }
 
 func NewRouter(dependencies Dependencies) http.Handler {
@@ -53,6 +59,12 @@ func NewRouter(dependencies Dependencies) http.Handler {
 		protected.PATCH("/:comment_id", updateComment(dependencies.Comments, dependencies.Logger))
 		protected.DELETE("/:comment_id", deleteComment(dependencies.Comments, dependencies.Logger))
 		protected.POST("/:comment_id/reports", reportComment(dependencies.Comments, dependencies.Logger))
+	}
+	if dependencies.Moderation != nil {
+		protected := router.Group("/v1/moderation/comment-reports")
+		protected.Use(authenticate(dependencies.Tokens, dependencies.Logger))
+		protected.GET("", listModerationCases(dependencies.Moderation, dependencies.Logger))
+		protected.POST("/:report_id/actions", applyModerationAction(dependencies.Moderation, dependencies.Logger))
 	}
 	return router
 }

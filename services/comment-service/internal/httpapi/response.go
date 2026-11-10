@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/bevzick/Infinitune/services/comment-service/internal/comment"
+	"github.com/bevzick/Infinitune/services/comment-service/internal/moderation"
 	"github.com/gin-gonic/gin"
 )
 
@@ -49,6 +50,14 @@ func writeDomainError(c *gin.Context, logger *slog.Logger, err error) {
 		writeError(c, http.StatusGatewayTimeout, "catalog_timeout", "Catalog service did not respond in time")
 	case errors.Is(err, comment.ErrCatalogUnavailable):
 		writeError(c, http.StatusServiceUnavailable, "catalog_unavailable", "Catalog service is temporarily unavailable")
+	case errors.Is(err, moderation.ErrInvalid):
+		writeError(c, http.StatusUnprocessableEntity, "invalid_moderation_action", err.Error())
+	case errors.Is(err, moderation.ErrForbidden):
+		writeError(c, http.StatusForbidden, "moderator_role_required", "Moderator role is required")
+	case errors.Is(err, moderation.ErrNotFound):
+		writeError(c, http.StatusNotFound, "comment_report_not_found", "Comment report was not found")
+	case errors.Is(err, moderation.ErrConflict):
+		writeError(c, http.StatusConflict, "moderation_state_conflict", "Action conflicts with the current moderation state")
 	default:
 		logger.Error("comment request failed", "error", err)
 		writeError(c, http.StatusInternalServerError, "internal_error", "Request could not be completed")
