@@ -63,6 +63,31 @@ export type Track = {
   updated_at: string;
 };
 
+export type LyricsLine = {
+  line_number: number;
+  start_ms: number;
+  end_ms: number;
+  text: string;
+};
+
+export type TrackLyrics = {
+  id: string;
+  track_id: string;
+  lyrics_type: "plain" | "synchronized";
+  language: string;
+  content: string;
+  source_type: "artist" | "publisher" | "licensed_provider" | "public_domain";
+  source_name: string;
+  copyright_notice: string;
+  official: boolean;
+  updated_at: string;
+  lines: LyricsLine[];
+};
+
+export type TrackLyricsResponse = {
+  items: TrackLyrics[];
+};
+
 export type TrackSort = "newest" | "oldest" | "title_asc" | "title_desc";
 
 export type TrackFilters = {
@@ -106,6 +131,14 @@ export function trackPagePath(filters: TrackFilters = {}) {
 
 export function fetchCatalogPage<T>(path: string, signal?: AbortSignal) {
   return apiRequest<CatalogPage<T>>(path, { signal });
+}
+
+export function trackLyricsPath(trackId: string) {
+  return `/v1/catalog/tracks/${encodeURIComponent(trackId)}/lyrics`;
+}
+
+export function fetchTrackLyrics(trackId: string, signal?: AbortSignal) {
+  return apiRequest<TrackLyricsResponse>(trackLyricsPath(trackId), { signal });
 }
 
 function append(

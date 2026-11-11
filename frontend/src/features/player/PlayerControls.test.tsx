@@ -53,6 +53,7 @@ describe("PlayerControls", () => {
 
     expect(screen.getByText("First Light Engine")).toBeInTheDocument();
     expect(screen.getByText("Lumen Harbor")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Lyrics" })).toBeEnabled();
     await user.click(screen.getByRole("button", { name: "Play" }));
     await user.click(screen.getByRole("button", { name: "Next track" }));
 

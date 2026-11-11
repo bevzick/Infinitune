@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { catalogPagePath, trackPagePath } from "./catalogApi";
+import { catalogPagePath, trackLyricsPath, trackPagePath } from "./catalogApi";
 
 describe("catalog paths", () => {
   it("builds a paginated collection path", () => {
@@ -25,6 +25,12 @@ describe("catalog paths", () => {
 
     expect(path).toBe(
       "/v1/catalog/tracks?title=night+drive&artist_id=artist-id&album_id=album-id&genre_id=genre-id&mood_id=mood-id&release_year=2026&explicit=false&sort=title_asc&limit=10&offset=20",
+    );
+  });
+
+  it("builds the public lyrics path", () => {
+    expect(trackLyricsPath("track/id")).toBe(
+      "/v1/catalog/tracks/track%2Fid/lyrics",
     );
   });
 });
