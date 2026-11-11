@@ -21,6 +21,7 @@ const _ = grpc.SupportPackageIsVersion9
 const (
 	CatalogService_PublishRelease_FullMethodName       = "/infinitune.catalog.v1.CatalogService/PublishRelease"
 	CatalogService_ArchiveRelease_FullMethodName       = "/infinitune.catalog.v1.CatalogService/ArchiveRelease"
+	CatalogService_PutTrackLyrics_FullMethodName       = "/infinitune.catalog.v1.CatalogService/PutTrackLyrics"
 	CatalogService_GetTracks_FullMethodName            = "/infinitune.catalog.v1.CatalogService/GetTracks"
 	CatalogService_ValidateTrackIds_FullMethodName     = "/infinitune.catalog.v1.CatalogService/ValidateTrackIds"
 	CatalogService_ValidateAlbumIds_FullMethodName     = "/infinitune.catalog.v1.CatalogService/ValidateAlbumIds"
@@ -38,6 +39,9 @@ type CatalogServiceClient interface {
 	PublishRelease(ctx context.Context, in *PublishReleaseRequest, opts ...grpc.CallOption) (*PublishReleaseResponse, error)
 	// Hides a published release from discovery while preserving its identifiers.
 	ArchiveRelease(ctx context.Context, in *ArchiveReleaseRequest, opts ...grpc.CallOption) (*ArchiveReleaseResponse, error)
+	// Creates, updates, publishes, or withdraws lyrics after Content has made a
+	// separate lyrics-rights decision. Audio rights do not imply lyrics rights.
+	PutTrackLyrics(ctx context.Context, in *PutTrackLyricsRequest, opts ...grpc.CallOption) (*PutTrackLyricsResponse, error)
 	// Returns tracks in request order. Fails with NOT_FOUND if any ID is missing.
 	GetTracks(ctx context.Context, in *GetTracksRequest, opts ...grpc.CallOption) (*GetTracksResponse, error)
 	// Separates requested IDs into ordered valid and missing collections.
@@ -74,6 +78,16 @@ func (c *catalogServiceClient) ArchiveRelease(ctx context.Context, in *ArchiveRe
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(ArchiveReleaseResponse)
 	err := c.cc.Invoke(ctx, CatalogService_ArchiveRelease_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *catalogServiceClient) PutTrackLyrics(ctx context.Context, in *PutTrackLyricsRequest, opts ...grpc.CallOption) (*PutTrackLyricsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(PutTrackLyricsResponse)
+	err := c.cc.Invoke(ctx, CatalogService_PutTrackLyrics_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -149,6 +163,9 @@ type CatalogServiceServer interface {
 	PublishRelease(context.Context, *PublishReleaseRequest) (*PublishReleaseResponse, error)
 	// Hides a published release from discovery while preserving its identifiers.
 	ArchiveRelease(context.Context, *ArchiveReleaseRequest) (*ArchiveReleaseResponse, error)
+	// Creates, updates, publishes, or withdraws lyrics after Content has made a
+	// separate lyrics-rights decision. Audio rights do not imply lyrics rights.
+	PutTrackLyrics(context.Context, *PutTrackLyricsRequest) (*PutTrackLyricsResponse, error)
 	// Returns tracks in request order. Fails with NOT_FOUND if any ID is missing.
 	GetTracks(context.Context, *GetTracksRequest) (*GetTracksResponse, error)
 	// Separates requested IDs into ordered valid and missing collections.
@@ -176,6 +193,9 @@ func (UnimplementedCatalogServiceServer) PublishRelease(context.Context, *Publis
 }
 func (UnimplementedCatalogServiceServer) ArchiveRelease(context.Context, *ArchiveReleaseRequest) (*ArchiveReleaseResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ArchiveRelease not implemented")
+}
+func (UnimplementedCatalogServiceServer) PutTrackLyrics(context.Context, *PutTrackLyricsRequest) (*PutTrackLyricsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method PutTrackLyrics not implemented")
 }
 func (UnimplementedCatalogServiceServer) GetTracks(context.Context, *GetTracksRequest) (*GetTracksResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetTracks not implemented")
@@ -248,6 +268,24 @@ func _CatalogService_ArchiveRelease_Handler(srv interface{}, ctx context.Context
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(CatalogServiceServer).ArchiveRelease(ctx, req.(*ArchiveReleaseRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _CatalogService_PutTrackLyrics_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(PutTrackLyricsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CatalogServiceServer).PutTrackLyrics(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: CatalogService_PutTrackLyrics_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CatalogServiceServer).PutTrackLyrics(ctx, req.(*PutTrackLyricsRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -374,6 +412,10 @@ var CatalogService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ArchiveRelease",
 			Handler:    _CatalogService_ArchiveRelease_Handler,
+		},
+		{
+			MethodName: "PutTrackLyrics",
+			Handler:    _CatalogService_PutTrackLyrics_Handler,
 		},
 		{
 			MethodName: "GetTracks",

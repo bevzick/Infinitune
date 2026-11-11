@@ -101,6 +101,34 @@ func TestValidateTrackRejectsUnsafeMetadata(t *testing.T) {
 	}
 }
 
+func TestValidateTrackLyricsRequiresSeparatePublicationRights(t *testing.T) {
+	input := TrackLyricsInput{
+		ID: uuid.New(), TrackID: uuid.New(), Type: LyricsTypePlain,
+		Language: " UK ", Content: "  Текст пісні  ",
+		SourceType: LyricsSourcePublisher, SourceName: " Publisher ",
+		CopyrightNotice: " Licensed ", Official: true,
+		RightsAuthorized: true, Published: true,
+	}
+	canonical, err := validateTrackLyrics(input)
+	if err != nil {
+		t.Fatalf("validateTrackLyrics() error = %v", err)
+	}
+	if canonical.Language != "uk" || canonical.Content != "Текст пісні" ||
+		canonical.SourceName != "Publisher" || canonical.CopyrightNotice != "Licensed" {
+		t.Fatalf("validateTrackLyrics() = %+v", canonical)
+	}
+
+	input.RightsAuthorized = false
+	_, err = validateTrackLyrics(input)
+	if !errors.Is(err, ErrInvalid) {
+		t.Fatalf("validateTrackLyrics() error = %v, want %v", err, ErrInvalid)
+	}
+	var validationError *ValidationError
+	if !errors.As(err, &validationError) || validationError.Field != "published" {
+		t.Fatalf("validation error = %#v, want published field", validationError)
+	}
+}
+
 func TestValidateAlbumSupportsSingleWithMultipleArtists(t *testing.T) {
 	input := AlbumInput{
 		ID:          uuid.New(),

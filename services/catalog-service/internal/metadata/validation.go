@@ -15,7 +15,10 @@ import (
 	"github.com/google/uuid"
 )
 
-var slugPattern = regexp.MustCompile(`^[a-z0-9]+(?:-[a-z0-9]+)*$`)
+var (
+	slugPattern        = regexp.MustCompile(`^[a-z0-9]+(?:-[a-z0-9]+)*$`)
+	languageTagPattern = regexp.MustCompile(`^[A-Za-z0-9]{1,8}(?:-[A-Za-z0-9]{1,8})*$`)
+)
 
 const maximumPageSize = 100
 
@@ -457,6 +460,45 @@ func validateTrack(input TrackInput) (TrackInput, error) {
 	return input, nil
 }
 
+func validateTrackLyrics(input TrackLyricsInput) (TrackLyricsInput, error) {
+	if err := validateID("id", input.ID); err != nil {
+		return TrackLyricsInput{}, err
+	}
+	if err := validateID("track_id", input.TrackID); err != nil {
+		return TrackLyricsInput{}, err
+	}
+	if !input.Type.valid() {
+		return TrackLyricsInput{}, validationError("lyrics_type", "must be plain or synchronized")
+	}
+	input.Language = strings.ToLower(strings.TrimSpace(input.Language))
+	if len(input.Language) > 35 || !languageTagPattern.MatchString(input.Language) {
+		return TrackLyricsInput{}, validationError("language", "must be a valid language tag")
+	}
+	content, err := requiredText("content", input.Content, 100000)
+	if err != nil {
+		return TrackLyricsInput{}, err
+	}
+	if !input.SourceType.valid() {
+		return TrackLyricsInput{}, validationError("source_type", "is unsupported")
+	}
+	sourceName, err := requiredText("source_name", input.SourceName, 200)
+	if err != nil {
+		return TrackLyricsInput{}, err
+	}
+	input.CopyrightNotice = strings.TrimSpace(input.CopyrightNotice)
+	if utf8.RuneCountInString(input.CopyrightNotice) > 1000 {
+		return TrackLyricsInput{}, validationError("copyright_notice", "must not exceed 1000 characters")
+	}
+	if input.Published && !input.RightsAuthorized {
+		return TrackLyricsInput{}, validationError(
+			"published", "requires separately authorized lyrics rights",
+		)
+	}
+	input.Content = content
+	input.SourceName = sourceName
+	return input, nil
+}
+
 func validateArtistPositions(field string, artists []ArtistPositionInput) error {
 	if len(artists) == 0 {
 		return validationError(field, "must contain at least one artist")
@@ -613,6 +655,20 @@ func (value AlbumType) valid() bool {
 func (value ArtistRole) valid() bool {
 	switch value {
 	case ArtistRolePrimary, ArtistRoleFeatured, ArtistRoleProducer, ArtistRoleComposer:
+		return true
+	default:
+		return false
+	}
+}
+
+func (value LyricsType) valid() bool {
+	return value == LyricsTypePlain || value == LyricsTypeSynchronized
+}
+
+func (value LyricsSourceType) valid() bool {
+	switch value {
+	case LyricsSourceArtist, LyricsSourcePublisher,
+		LyricsSourceLicensedProvider, LyricsSourcePublicDomain:
 		return true
 	default:
 		return false
