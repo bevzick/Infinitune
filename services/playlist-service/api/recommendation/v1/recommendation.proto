@@ -1,0 +1,28 @@
+syntax = "proto3";
+
+package infinitune.recommendation.ranking.v1;
+
+option go_package = "github.com/bevzick/Infinitune/services/playlist-service/api/recommendation/v1;recommendationv1";
+
+// Consumer-owned subset of Recommendation's candidate ranking contract.
+service RankingService {
+  rpc RankCandidates(RankCandidatesRequest) returns (RankCandidatesResponse);
+}
+
+message RankCandidatesRequest {
+  string user_id = 1;
+  repeated string track_ids = 2;
+}
+
+message RankedTrack {
+  string track_id = 1;
+  reserved 2;
+  int32 rank = 3;
+  reserved 4;
+}
+
+message RankCandidatesResponse {
+  repeated RankedTrack tracks = 1;
+  string algorithm_version = 2;
+  bool personalized = 3;
+}

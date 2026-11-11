@@ -19,6 +19,7 @@ import {
   PlaybackHistoryTracker,
 } from "../history/playbackHistory";
 import { useSession } from "../session/SessionContext";
+import { snapshotQueue } from "./queue";
 
 export type PlayerStatus = "idle" | "loading" | "playing" | "paused" | "error";
 
@@ -146,7 +147,7 @@ export function PlayerProvider({ children }: PropsWithChildren) {
       if (!track) return;
       audio.current?.pause();
       finishHistory(accessToken);
-      setQueue(tracks);
+      setQueue(snapshotQueue(tracks));
       setQueueContext(context);
       setCurrentIndex(index);
       setCurrentTime(0);

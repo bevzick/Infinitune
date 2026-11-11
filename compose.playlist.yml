@@ -7,11 +7,16 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      recommendation-service:
+        condition: service_healthy
     environment:
       PLAYLIST_HTTP_HOST: 0.0.0.0
       PLAYLIST_HTTP_PORT: 8080
       CATALOG_GRPC_HOST: catalog-service
       CATALOG_GRPC_PORT: 9090
+      RECOMMENDATION_GRPC_HOST: recommendation-service
+      RECOMMENDATION_GRPC_PORT: 9090
+      PLAYLIST_PERSONALIZATION_TTL: ${PLAYLIST_PERSONALIZATION_TTL:-5m}
       PLAYLIST_AUTH_JWKS_URL: ${PLAYLIST_AUTH_JWKS_URL:-http://auth-service:8080/v1/auth/jwks}
       PLAYLIST_ALLOWED_ORIGINS: ${PLAYLIST_ALLOWED_ORIGINS:-http://localhost:5173}
       AUTH_JWT_ISSUER: ${AUTH_JWT_ISSUER:-infinitune-auth}

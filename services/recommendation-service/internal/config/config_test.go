@@ -27,6 +27,9 @@ func TestLoadUsesRecommendationDatabaseEnvironment(t *testing.T) {
 	if cfg.HTTPAddress != "127.0.0.1:9080" {
 		t.Fatalf("HTTPAddress = %q", cfg.HTTPAddress)
 	}
+	if cfg.GRPCAddress != "0.0.0.0:9090" {
+		t.Fatalf("GRPCAddress = %q", cfg.GRPCAddress)
+	}
 	if cfg.Database.User != "recommendation_user" ||
 		cfg.Database.Name != "recommendation_db" {
 		t.Fatalf("Database = %+v", cfg.Database)

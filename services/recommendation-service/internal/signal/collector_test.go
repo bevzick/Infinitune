@@ -21,6 +21,21 @@ func TestCollectorStopsWhenPersonalizationIsDisabled(t *testing.T) {
 	}
 }
 
+func TestCandidateCollectionReturnsNeutralSettingsWithoutPrivateActivity(t *testing.T) {
+	interactions, history := &interactionStub{}, &historyStub{}
+	preferences := Preferences{Enabled: false, ExplicitAllowed: true, Genres: []WeightedPreference{{ID: uuid.New(), Weight: 1}}, Artists: []WeightedPreference{{ID: uuid.New(), Weight: 1}}}
+	result, personalized, err := NewCollector(preferenceStub{result: preferences}, interactions, history, 25).CollectCandidates(context.Background(), uuid.New())
+	if err != nil {
+		t.Fatalf("CollectCandidates() error = %v", err)
+	}
+	if personalized || result.Preferences.Enabled || !result.Preferences.ExplicitAllowed || len(result.Preferences.Genres) != 0 || len(result.Preferences.Artists) != 0 || len(result.Interactions.LikedTrackIDs) != 0 || len(result.Listening) != 0 {
+		t.Fatalf("CollectCandidates() = %+v, %t", result, personalized)
+	}
+	if interactions.called || history.called {
+		t.Fatal("private activity sources were called without permission")
+	}
+}
+
 func TestCollectorCombinesPermittedSignals(t *testing.T) {
 	trackID := uuid.New()
 	artistID := uuid.New()

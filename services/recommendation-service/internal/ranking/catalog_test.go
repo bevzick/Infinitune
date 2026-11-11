@@ -34,6 +34,18 @@ func TestCatalogSourceDeduplicatesAndFiltersUnavailableContent(t *testing.T) {
 	}
 }
 
+func TestCatalogSourceLoadsOnlyRequestedCandidatesInOrder(t *testing.T) {
+	first, second := uuid.New(), uuid.New()
+	client := &catalogStub{direct: []*catalogv1.Track{{Id: first.String(), ContentId: uuid.NewString()}, {Id: second.String(), ContentId: uuid.NewString()}}}
+	result, err := NewCatalogSource(client).Candidates(context.Background(), []uuid.UUID{first, second})
+	if err != nil {
+		t.Fatalf("Candidates() error = %v", err)
+	}
+	if len(result) != 2 || result[0].TrackID != first || result[0].DiscoveryRank != 0 || result[1].TrackID != second || result[1].DiscoveryRank != 1 {
+		t.Fatalf("Candidates() = %+v", result)
+	}
+}
+
 type catalogStub struct {
 	filtered       []*catalogv1.Track
 	direct         []*catalogv1.Track

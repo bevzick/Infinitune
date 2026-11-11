@@ -8,15 +8,18 @@ import (
 )
 
 var (
-	ErrForbidden          = errors.New("playlist access forbidden")
-	ErrInvalidArgument    = errors.New("invalid playlist argument")
-	ErrNotFound           = errors.New("playlist not found")
-	ErrManualOnly         = errors.New("operation is supported only for manual playlists")
-	ErrTrackExists        = errors.New("track already exists in playlist")
-	ErrTrackNotFound      = errors.New("playlist track not found")
-	ErrCatalogUnavailable = errors.New("catalog service unavailable")
-	ErrCatalogTimeout     = errors.New("catalog request timed out")
-	ErrDynamicOnly        = errors.New("operation is supported only for dynamic playlists")
+	ErrForbidden                 = errors.New("playlist access forbidden")
+	ErrInvalidArgument           = errors.New("invalid playlist argument")
+	ErrNotFound                  = errors.New("playlist not found")
+	ErrManualOnly                = errors.New("operation is supported only for manual playlists")
+	ErrTrackExists               = errors.New("track already exists in playlist")
+	ErrTrackNotFound             = errors.New("playlist track not found")
+	ErrCatalogUnavailable        = errors.New("catalog service unavailable")
+	ErrCatalogTimeout            = errors.New("catalog request timed out")
+	ErrDynamicOnly               = errors.New("operation is supported only for dynamic playlists")
+	ErrRecommendationUnavailable = errors.New("recommendation service unavailable")
+	ErrRecommendationTimeout     = errors.New("recommendation request timed out")
+	ErrPersonalizationDisabled   = errors.New("personalized recommendations are disabled")
 )
 
 type Type string
@@ -67,8 +70,9 @@ type Track struct {
 }
 
 type PageRequest struct {
-	Limit  int
-	Offset int
+	Limit   int
+	Offset  int
+	Refresh bool
 }
 
 type PlaylistPage struct {

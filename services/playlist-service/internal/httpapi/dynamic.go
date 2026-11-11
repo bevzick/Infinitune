@@ -90,9 +90,10 @@ type dynamicResolutionResponse struct {
 }
 
 type dynamicTrackPageResponse struct {
-	Items      []dynamicTrackResponse    `json:"items"`
-	Page       pageResponse              `json:"page"`
-	Resolution dynamicResolutionResponse `json:"resolution"`
+	Items        []dynamicTrackResponse    `json:"items"`
+	Page         pageResponse              `json:"page"`
+	Resolution   dynamicResolutionResponse `json:"resolution"`
+	Personalized bool                      `json:"personalized"`
 }
 
 func createDynamicPlaylist(service DynamicPlaylists, logger *slog.Logger) gin.HandlerFunc {
@@ -190,6 +191,10 @@ func resolveDynamicTracks(service DynamicTracks, logger *slog.Logger) gin.Handle
 		if !ok {
 			return
 		}
+		page.Refresh, ok = queryBoolean(c, "refresh")
+		if !ok {
+			return
+		}
 		resolved, err := service.Resolve(c.Request.Context(), viewerID(c), playlistID, page)
 		if err != nil {
 			writeDomainError(c, logger, err)
@@ -200,7 +205,8 @@ func resolveDynamicTracks(service DynamicTracks, logger *slog.Logger) gin.Handle
 			Page: pageResponse{
 				Limit: resolved.Limit, Offset: resolved.Offset, Total: resolved.Total,
 			},
-			Resolution: dynamicResolutionResponse{Status: resolved.Status},
+			Resolution:   dynamicResolutionResponse{Status: resolved.Status},
+			Personalized: resolved.Personalized,
 		}
 		if resolved.Status == playlist.DynamicResolutionEmpty {
 			response.Resolution.Reason = "no_matches"

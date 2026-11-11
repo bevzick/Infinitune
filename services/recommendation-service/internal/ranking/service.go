@@ -11,10 +11,29 @@ import (
 
 type SignalCollector interface {
 	Collect(context.Context, uuid.UUID) (preferencesignal.Set, error)
+	CollectCandidates(context.Context, uuid.UUID) (preferencesignal.Set, bool, error)
 }
 type CandidateSource interface {
 	Discover(context.Context, preferencesignal.Set) ([]Candidate, error)
+	Candidates(context.Context, []uuid.UUID) ([]Candidate, error)
 }
+
+func (service *Service) RankCandidates(ctx context.Context, userID uuid.UUID, trackIDs []uuid.UUID) ([]recommendation.Item, bool, error) {
+	if userID == uuid.Nil || len(trackIDs) == 0 || len(trackIDs) > maximumLimit {
+		return nil, false, fmt.Errorf("rank candidates: user id and 1 to 100 track ids are required")
+	}
+	signals, enabled, err := service.signals.CollectCandidates(ctx, userID)
+	if err != nil {
+		return nil, false, fmt.Errorf("collect ranking signals: %w", err)
+	}
+	candidates, err := service.candidates.Candidates(ctx, trackIDs)
+	if err != nil {
+		return nil, false, fmt.Errorf("load ranking candidates: %w", err)
+	}
+	items, err := service.rankEligible(ctx, signals, candidates, len(trackIDs))
+	return items, enabled && hasPersonalSignals(signals), err
+}
+
 type Eligibility interface {
 	Allowed(context.Context, uuid.UUID) (bool, error)
 }
@@ -45,6 +64,10 @@ func (service *Service) Rank(ctx context.Context, userID uuid.UUID, limit int) (
 	if desiredLimit < 1 || desiredLimit > maximumLimit {
 		return nil, fmt.Errorf("rank candidates: limit must be from 1 to 100")
 	}
+	return service.rankEligible(ctx, signals, candidates, desiredLimit)
+}
+
+func (service *Service) rankEligible(ctx context.Context, signals preferencesignal.Set, candidates []Candidate, desiredLimit int) ([]recommendation.Item, error) {
 	items := rankAll(signals, candidates)
 	byTrackID := make(map[uuid.UUID]Candidate, len(candidates))
 	for _, candidate := range candidates {

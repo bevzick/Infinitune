@@ -1567,6 +1567,47 @@ a:focus-visible {
 .dynamic-results {
   margin-top: 3rem;
 }
+.personalization-status {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  margin: 0 0 1rem;
+  padding: 0.8rem 0.95rem;
+  border: 1px solid var(--line);
+  border-radius: 0.7rem;
+  color: #d9cfef;
+  background: rgba(255, 255, 255, 0.025);
+}
+.personalization-status-icon {
+  width: 1.8rem;
+  height: 1.8rem;
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  color: var(--muted);
+  background: rgba(255, 255, 255, 0.06);
+}
+.personalization-status div {
+  display: grid;
+  gap: 0.2rem;
+}
+.personalization-status strong {
+  font-size: 0.82rem;
+}
+.personalization-status small {
+  color: var(--muted);
+  font-size: 0.72rem;
+  line-height: 1.45;
+}
+.personalization-status-active {
+  border-color: rgba(156, 120, 255, 0.32);
+  background: rgba(156, 120, 255, 0.08);
+}
+.personalization-status-active .personalization-status-icon {
+  color: #e9dcff;
+  background: rgba(156, 120, 255, 0.22);
+}
 .profile-hero {
   min-height: 18rem;
   display: grid;

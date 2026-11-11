@@ -102,6 +102,7 @@ export type DynamicTrackPage = {
   items: Array<{ track_id: string; position: number }>;
   page: Page;
   resolution: { status: "ready" | "empty"; reason?: "no_matches" };
+  personalized: boolean;
 };
 
 export type PlaylistInput = {

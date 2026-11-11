@@ -58,23 +58,37 @@ func NewCollector(preferences PreferenceSource, interactions InteractionSource, 
 }
 
 func (collector *Collector) Collect(ctx context.Context, userID uuid.UUID) (Set, error) {
+	result, personalized, err := collector.CollectCandidates(ctx, userID)
+	if err != nil {
+		return Set{}, err
+	}
+	if !personalized {
+		return Set{}, ErrPersonalizationDisabled
+	}
+	return result, nil
+}
+
+// CollectCandidates preserves privacy preferences for candidate ranking. When
+// personalization is disabled it returns only playback settings and does not
+// query interaction or listening-history signals.
+func (collector *Collector) CollectCandidates(ctx context.Context, userID uuid.UUID) (Set, bool, error) {
 	if userID == uuid.Nil {
-		return Set{}, fmt.Errorf("user id is required")
+		return Set{}, false, fmt.Errorf("user id is required")
 	}
 	preferences, err := collector.preferences.Preferences(ctx, userID)
 	if err != nil {
-		return Set{}, fmt.Errorf("read user preferences: %w", err)
+		return Set{}, false, fmt.Errorf("read user preferences: %w", err)
 	}
 	if !preferences.Enabled {
-		return Set{}, ErrPersonalizationDisabled
+		return Set{Preferences: Preferences{ExplicitAllowed: preferences.ExplicitAllowed}}, false, nil
 	}
 	interactions, err := collector.interactions.Interactions(ctx, userID, collector.limit)
 	if err != nil {
-		return Set{}, fmt.Errorf("read interaction signals: %w", err)
+		return Set{}, false, fmt.Errorf("read interaction signals: %w", err)
 	}
 	listening, err := collector.history.Listening(ctx, userID, collector.limit)
 	if err != nil {
-		return Set{}, fmt.Errorf("read listening signals: %w", err)
+		return Set{}, false, fmt.Errorf("read listening signals: %w", err)
 	}
-	return Set{Preferences: preferences, Interactions: interactions, Listening: listening}, nil
+	return Set{Preferences: preferences, Interactions: interactions, Listening: listening}, true, nil
 }

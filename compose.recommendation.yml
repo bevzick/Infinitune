@@ -22,6 +22,8 @@ services:
     environment:
       RECOMMENDATION_HTTP_HOST: 0.0.0.0
       RECOMMENDATION_HTTP_PORT: 8080
+      RECOMMENDATION_GRPC_HOST: 0.0.0.0
+      RECOMMENDATION_GRPC_PORT: 9090
       RECOMMENDATION_RUN_TTL: ${RECOMMENDATION_RUN_TTL:-1h}
       RECOMMENDATION_AUTH_JWKS_URL: ${RECOMMENDATION_AUTH_JWKS_URL:-http://auth-service:8080/v1/auth/jwks}
       RECOMMENDATION_ALLOWED_ORIGINS: ${RECOMMENDATION_ALLOWED_ORIGINS:-http://localhost:5173}
@@ -45,6 +47,7 @@ services:
       POSTGRES_RECOMMENDATION_DB: ${POSTGRES_RECOMMENDATION_DB:-recommendation_db}
     expose:
       - "8080"
+      - "9090"
     networks:
       - backend
 
