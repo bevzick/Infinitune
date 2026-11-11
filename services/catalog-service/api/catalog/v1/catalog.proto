@@ -18,6 +18,9 @@ service CatalogService {
   // separate lyrics-rights decision. Audio rights do not imply lyrics rights.
   rpc PutTrackLyrics(PutTrackLyricsRequest) returns (PutTrackLyricsResponse);
 
+  // Atomically replaces ordered timing lines for synchronized lyrics.
+  rpc ReplaceTrackLyricsLines(ReplaceTrackLyricsLinesRequest) returns (ReplaceTrackLyricsLinesResponse);
+
   // Returns tracks in request order. Fails with NOT_FOUND if any ID is missing.
   rpc GetTracks(GetTracksRequest) returns (GetTracksResponse);
 
@@ -314,4 +317,21 @@ message PutTrackLyricsResponse {
   bool published = 11;
   google.protobuf.Timestamp created_at = 12;
   google.protobuf.Timestamp updated_at = 13;
+}
+
+message LyricsLine {
+  int32 line_number = 1;
+  int32 start_ms = 2;
+  int32 end_ms = 3;
+  string text = 4;
+}
+
+message ReplaceTrackLyricsLinesRequest {
+  string lyrics_id = 1;
+  repeated LyricsLine lines = 2;
+}
+
+message ReplaceTrackLyricsLinesResponse {
+  string lyrics_id = 1;
+  repeated LyricsLine lines = 2;
 }

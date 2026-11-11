@@ -24,6 +24,8 @@ type Store interface {
 	SaveTrack(context.Context, TrackInput) (Track, error)
 	PublicTrackLyrics(context.Context, uuid.UUID) ([]TrackLyrics, error)
 	SaveTrackLyrics(context.Context, TrackLyricsInput) (TrackLyrics, error)
+	TrackLyricsTiming(context.Context, uuid.UUID) (TrackLyrics, int, error)
+	ReplaceLyricsLines(context.Context, uuid.UUID, []LyricsLine) ([]LyricsLine, error)
 	PublishRelease(context.Context, PublicationInput, string) (Publication, error)
 	ArchiveRelease(context.Context, uuid.UUID) (Archive, error)
 	GenreByID(context.Context, uuid.UUID) (Genre, error)
@@ -184,7 +186,8 @@ func (service *Service) TrackLyrics(ctx context.Context, trackID uuid.UUID) ([]T
 	}
 	public := make([]TrackLyrics, 0, len(result))
 	for _, value := range result {
-		if value.Published && value.RightsAuthorized {
+		if value.Published && value.RightsAuthorized &&
+			(value.Type != LyricsTypeSynchronized || len(value.Lines) > 0) {
 			public = append(public, value)
 		}
 	}
@@ -202,6 +205,32 @@ func (service *Service) PutTrackLyrics(
 	result, err := service.store.SaveTrackLyrics(ctx, canonical)
 	if err != nil {
 		return TrackLyrics{}, fmt.Errorf("save track lyrics: %w", err)
+	}
+	return result, nil
+}
+
+func (service *Service) ReplaceTrackLyricsLines(
+	ctx context.Context,
+	lyricsID uuid.UUID,
+	lines []LyricsLine,
+) ([]LyricsLine, error) {
+	if err := validateID("lyrics_id", lyricsID); err != nil {
+		return nil, err
+	}
+	lyrics, durationMS, err := service.store.TrackLyricsTiming(ctx, lyricsID)
+	if err != nil {
+		return nil, fmt.Errorf("read track lyrics timing: %w", err)
+	}
+	if lyrics.Type != LyricsTypeSynchronized {
+		return nil, validationError("lyrics_id", "must reference synchronized lyrics")
+	}
+	canonical, err := validateLyricsLines(lines, durationMS)
+	if err != nil {
+		return nil, err
+	}
+	result, err := service.store.ReplaceLyricsLines(ctx, lyricsID, canonical)
+	if err != nil {
+		return nil, fmt.Errorf("replace synchronized lyrics lines: %w", err)
 	}
 	return result, nil
 }

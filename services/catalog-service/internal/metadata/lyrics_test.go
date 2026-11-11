@@ -12,6 +12,7 @@ func TestTrackLyricsReturnsOnlyPublishedAuthorizedValues(t *testing.T) {
 	trackID := uuid.New()
 	store := &lyricsStoreStub{public: []TrackLyrics{
 		{ID: uuid.New(), TrackID: trackID, Published: true, RightsAuthorized: true},
+		{ID: uuid.New(), TrackID: trackID, Type: LyricsTypeSynchronized, Published: true, RightsAuthorized: true},
 		{ID: uuid.New(), TrackID: trackID, Published: false, RightsAuthorized: true},
 		{ID: uuid.New(), TrackID: trackID, Published: false, RightsAuthorized: false},
 	}}
@@ -36,11 +37,50 @@ func TestPutTrackLyricsRejectsPublicationWithoutLyricsRights(t *testing.T) {
 	}
 }
 
+func TestReplaceTrackLyricsLinesUsesSynchronizedLyricsDuration(t *testing.T) {
+	lyricsID := uuid.New()
+	store := &lyricsStoreStub{
+		timing: TrackLyrics{ID: lyricsID, Type: LyricsTypeSynchronized}, durationMS: 5000,
+	}
+	lines := []LyricsLine{
+		{LineNumber: 1, StartMS: 0, EndMS: 2000, Text: " First line "},
+		{LineNumber: 2, StartMS: 2000, EndMS: 5000, Text: "Second line"},
+	}
+	result, err := NewService(store).ReplaceTrackLyricsLines(
+		context.Background(), lyricsID, lines,
+	)
+	if err != nil {
+		t.Fatalf("ReplaceTrackLyricsLines() error = %v", err)
+	}
+	if store.replacedLyricsID != lyricsID || len(store.replaced) != 2 ||
+		store.replaced[0].Text != "First line" || len(result) != 2 {
+		t.Fatalf("result = %+v; stored = %+v", result, store.replaced)
+	}
+}
+
+func TestReplaceTrackLyricsLinesRejectsPlainLyrics(t *testing.T) {
+	store := &lyricsStoreStub{
+		timing: TrackLyrics{ID: uuid.New(), Type: LyricsTypePlain}, durationMS: 5000,
+	}
+	_, err := NewService(store).ReplaceTrackLyricsLines(
+		context.Background(), store.timing.ID,
+		[]LyricsLine{{LineNumber: 1, StartMS: 0, EndMS: 1000, Text: "Line"}},
+	)
+	if !errors.Is(err, ErrInvalid) || store.replacedLyricsID != uuid.Nil {
+		t.Fatalf("ReplaceTrackLyricsLines() error = %v; replaced id = %s",
+			err, store.replacedLyricsID)
+	}
+}
+
 type lyricsStoreStub struct {
 	Store
-	public     []TrackLyrics
-	saved      TrackLyrics
-	savedInput TrackLyricsInput
+	public           []TrackLyrics
+	saved            TrackLyrics
+	savedInput       TrackLyricsInput
+	timing           TrackLyrics
+	durationMS       int
+	replacedLyricsID uuid.UUID
+	replaced         []LyricsLine
 }
 
 func (stub *lyricsStoreStub) PublicTrackLyrics(context.Context, uuid.UUID) ([]TrackLyrics, error) {
@@ -53,4 +93,21 @@ func (stub *lyricsStoreStub) SaveTrackLyrics(
 ) (TrackLyrics, error) {
 	stub.savedInput = input
 	return stub.saved, nil
+}
+
+func (stub *lyricsStoreStub) TrackLyricsTiming(
+	context.Context,
+	uuid.UUID,
+) (TrackLyrics, int, error) {
+	return stub.timing, stub.durationMS, nil
+}
+
+func (stub *lyricsStoreStub) ReplaceLyricsLines(
+	_ context.Context,
+	lyricsID uuid.UUID,
+	lines []LyricsLine,
+) ([]LyricsLine, error) {
+	stub.replacedLyricsID = lyricsID
+	stub.replaced = append([]LyricsLine(nil), lines...)
+	return stub.replaced, nil
 }

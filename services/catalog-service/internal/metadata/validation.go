@@ -499,6 +499,40 @@ func validateTrackLyrics(input TrackLyricsInput) (TrackLyricsInput, error) {
 	return input, nil
 }
 
+func validateLyricsLines(lines []LyricsLine, durationMS int) ([]LyricsLine, error) {
+	if len(lines) == 0 {
+		return nil, validationError("lines", "must not be empty")
+	}
+	if len(lines) > 10000 {
+		return nil, validationError("lines", "must not contain more than 10000 lines")
+	}
+	canonical := make([]LyricsLine, 0, len(lines))
+	previousEnd := 0
+	for index, line := range lines {
+		path := fmt.Sprintf("lines[%d]", index)
+		if line.LineNumber != index+1 {
+			return nil, validationError(path+".line_number", "must be contiguous and start at 1")
+		}
+		if line.StartMS < 0 || line.EndMS <= line.StartMS {
+			return nil, validationError(path, "must have a positive ordered time range")
+		}
+		if index > 0 && line.StartMS < previousEnd {
+			return nil, validationError(path+".start_ms", "must not overlap the previous line")
+		}
+		if line.EndMS > durationMS {
+			return nil, validationError(path+".end_ms", "must not exceed track duration")
+		}
+		text, err := requiredText(path+".text", line.Text, 2000)
+		if err != nil {
+			return nil, err
+		}
+		line.Text = text
+		canonical = append(canonical, line)
+		previousEnd = line.EndMS
+	}
+	return canonical, nil
+}
+
 func validateArtistPositions(field string, artists []ArtistPositionInput) error {
 	if len(artists) == 0 {
 		return validationError(field, "must contain at least one artist")

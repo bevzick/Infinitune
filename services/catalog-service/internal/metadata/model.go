@@ -188,6 +188,7 @@ type TrackLyrics struct {
 	Published        bool
 	CreatedAt        time.Time
 	UpdatedAt        time.Time
+	Lines            []LyricsLine
 }
 
 type TrackLyricsInput struct {
@@ -202,6 +203,13 @@ type TrackLyricsInput struct {
 	Official         bool
 	RightsAuthorized bool
 	Published        bool
+}
+
+type LyricsLine struct {
+	LineNumber int
+	StartMS    int
+	EndMS      int
+	Text       string
 }
 
 type PublicationInput struct {

@@ -156,6 +156,9 @@ func TestTrackLyricsReturnsOnlyPublicPresentationFields(t *testing.T) {
 		SourceType: metadata.LyricsSourcePublisher, SourceName: "Publisher",
 		CopyrightNotice: "Licensed", Official: true,
 		RightsAuthorized: true, Published: true, UpdatedAt: updatedAt,
+		Lines: []metadata.LyricsLine{{
+			LineNumber: 1, StartMS: 500, EndMS: 1500, Text: "Текст пісні",
+		}},
 	}}}
 	request := httptest.NewRequest(http.MethodGet,
 		"/v1/catalog/tracks/"+trackID.String()+"/lyrics", nil)
@@ -168,6 +171,8 @@ func TestTrackLyricsReturnsOnlyPublicPresentationFields(t *testing.T) {
 		!strings.Contains(body, `"id":"`+lyricsID.String()+`"`) ||
 		!strings.Contains(body, `"language":"uk"`) ||
 		!strings.Contains(body, `"content":"Текст пісні"`) ||
+		!strings.Contains(body, `"line_number":1`) ||
+		!strings.Contains(body, `"start_ms":500`) ||
 		strings.Contains(body, "rights_authorized") || strings.Contains(body, `"published"`) {
 		t.Fatalf("status = %d, body = %s", response.Code, body)
 	}

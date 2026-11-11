@@ -19,15 +19,16 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	CatalogService_PublishRelease_FullMethodName       = "/infinitune.catalog.v1.CatalogService/PublishRelease"
-	CatalogService_ArchiveRelease_FullMethodName       = "/infinitune.catalog.v1.CatalogService/ArchiveRelease"
-	CatalogService_PutTrackLyrics_FullMethodName       = "/infinitune.catalog.v1.CatalogService/PutTrackLyrics"
-	CatalogService_GetTracks_FullMethodName            = "/infinitune.catalog.v1.CatalogService/GetTracks"
-	CatalogService_ValidateTrackIds_FullMethodName     = "/infinitune.catalog.v1.CatalogService/ValidateTrackIds"
-	CatalogService_ValidateAlbumIds_FullMethodName     = "/infinitune.catalog.v1.CatalogService/ValidateAlbumIds"
-	CatalogService_ValidateArtistIds_FullMethodName    = "/infinitune.catalog.v1.CatalogService/ValidateArtistIds"
-	CatalogService_FilterTracks_FullMethodName         = "/infinitune.catalog.v1.CatalogService/FilterTracks"
-	CatalogService_EvaluateTrackFilters_FullMethodName = "/infinitune.catalog.v1.CatalogService/EvaluateTrackFilters"
+	CatalogService_PublishRelease_FullMethodName          = "/infinitune.catalog.v1.CatalogService/PublishRelease"
+	CatalogService_ArchiveRelease_FullMethodName          = "/infinitune.catalog.v1.CatalogService/ArchiveRelease"
+	CatalogService_PutTrackLyrics_FullMethodName          = "/infinitune.catalog.v1.CatalogService/PutTrackLyrics"
+	CatalogService_ReplaceTrackLyricsLines_FullMethodName = "/infinitune.catalog.v1.CatalogService/ReplaceTrackLyricsLines"
+	CatalogService_GetTracks_FullMethodName               = "/infinitune.catalog.v1.CatalogService/GetTracks"
+	CatalogService_ValidateTrackIds_FullMethodName        = "/infinitune.catalog.v1.CatalogService/ValidateTrackIds"
+	CatalogService_ValidateAlbumIds_FullMethodName        = "/infinitune.catalog.v1.CatalogService/ValidateAlbumIds"
+	CatalogService_ValidateArtistIds_FullMethodName       = "/infinitune.catalog.v1.CatalogService/ValidateArtistIds"
+	CatalogService_FilterTracks_FullMethodName            = "/infinitune.catalog.v1.CatalogService/FilterTracks"
+	CatalogService_EvaluateTrackFilters_FullMethodName    = "/infinitune.catalog.v1.CatalogService/EvaluateTrackFilters"
 )
 
 // CatalogServiceClient is the client API for CatalogService service.
@@ -42,6 +43,8 @@ type CatalogServiceClient interface {
 	// Creates, updates, publishes, or withdraws lyrics after Content has made a
 	// separate lyrics-rights decision. Audio rights do not imply lyrics rights.
 	PutTrackLyrics(ctx context.Context, in *PutTrackLyricsRequest, opts ...grpc.CallOption) (*PutTrackLyricsResponse, error)
+	// Atomically replaces ordered timing lines for synchronized lyrics.
+	ReplaceTrackLyricsLines(ctx context.Context, in *ReplaceTrackLyricsLinesRequest, opts ...grpc.CallOption) (*ReplaceTrackLyricsLinesResponse, error)
 	// Returns tracks in request order. Fails with NOT_FOUND if any ID is missing.
 	GetTracks(ctx context.Context, in *GetTracksRequest, opts ...grpc.CallOption) (*GetTracksResponse, error)
 	// Separates requested IDs into ordered valid and missing collections.
@@ -88,6 +91,16 @@ func (c *catalogServiceClient) PutTrackLyrics(ctx context.Context, in *PutTrackL
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(PutTrackLyricsResponse)
 	err := c.cc.Invoke(ctx, CatalogService_PutTrackLyrics_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *catalogServiceClient) ReplaceTrackLyricsLines(ctx context.Context, in *ReplaceTrackLyricsLinesRequest, opts ...grpc.CallOption) (*ReplaceTrackLyricsLinesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ReplaceTrackLyricsLinesResponse)
+	err := c.cc.Invoke(ctx, CatalogService_ReplaceTrackLyricsLines_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -166,6 +179,8 @@ type CatalogServiceServer interface {
 	// Creates, updates, publishes, or withdraws lyrics after Content has made a
 	// separate lyrics-rights decision. Audio rights do not imply lyrics rights.
 	PutTrackLyrics(context.Context, *PutTrackLyricsRequest) (*PutTrackLyricsResponse, error)
+	// Atomically replaces ordered timing lines for synchronized lyrics.
+	ReplaceTrackLyricsLines(context.Context, *ReplaceTrackLyricsLinesRequest) (*ReplaceTrackLyricsLinesResponse, error)
 	// Returns tracks in request order. Fails with NOT_FOUND if any ID is missing.
 	GetTracks(context.Context, *GetTracksRequest) (*GetTracksResponse, error)
 	// Separates requested IDs into ordered valid and missing collections.
@@ -196,6 +211,9 @@ func (UnimplementedCatalogServiceServer) ArchiveRelease(context.Context, *Archiv
 }
 func (UnimplementedCatalogServiceServer) PutTrackLyrics(context.Context, *PutTrackLyricsRequest) (*PutTrackLyricsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method PutTrackLyrics not implemented")
+}
+func (UnimplementedCatalogServiceServer) ReplaceTrackLyricsLines(context.Context, *ReplaceTrackLyricsLinesRequest) (*ReplaceTrackLyricsLinesResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ReplaceTrackLyricsLines not implemented")
 }
 func (UnimplementedCatalogServiceServer) GetTracks(context.Context, *GetTracksRequest) (*GetTracksResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetTracks not implemented")
@@ -286,6 +304,24 @@ func _CatalogService_PutTrackLyrics_Handler(srv interface{}, ctx context.Context
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(CatalogServiceServer).PutTrackLyrics(ctx, req.(*PutTrackLyricsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _CatalogService_ReplaceTrackLyricsLines_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ReplaceTrackLyricsLinesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CatalogServiceServer).ReplaceTrackLyricsLines(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: CatalogService_ReplaceTrackLyricsLines_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CatalogServiceServer).ReplaceTrackLyricsLines(ctx, req.(*ReplaceTrackLyricsLinesRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -416,6 +452,10 @@ var CatalogService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "PutTrackLyrics",
 			Handler:    _CatalogService_PutTrackLyrics_Handler,
+		},
+		{
+			MethodName: "ReplaceTrackLyricsLines",
+			Handler:    _CatalogService_ReplaceTrackLyricsLines_Handler,
 		},
 		{
 			MethodName: "GetTracks",

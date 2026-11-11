@@ -129,6 +129,35 @@ func TestValidateTrackLyricsRequiresSeparatePublicationRights(t *testing.T) {
 	}
 }
 
+func TestValidateLyricsLinesRejectsInvalidPlaybackRanges(t *testing.T) {
+	valid := []LyricsLine{
+		{LineNumber: 1, StartMS: 0, EndMS: 1000, Text: "First"},
+		{LineNumber: 2, StartMS: 1000, EndMS: 2000, Text: "Second"},
+	}
+	if _, err := validateLyricsLines(valid, 2000); err != nil {
+		t.Fatalf("validateLyricsLines() error = %v", err)
+	}
+	tests := []struct {
+		name  string
+		lines []LyricsLine
+	}{
+		{name: "missing line number", lines: []LyricsLine{{LineNumber: 2, StartMS: 0, EndMS: 1000, Text: "Line"}}},
+		{name: "overlap", lines: []LyricsLine{
+			{LineNumber: 1, StartMS: 0, EndMS: 1000, Text: "First"},
+			{LineNumber: 2, StartMS: 900, EndMS: 1500, Text: "Second"},
+		}},
+		{name: "past duration", lines: []LyricsLine{{LineNumber: 1, StartMS: 0, EndMS: 2001, Text: "Line"}}},
+		{name: "blank text", lines: []LyricsLine{{LineNumber: 1, StartMS: 0, EndMS: 1000, Text: " "}}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if _, err := validateLyricsLines(test.lines, 2000); !errors.Is(err, ErrInvalid) {
+				t.Fatalf("validateLyricsLines() error = %v, want %v", err, ErrInvalid)
+			}
+		})
+	}
+}
+
 func TestValidateAlbumSupportsSingleWithMultipleArtists(t *testing.T) {
 	input := AlbumInput{
 		ID:          uuid.New(),

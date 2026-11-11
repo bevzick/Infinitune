@@ -2633,6 +2633,178 @@ func (x *PutTrackLyricsResponse) GetUpdatedAt() *timestamppb.Timestamp {
 	return nil
 }
 
+type LyricsLine struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	LineNumber    int32                  `protobuf:"varint,1,opt,name=line_number,json=lineNumber,proto3" json:"line_number,omitempty"`
+	StartMs       int32                  `protobuf:"varint,2,opt,name=start_ms,json=startMs,proto3" json:"start_ms,omitempty"`
+	EndMs         int32                  `protobuf:"varint,3,opt,name=end_ms,json=endMs,proto3" json:"end_ms,omitempty"`
+	Text          string                 `protobuf:"bytes,4,opt,name=text,proto3" json:"text,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *LyricsLine) Reset() {
+	*x = LyricsLine{}
+	mi := &file_api_catalog_v1_catalog_proto_msgTypes[34]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *LyricsLine) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*LyricsLine) ProtoMessage() {}
+
+func (x *LyricsLine) ProtoReflect() protoreflect.Message {
+	mi := &file_api_catalog_v1_catalog_proto_msgTypes[34]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use LyricsLine.ProtoReflect.Descriptor instead.
+func (*LyricsLine) Descriptor() ([]byte, []int) {
+	return file_api_catalog_v1_catalog_proto_rawDescGZIP(), []int{34}
+}
+
+func (x *LyricsLine) GetLineNumber() int32 {
+	if x != nil {
+		return x.LineNumber
+	}
+	return 0
+}
+
+func (x *LyricsLine) GetStartMs() int32 {
+	if x != nil {
+		return x.StartMs
+	}
+	return 0
+}
+
+func (x *LyricsLine) GetEndMs() int32 {
+	if x != nil {
+		return x.EndMs
+	}
+	return 0
+}
+
+func (x *LyricsLine) GetText() string {
+	if x != nil {
+		return x.Text
+	}
+	return ""
+}
+
+type ReplaceTrackLyricsLinesRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	LyricsId      string                 `protobuf:"bytes,1,opt,name=lyrics_id,json=lyricsId,proto3" json:"lyrics_id,omitempty"`
+	Lines         []*LyricsLine          `protobuf:"bytes,2,rep,name=lines,proto3" json:"lines,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ReplaceTrackLyricsLinesRequest) Reset() {
+	*x = ReplaceTrackLyricsLinesRequest{}
+	mi := &file_api_catalog_v1_catalog_proto_msgTypes[35]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ReplaceTrackLyricsLinesRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ReplaceTrackLyricsLinesRequest) ProtoMessage() {}
+
+func (x *ReplaceTrackLyricsLinesRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_api_catalog_v1_catalog_proto_msgTypes[35]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ReplaceTrackLyricsLinesRequest.ProtoReflect.Descriptor instead.
+func (*ReplaceTrackLyricsLinesRequest) Descriptor() ([]byte, []int) {
+	return file_api_catalog_v1_catalog_proto_rawDescGZIP(), []int{35}
+}
+
+func (x *ReplaceTrackLyricsLinesRequest) GetLyricsId() string {
+	if x != nil {
+		return x.LyricsId
+	}
+	return ""
+}
+
+func (x *ReplaceTrackLyricsLinesRequest) GetLines() []*LyricsLine {
+	if x != nil {
+		return x.Lines
+	}
+	return nil
+}
+
+type ReplaceTrackLyricsLinesResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	LyricsId      string                 `protobuf:"bytes,1,opt,name=lyrics_id,json=lyricsId,proto3" json:"lyrics_id,omitempty"`
+	Lines         []*LyricsLine          `protobuf:"bytes,2,rep,name=lines,proto3" json:"lines,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ReplaceTrackLyricsLinesResponse) Reset() {
+	*x = ReplaceTrackLyricsLinesResponse{}
+	mi := &file_api_catalog_v1_catalog_proto_msgTypes[36]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ReplaceTrackLyricsLinesResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ReplaceTrackLyricsLinesResponse) ProtoMessage() {}
+
+func (x *ReplaceTrackLyricsLinesResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_api_catalog_v1_catalog_proto_msgTypes[36]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ReplaceTrackLyricsLinesResponse.ProtoReflect.Descriptor instead.
+func (*ReplaceTrackLyricsLinesResponse) Descriptor() ([]byte, []int) {
+	return file_api_catalog_v1_catalog_proto_rawDescGZIP(), []int{36}
+}
+
+func (x *ReplaceTrackLyricsLinesResponse) GetLyricsId() string {
+	if x != nil {
+		return x.LyricsId
+	}
+	return ""
+}
+
+func (x *ReplaceTrackLyricsLinesResponse) GetLines() []*LyricsLine {
+	if x != nil {
+		return x.Lines
+	}
+	return nil
+}
+
 var File_api_catalog_v1_catalog_proto protoreflect.FileDescriptor
 
 const file_api_catalog_v1_catalog_proto_rawDesc = "" +
@@ -2826,7 +2998,20 @@ const file_api_catalog_v1_catalog_proto_rawDesc = "" +
 	"\n" +
 	"created_at\x18\f \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
 	"\n" +
-	"updated_at\x18\r \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt*\x8a\x01\n" +
+	"updated_at\x18\r \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\"s\n" +
+	"\n" +
+	"LyricsLine\x12\x1f\n" +
+	"\vline_number\x18\x01 \x01(\x05R\n" +
+	"lineNumber\x12\x19\n" +
+	"\bstart_ms\x18\x02 \x01(\x05R\astartMs\x12\x15\n" +
+	"\x06end_ms\x18\x03 \x01(\x05R\x05endMs\x12\x12\n" +
+	"\x04text\x18\x04 \x01(\tR\x04text\"v\n" +
+	"\x1eReplaceTrackLyricsLinesRequest\x12\x1b\n" +
+	"\tlyrics_id\x18\x01 \x01(\tR\blyricsId\x127\n" +
+	"\x05lines\x18\x02 \x03(\v2!.infinitune.catalog.v1.LyricsLineR\x05lines\"w\n" +
+	"\x1fReplaceTrackLyricsLinesResponse\x12\x1b\n" +
+	"\tlyrics_id\x18\x01 \x01(\tR\blyricsId\x127\n" +
+	"\x05lines\x18\x02 \x03(\v2!.infinitune.catalog.v1.LyricsLineR\x05lines*\x8a\x01\n" +
 	"\tTrackSort\x12\x1a\n" +
 	"\x16TRACK_SORT_UNSPECIFIED\x10\x00\x12\x15\n" +
 	"\x11TRACK_SORT_NEWEST\x10\x01\x12\x15\n" +
@@ -2863,11 +3048,12 @@ const file_api_catalog_v1_catalog_proto_rawDesc = "" +
 	"\x13ARTIST_ROLE_PRIMARY\x10\x01\x12\x18\n" +
 	"\x14ARTIST_ROLE_FEATURED\x10\x02\x12\x18\n" +
 	"\x14ARTIST_ROLE_PRODUCER\x10\x03\x12\x18\n" +
-	"\x14ARTIST_ROLE_COMPOSER\x10\x042\x89\b\n" +
+	"\x14ARTIST_ROLE_COMPOSER\x10\x042\x94\t\n" +
 	"\x0eCatalogService\x12m\n" +
 	"\x0ePublishRelease\x12,.infinitune.catalog.v1.PublishReleaseRequest\x1a-.infinitune.catalog.v1.PublishReleaseResponse\x12m\n" +
 	"\x0eArchiveRelease\x12,.infinitune.catalog.v1.ArchiveReleaseRequest\x1a-.infinitune.catalog.v1.ArchiveReleaseResponse\x12m\n" +
-	"\x0ePutTrackLyrics\x12,.infinitune.catalog.v1.PutTrackLyricsRequest\x1a-.infinitune.catalog.v1.PutTrackLyricsResponse\x12^\n" +
+	"\x0ePutTrackLyrics\x12,.infinitune.catalog.v1.PutTrackLyricsRequest\x1a-.infinitune.catalog.v1.PutTrackLyricsResponse\x12\x88\x01\n" +
+	"\x17ReplaceTrackLyricsLines\x125.infinitune.catalog.v1.ReplaceTrackLyricsLinesRequest\x1a6.infinitune.catalog.v1.ReplaceTrackLyricsLinesResponse\x12^\n" +
 	"\tGetTracks\x12'.infinitune.catalog.v1.GetTracksRequest\x1a(.infinitune.catalog.v1.GetTracksResponse\x12s\n" +
 	"\x10ValidateTrackIds\x12..infinitune.catalog.v1.ValidateTrackIdsRequest\x1a/.infinitune.catalog.v1.ValidateTrackIdsResponse\x12s\n" +
 	"\x10ValidateAlbumIds\x12..infinitune.catalog.v1.ValidateAlbumIdsRequest\x1a/.infinitune.catalog.v1.ValidateAlbumIdsResponse\x12v\n" +
@@ -2888,48 +3074,51 @@ func file_api_catalog_v1_catalog_proto_rawDescGZIP() []byte {
 }
 
 var file_api_catalog_v1_catalog_proto_enumTypes = make([]protoimpl.EnumInfo, 5)
-var file_api_catalog_v1_catalog_proto_msgTypes = make([]protoimpl.MessageInfo, 34)
+var file_api_catalog_v1_catalog_proto_msgTypes = make([]protoimpl.MessageInfo, 37)
 var file_api_catalog_v1_catalog_proto_goTypes = []any{
-	(TrackSort)(0),                       // 0: infinitune.catalog.v1.TrackSort
-	(FilterLogic)(0),                     // 1: infinitune.catalog.v1.FilterLogic
-	(TrackFilterField)(0),                // 2: infinitune.catalog.v1.TrackFilterField
-	(TrackFilterOperator)(0),             // 3: infinitune.catalog.v1.TrackFilterOperator
-	(ArtistRole)(0),                      // 4: infinitune.catalog.v1.ArtistRole
-	(*PublishReleaseRequest)(nil),        // 5: infinitune.catalog.v1.PublishReleaseRequest
-	(*PublishArtist)(nil),                // 6: infinitune.catalog.v1.PublishArtist
-	(*PublishAlbum)(nil),                 // 7: infinitune.catalog.v1.PublishAlbum
-	(*PublishTrack)(nil),                 // 8: infinitune.catalog.v1.PublishTrack
-	(*PublishReleaseResponse)(nil),       // 9: infinitune.catalog.v1.PublishReleaseResponse
-	(*PublishedTrack)(nil),               // 10: infinitune.catalog.v1.PublishedTrack
-	(*GetTracksRequest)(nil),             // 11: infinitune.catalog.v1.GetTracksRequest
-	(*GetTracksResponse)(nil),            // 12: infinitune.catalog.v1.GetTracksResponse
-	(*ValidateTrackIdsRequest)(nil),      // 13: infinitune.catalog.v1.ValidateTrackIdsRequest
-	(*ValidateTrackIdsResponse)(nil),     // 14: infinitune.catalog.v1.ValidateTrackIdsResponse
-	(*ValidateAlbumIdsRequest)(nil),      // 15: infinitune.catalog.v1.ValidateAlbumIdsRequest
-	(*ValidateAlbumIdsResponse)(nil),     // 16: infinitune.catalog.v1.ValidateAlbumIdsResponse
-	(*ValidateArtistIdsRequest)(nil),     // 17: infinitune.catalog.v1.ValidateArtistIdsRequest
-	(*ValidateArtistIdsResponse)(nil),    // 18: infinitune.catalog.v1.ValidateArtistIdsResponse
-	(*FilterTracksRequest)(nil),          // 19: infinitune.catalog.v1.FilterTracksRequest
-	(*FilterTracksResponse)(nil),         // 20: infinitune.catalog.v1.FilterTracksResponse
-	(*UUIDList)(nil),                     // 21: infinitune.catalog.v1.UUIDList
-	(*IntegerRange)(nil),                 // 22: infinitune.catalog.v1.IntegerRange
-	(*TrackFilterValue)(nil),             // 23: infinitune.catalog.v1.TrackFilterValue
-	(*TrackFilter)(nil),                  // 24: infinitune.catalog.v1.TrackFilter
-	(*EvaluateTrackFiltersRequest)(nil),  // 25: infinitune.catalog.v1.EvaluateTrackFiltersRequest
-	(*EvaluateTrackFiltersResponse)(nil), // 26: infinitune.catalog.v1.EvaluateTrackFiltersResponse
-	(*Page)(nil),                         // 27: infinitune.catalog.v1.Page
-	(*Track)(nil),                        // 28: infinitune.catalog.v1.Track
-	(*Date)(nil),                         // 29: infinitune.catalog.v1.Date
-	(*ArtistCredit)(nil),                 // 30: infinitune.catalog.v1.ArtistCredit
-	(*Artist)(nil),                       // 31: infinitune.catalog.v1.Artist
-	(*Genre)(nil),                        // 32: infinitune.catalog.v1.Genre
-	(*TrackMood)(nil),                    // 33: infinitune.catalog.v1.TrackMood
-	(*Mood)(nil),                         // 34: infinitune.catalog.v1.Mood
-	(*ArchiveReleaseRequest)(nil),        // 35: infinitune.catalog.v1.ArchiveReleaseRequest
-	(*ArchiveReleaseResponse)(nil),       // 36: infinitune.catalog.v1.ArchiveReleaseResponse
-	(*PutTrackLyricsRequest)(nil),        // 37: infinitune.catalog.v1.PutTrackLyricsRequest
-	(*PutTrackLyricsResponse)(nil),       // 38: infinitune.catalog.v1.PutTrackLyricsResponse
-	(*timestamppb.Timestamp)(nil),        // 39: google.protobuf.Timestamp
+	(TrackSort)(0),                          // 0: infinitune.catalog.v1.TrackSort
+	(FilterLogic)(0),                        // 1: infinitune.catalog.v1.FilterLogic
+	(TrackFilterField)(0),                   // 2: infinitune.catalog.v1.TrackFilterField
+	(TrackFilterOperator)(0),                // 3: infinitune.catalog.v1.TrackFilterOperator
+	(ArtistRole)(0),                         // 4: infinitune.catalog.v1.ArtistRole
+	(*PublishReleaseRequest)(nil),           // 5: infinitune.catalog.v1.PublishReleaseRequest
+	(*PublishArtist)(nil),                   // 6: infinitune.catalog.v1.PublishArtist
+	(*PublishAlbum)(nil),                    // 7: infinitune.catalog.v1.PublishAlbum
+	(*PublishTrack)(nil),                    // 8: infinitune.catalog.v1.PublishTrack
+	(*PublishReleaseResponse)(nil),          // 9: infinitune.catalog.v1.PublishReleaseResponse
+	(*PublishedTrack)(nil),                  // 10: infinitune.catalog.v1.PublishedTrack
+	(*GetTracksRequest)(nil),                // 11: infinitune.catalog.v1.GetTracksRequest
+	(*GetTracksResponse)(nil),               // 12: infinitune.catalog.v1.GetTracksResponse
+	(*ValidateTrackIdsRequest)(nil),         // 13: infinitune.catalog.v1.ValidateTrackIdsRequest
+	(*ValidateTrackIdsResponse)(nil),        // 14: infinitune.catalog.v1.ValidateTrackIdsResponse
+	(*ValidateAlbumIdsRequest)(nil),         // 15: infinitune.catalog.v1.ValidateAlbumIdsRequest
+	(*ValidateAlbumIdsResponse)(nil),        // 16: infinitune.catalog.v1.ValidateAlbumIdsResponse
+	(*ValidateArtistIdsRequest)(nil),        // 17: infinitune.catalog.v1.ValidateArtistIdsRequest
+	(*ValidateArtistIdsResponse)(nil),       // 18: infinitune.catalog.v1.ValidateArtistIdsResponse
+	(*FilterTracksRequest)(nil),             // 19: infinitune.catalog.v1.FilterTracksRequest
+	(*FilterTracksResponse)(nil),            // 20: infinitune.catalog.v1.FilterTracksResponse
+	(*UUIDList)(nil),                        // 21: infinitune.catalog.v1.UUIDList
+	(*IntegerRange)(nil),                    // 22: infinitune.catalog.v1.IntegerRange
+	(*TrackFilterValue)(nil),                // 23: infinitune.catalog.v1.TrackFilterValue
+	(*TrackFilter)(nil),                     // 24: infinitune.catalog.v1.TrackFilter
+	(*EvaluateTrackFiltersRequest)(nil),     // 25: infinitune.catalog.v1.EvaluateTrackFiltersRequest
+	(*EvaluateTrackFiltersResponse)(nil),    // 26: infinitune.catalog.v1.EvaluateTrackFiltersResponse
+	(*Page)(nil),                            // 27: infinitune.catalog.v1.Page
+	(*Track)(nil),                           // 28: infinitune.catalog.v1.Track
+	(*Date)(nil),                            // 29: infinitune.catalog.v1.Date
+	(*ArtistCredit)(nil),                    // 30: infinitune.catalog.v1.ArtistCredit
+	(*Artist)(nil),                          // 31: infinitune.catalog.v1.Artist
+	(*Genre)(nil),                           // 32: infinitune.catalog.v1.Genre
+	(*TrackMood)(nil),                       // 33: infinitune.catalog.v1.TrackMood
+	(*Mood)(nil),                            // 34: infinitune.catalog.v1.Mood
+	(*ArchiveReleaseRequest)(nil),           // 35: infinitune.catalog.v1.ArchiveReleaseRequest
+	(*ArchiveReleaseResponse)(nil),          // 36: infinitune.catalog.v1.ArchiveReleaseResponse
+	(*PutTrackLyricsRequest)(nil),           // 37: infinitune.catalog.v1.PutTrackLyricsRequest
+	(*PutTrackLyricsResponse)(nil),          // 38: infinitune.catalog.v1.PutTrackLyricsResponse
+	(*LyricsLine)(nil),                      // 39: infinitune.catalog.v1.LyricsLine
+	(*ReplaceTrackLyricsLinesRequest)(nil),  // 40: infinitune.catalog.v1.ReplaceTrackLyricsLinesRequest
+	(*ReplaceTrackLyricsLinesResponse)(nil), // 41: infinitune.catalog.v1.ReplaceTrackLyricsLinesResponse
+	(*timestamppb.Timestamp)(nil),           // 42: google.protobuf.Timestamp
 }
 var file_api_catalog_v1_catalog_proto_depIdxs = []int32{
 	6,  // 0: infinitune.catalog.v1.PublishReleaseRequest.artist:type_name -> infinitune.catalog.v1.PublishArtist
@@ -2938,7 +3127,7 @@ var file_api_catalog_v1_catalog_proto_depIdxs = []int32{
 	29, // 3: infinitune.catalog.v1.PublishAlbum.release_date:type_name -> infinitune.catalog.v1.Date
 	29, // 4: infinitune.catalog.v1.PublishTrack.release_date:type_name -> infinitune.catalog.v1.Date
 	10, // 5: infinitune.catalog.v1.PublishReleaseResponse.tracks:type_name -> infinitune.catalog.v1.PublishedTrack
-	39, // 6: infinitune.catalog.v1.PublishReleaseResponse.published_at:type_name -> google.protobuf.Timestamp
+	42, // 6: infinitune.catalog.v1.PublishReleaseResponse.published_at:type_name -> google.protobuf.Timestamp
 	28, // 7: infinitune.catalog.v1.GetTracksResponse.tracks:type_name -> infinitune.catalog.v1.Track
 	0,  // 8: infinitune.catalog.v1.FilterTracksRequest.sort:type_name -> infinitune.catalog.v1.TrackSort
 	28, // 9: infinitune.catalog.v1.FilterTracksResponse.tracks:type_name -> infinitune.catalog.v1.Track
@@ -2957,37 +3146,41 @@ var file_api_catalog_v1_catalog_proto_depIdxs = []int32{
 	30, // 22: infinitune.catalog.v1.Track.artists:type_name -> infinitune.catalog.v1.ArtistCredit
 	32, // 23: infinitune.catalog.v1.Track.genres:type_name -> infinitune.catalog.v1.Genre
 	33, // 24: infinitune.catalog.v1.Track.moods:type_name -> infinitune.catalog.v1.TrackMood
-	39, // 25: infinitune.catalog.v1.Track.created_at:type_name -> google.protobuf.Timestamp
-	39, // 26: infinitune.catalog.v1.Track.updated_at:type_name -> google.protobuf.Timestamp
+	42, // 25: infinitune.catalog.v1.Track.created_at:type_name -> google.protobuf.Timestamp
+	42, // 26: infinitune.catalog.v1.Track.updated_at:type_name -> google.protobuf.Timestamp
 	31, // 27: infinitune.catalog.v1.ArtistCredit.artist:type_name -> infinitune.catalog.v1.Artist
 	4,  // 28: infinitune.catalog.v1.ArtistCredit.role:type_name -> infinitune.catalog.v1.ArtistRole
 	34, // 29: infinitune.catalog.v1.TrackMood.mood:type_name -> infinitune.catalog.v1.Mood
-	39, // 30: infinitune.catalog.v1.ArchiveReleaseResponse.archived_at:type_name -> google.protobuf.Timestamp
-	39, // 31: infinitune.catalog.v1.PutTrackLyricsResponse.created_at:type_name -> google.protobuf.Timestamp
-	39, // 32: infinitune.catalog.v1.PutTrackLyricsResponse.updated_at:type_name -> google.protobuf.Timestamp
-	5,  // 33: infinitune.catalog.v1.CatalogService.PublishRelease:input_type -> infinitune.catalog.v1.PublishReleaseRequest
-	35, // 34: infinitune.catalog.v1.CatalogService.ArchiveRelease:input_type -> infinitune.catalog.v1.ArchiveReleaseRequest
-	37, // 35: infinitune.catalog.v1.CatalogService.PutTrackLyrics:input_type -> infinitune.catalog.v1.PutTrackLyricsRequest
-	11, // 36: infinitune.catalog.v1.CatalogService.GetTracks:input_type -> infinitune.catalog.v1.GetTracksRequest
-	13, // 37: infinitune.catalog.v1.CatalogService.ValidateTrackIds:input_type -> infinitune.catalog.v1.ValidateTrackIdsRequest
-	15, // 38: infinitune.catalog.v1.CatalogService.ValidateAlbumIds:input_type -> infinitune.catalog.v1.ValidateAlbumIdsRequest
-	17, // 39: infinitune.catalog.v1.CatalogService.ValidateArtistIds:input_type -> infinitune.catalog.v1.ValidateArtistIdsRequest
-	19, // 40: infinitune.catalog.v1.CatalogService.FilterTracks:input_type -> infinitune.catalog.v1.FilterTracksRequest
-	25, // 41: infinitune.catalog.v1.CatalogService.EvaluateTrackFilters:input_type -> infinitune.catalog.v1.EvaluateTrackFiltersRequest
-	9,  // 42: infinitune.catalog.v1.CatalogService.PublishRelease:output_type -> infinitune.catalog.v1.PublishReleaseResponse
-	36, // 43: infinitune.catalog.v1.CatalogService.ArchiveRelease:output_type -> infinitune.catalog.v1.ArchiveReleaseResponse
-	38, // 44: infinitune.catalog.v1.CatalogService.PutTrackLyrics:output_type -> infinitune.catalog.v1.PutTrackLyricsResponse
-	12, // 45: infinitune.catalog.v1.CatalogService.GetTracks:output_type -> infinitune.catalog.v1.GetTracksResponse
-	14, // 46: infinitune.catalog.v1.CatalogService.ValidateTrackIds:output_type -> infinitune.catalog.v1.ValidateTrackIdsResponse
-	16, // 47: infinitune.catalog.v1.CatalogService.ValidateAlbumIds:output_type -> infinitune.catalog.v1.ValidateAlbumIdsResponse
-	18, // 48: infinitune.catalog.v1.CatalogService.ValidateArtistIds:output_type -> infinitune.catalog.v1.ValidateArtistIdsResponse
-	20, // 49: infinitune.catalog.v1.CatalogService.FilterTracks:output_type -> infinitune.catalog.v1.FilterTracksResponse
-	26, // 50: infinitune.catalog.v1.CatalogService.EvaluateTrackFilters:output_type -> infinitune.catalog.v1.EvaluateTrackFiltersResponse
-	42, // [42:51] is the sub-list for method output_type
-	33, // [33:42] is the sub-list for method input_type
-	33, // [33:33] is the sub-list for extension type_name
-	33, // [33:33] is the sub-list for extension extendee
-	0,  // [0:33] is the sub-list for field type_name
+	42, // 30: infinitune.catalog.v1.ArchiveReleaseResponse.archived_at:type_name -> google.protobuf.Timestamp
+	42, // 31: infinitune.catalog.v1.PutTrackLyricsResponse.created_at:type_name -> google.protobuf.Timestamp
+	42, // 32: infinitune.catalog.v1.PutTrackLyricsResponse.updated_at:type_name -> google.protobuf.Timestamp
+	39, // 33: infinitune.catalog.v1.ReplaceTrackLyricsLinesRequest.lines:type_name -> infinitune.catalog.v1.LyricsLine
+	39, // 34: infinitune.catalog.v1.ReplaceTrackLyricsLinesResponse.lines:type_name -> infinitune.catalog.v1.LyricsLine
+	5,  // 35: infinitune.catalog.v1.CatalogService.PublishRelease:input_type -> infinitune.catalog.v1.PublishReleaseRequest
+	35, // 36: infinitune.catalog.v1.CatalogService.ArchiveRelease:input_type -> infinitune.catalog.v1.ArchiveReleaseRequest
+	37, // 37: infinitune.catalog.v1.CatalogService.PutTrackLyrics:input_type -> infinitune.catalog.v1.PutTrackLyricsRequest
+	40, // 38: infinitune.catalog.v1.CatalogService.ReplaceTrackLyricsLines:input_type -> infinitune.catalog.v1.ReplaceTrackLyricsLinesRequest
+	11, // 39: infinitune.catalog.v1.CatalogService.GetTracks:input_type -> infinitune.catalog.v1.GetTracksRequest
+	13, // 40: infinitune.catalog.v1.CatalogService.ValidateTrackIds:input_type -> infinitune.catalog.v1.ValidateTrackIdsRequest
+	15, // 41: infinitune.catalog.v1.CatalogService.ValidateAlbumIds:input_type -> infinitune.catalog.v1.ValidateAlbumIdsRequest
+	17, // 42: infinitune.catalog.v1.CatalogService.ValidateArtistIds:input_type -> infinitune.catalog.v1.ValidateArtistIdsRequest
+	19, // 43: infinitune.catalog.v1.CatalogService.FilterTracks:input_type -> infinitune.catalog.v1.FilterTracksRequest
+	25, // 44: infinitune.catalog.v1.CatalogService.EvaluateTrackFilters:input_type -> infinitune.catalog.v1.EvaluateTrackFiltersRequest
+	9,  // 45: infinitune.catalog.v1.CatalogService.PublishRelease:output_type -> infinitune.catalog.v1.PublishReleaseResponse
+	36, // 46: infinitune.catalog.v1.CatalogService.ArchiveRelease:output_type -> infinitune.catalog.v1.ArchiveReleaseResponse
+	38, // 47: infinitune.catalog.v1.CatalogService.PutTrackLyrics:output_type -> infinitune.catalog.v1.PutTrackLyricsResponse
+	41, // 48: infinitune.catalog.v1.CatalogService.ReplaceTrackLyricsLines:output_type -> infinitune.catalog.v1.ReplaceTrackLyricsLinesResponse
+	12, // 49: infinitune.catalog.v1.CatalogService.GetTracks:output_type -> infinitune.catalog.v1.GetTracksResponse
+	14, // 50: infinitune.catalog.v1.CatalogService.ValidateTrackIds:output_type -> infinitune.catalog.v1.ValidateTrackIdsResponse
+	16, // 51: infinitune.catalog.v1.CatalogService.ValidateAlbumIds:output_type -> infinitune.catalog.v1.ValidateAlbumIdsResponse
+	18, // 52: infinitune.catalog.v1.CatalogService.ValidateArtistIds:output_type -> infinitune.catalog.v1.ValidateArtistIdsResponse
+	20, // 53: infinitune.catalog.v1.CatalogService.FilterTracks:output_type -> infinitune.catalog.v1.FilterTracksResponse
+	26, // 54: infinitune.catalog.v1.CatalogService.EvaluateTrackFilters:output_type -> infinitune.catalog.v1.EvaluateTrackFiltersResponse
+	45, // [45:55] is the sub-list for method output_type
+	35, // [35:45] is the sub-list for method input_type
+	35, // [35:35] is the sub-list for extension type_name
+	35, // [35:35] is the sub-list for extension extendee
+	0,  // [0:35] is the sub-list for field type_name
 }
 
 func init() { file_api_catalog_v1_catalog_proto_init() }
@@ -3011,7 +3204,7 @@ func file_api_catalog_v1_catalog_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_api_catalog_v1_catalog_proto_rawDesc), len(file_api_catalog_v1_catalog_proto_rawDesc)),
 			NumEnums:      5,
-			NumMessages:   34,
+			NumMessages:   37,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

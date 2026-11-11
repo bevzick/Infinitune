@@ -22,6 +22,14 @@ type trackLyricsResponse struct {
 	CopyrightNotice string                    `json:"copyright_notice"`
 	Official        bool                      `json:"official"`
 	UpdatedAt       time.Time                 `json:"updated_at"`
+	Lines           []lyricsLineResponse      `json:"lines"`
+}
+
+type lyricsLineResponse struct {
+	LineNumber int    `json:"line_number"`
+	StartMS    int    `json:"start_ms"`
+	EndMS      int    `json:"end_ms"`
+	Text       string `json:"text"`
 }
 
 func trackLyricsHandler(
@@ -41,12 +49,19 @@ func trackLyricsHandler(
 		}
 		response := make([]trackLyricsResponse, 0, len(lyrics))
 		for _, value := range lyrics {
+			lines := make([]lyricsLineResponse, 0, len(value.Lines))
+			for _, line := range value.Lines {
+				lines = append(lines, lyricsLineResponse{
+					LineNumber: line.LineNumber, StartMS: line.StartMS,
+					EndMS: line.EndMS, Text: line.Text,
+				})
+			}
 			response = append(response, trackLyricsResponse{
 				ID: value.ID, TrackID: value.TrackID, Type: value.Type,
 				Language: value.Language, Content: value.Content,
 				SourceType: value.SourceType, SourceName: value.SourceName,
 				CopyrightNotice: value.CopyrightNotice, Official: value.Official,
-				UpdatedAt: value.UpdatedAt,
+				UpdatedAt: value.UpdatedAt, Lines: lines,
 			})
 		}
 		c.JSON(http.StatusOK, gin.H{"items": response})

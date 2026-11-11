@@ -20,12 +20,56 @@ type Catalog interface {
 	PublishApprovedRelease(context.Context, metadata.PublicationInput) (metadata.Publication, error)
 	ArchivePublishedRelease(context.Context, uuid.UUID) (metadata.Archive, error)
 	PutTrackLyrics(context.Context, metadata.TrackLyricsInput) (metadata.TrackLyrics, error)
+	ReplaceTrackLyricsLines(context.Context, uuid.UUID, []metadata.LyricsLine) ([]metadata.LyricsLine, error)
 	BatchTracks(context.Context, []uuid.UUID) ([]metadata.Track, error)
 	ValidateTrackIDs(context.Context, []uuid.UUID) (metadata.TrackIDValidation, error)
 	ValidateAlbumIDs(context.Context, []uuid.UUID) (metadata.AlbumIDValidation, error)
 	ValidateArtistIDs(context.Context, []uuid.UUID) (metadata.ArtistIDValidation, error)
 	Tracks(context.Context, metadata.TrackQuery) (metadata.Page[metadata.Track], error)
 	EvaluateTrackFilters(context.Context, metadata.DynamicTrackQuery) (metadata.Page[metadata.Track], error)
+}
+
+func (server *CatalogServer) ReplaceTrackLyricsLines(
+	ctx context.Context,
+	request *catalogv1.ReplaceTrackLyricsLinesRequest,
+) (*catalogv1.ReplaceTrackLyricsLinesResponse, error) {
+	if request == nil {
+		return nil, status.Error(codes.InvalidArgument, "request is required")
+	}
+	lyricsID, err := requiredUUID(request.GetLyricsId(), "lyrics_id")
+	if err != nil {
+		return nil, err
+	}
+	lines := make([]metadata.LyricsLine, 0, len(request.GetLines()))
+	for index, line := range request.GetLines() {
+		if line == nil {
+			return nil, status.Errorf(codes.InvalidArgument, "lines[%d] is required", index)
+		}
+		lines = append(lines, metadata.LyricsLine{
+			LineNumber: int(line.GetLineNumber()), StartMS: int(line.GetStartMs()),
+			EndMS: int(line.GetEndMs()), Text: line.GetText(),
+		})
+	}
+	callCtx, cancel := context.WithTimeout(ctx, server.timeout)
+	defer cancel()
+	result, err := server.catalog.ReplaceTrackLyricsLines(callCtx, lyricsID, lines)
+	if err != nil {
+		return nil, mapCatalogError(err, "synchronized lyrics update failed")
+	}
+	return &catalogv1.ReplaceTrackLyricsLinesResponse{
+		LyricsId: lyricsID.String(), Lines: lyricsLinesResponse(result),
+	}, nil
+}
+
+func lyricsLinesResponse(lines []metadata.LyricsLine) []*catalogv1.LyricsLine {
+	result := make([]*catalogv1.LyricsLine, 0, len(lines))
+	for _, line := range lines {
+		result = append(result, &catalogv1.LyricsLine{
+			LineNumber: int32(line.LineNumber), StartMs: int32(line.StartMS),
+			EndMs: int32(line.EndMS), Text: line.Text,
+		})
+	}
+	return result
 }
 
 func (server *CatalogServer) PutTrackLyrics(
