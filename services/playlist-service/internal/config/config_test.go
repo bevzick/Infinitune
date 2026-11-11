@@ -3,6 +3,7 @@ package config
 import (
 	"slices"
 	"testing"
+	"time"
 )
 
 func TestLoadUsesPlaylistDatabase(t *testing.T) {
@@ -22,6 +23,7 @@ func TestLoadUsesPlaylistDatabase(t *testing.T) {
 	t.Setenv("AUTH_JWT_AUDIENCE", "test-audience")
 	t.Setenv("AUTH_JWT_KEY_ID", "test-key")
 	t.Setenv("PLAYLIST_ALLOWED_ORIGINS", "http://localhost:5173, https://app.example.test")
+	t.Setenv("PLAYLIST_PERSONALIZATION_TTL", "3m")
 
 	config, err := Load()
 	if err != nil {
@@ -35,6 +37,9 @@ func TestLoadUsesPlaylistDatabase(t *testing.T) {
 	}
 	if config.RecommendationAddress != "recommendation:9092" {
 		t.Errorf("RecommendationAddress = %q", config.RecommendationAddress)
+	}
+	if config.PersonalizationTTL != 3*time.Minute {
+		t.Errorf("PersonalizationTTL = %s", config.PersonalizationTTL)
 	}
 	if config.Database.Host != "postgres" || config.Database.Port != 5433 ||
 		config.Database.User != "playlist_user" || config.Database.Password != "secret" ||
@@ -66,6 +71,7 @@ func TestLoadRejectsInvalidConfiguration(t *testing.T) {
 		{name: "missing database password", key: "POSTGRES_PASSWORD", value: ""},
 		{name: "missing database name", key: "POSTGRES_PLAYLIST_DB", value: ""},
 		{name: "invalid allowed origin", key: "PLAYLIST_ALLOWED_ORIGINS", value: "javascript:alert(1)"},
+		{name: "invalid personalization TTL", key: "PLAYLIST_PERSONALIZATION_TTL", value: "0s"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -81,6 +87,7 @@ func setRequiredEnvironment(t *testing.T) {
 	t.Helper()
 	t.Setenv("PLAYLIST_HTTP_PORT", "8080")
 	t.Setenv("CATALOG_GRPC_PORT", "9090")
+	t.Setenv("PLAYLIST_PERSONALIZATION_TTL", "5m")
 	t.Setenv("POSTGRES_PORT", "5432")
 	t.Setenv("POSTGRES_USER", "playlist_user")
 	t.Setenv("POSTGRES_PASSWORD", "secret")

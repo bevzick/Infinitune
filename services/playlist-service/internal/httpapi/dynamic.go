@@ -191,6 +191,10 @@ func resolveDynamicTracks(service DynamicTracks, logger *slog.Logger) gin.Handle
 		if !ok {
 			return
 		}
+		page.Refresh, ok = queryBoolean(c, "refresh")
+		if !ok {
+			return
+		}
 		resolved, err := service.Resolve(c.Request.Context(), viewerID(c), playlistID, page)
 		if err != nil {
 			writeDomainError(c, logger, err)

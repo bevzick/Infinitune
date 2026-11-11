@@ -92,6 +92,7 @@ func main() {
 		repository,
 		catalog.NewDynamicResolver(catalogClient),
 		recommendation_client.NewClient(recommendationv1.NewRankingServiceClient(recommendationConnection)),
+		playlist.NewPersonalizationCache(cfg.PersonalizationTTL),
 	)
 
 	server := &http.Server{

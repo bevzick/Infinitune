@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/bevzick/Infinitune/services/playlist-service/internal/rules"
 	"github.com/google/uuid"
@@ -25,7 +26,7 @@ func TestDynamicTrackServiceResolvesVisiblePlaylistWithCurrentRules(t *testing.T
 	resolver := &dynamicTrackResolverStub{page: DynamicTrackPage{
 		Items: []DynamicTrack{{TrackID: trackID, Position: 1}}, Limit: 50, Total: 1,
 	}}
-	service := NewDynamicTrackService(base, ruleStore, resolver, nil)
+	service := NewDynamicTrackService(base, ruleStore, resolver, nil, nil)
 
 	result, err := service.Resolve(context.Background(), viewerID, playlistID, PageRequest{})
 	if err != nil {
@@ -62,7 +63,7 @@ func TestDynamicTrackServiceMarksNoMatchesAsEmpty(t *testing.T) {
 			Visibility: VisibilityPrivate, RuleSetID: &ruleSetID,
 		}}),
 		&dynamicRuleStoreStub{ruleSet: rules.RuleSet{ID: ruleSetID, OwnerID: ownerID}},
-		&dynamicTrackResolverStub{page: DynamicTrackPage{Items: []DynamicTrack{}, Limit: 20}}, nil,
+		&dynamicTrackResolverStub{page: DynamicTrackPage{Items: []DynamicTrack{}, Limit: 20}}, nil, nil,
 	)
 	result, err := service.Resolve(
 		context.Background(), ownerID, playlistID, PageRequest{Limit: 20},
@@ -97,7 +98,7 @@ func TestDynamicTrackServiceEnforcesVisibilityAndType(t *testing.T) {
 			resolver := &dynamicTrackResolverStub{}
 			service := NewDynamicTrackService(
 				NewService(&stubStore{playlist: test.playlist}),
-				&dynamicRuleStoreStub{}, resolver, nil,
+				&dynamicRuleStoreStub{}, resolver, nil, nil,
 			)
 			_, err := service.Resolve(
 				context.Background(), test.viewerID, test.playlist.ID, PageRequest{},
@@ -123,7 +124,7 @@ func TestDynamicTrackServicePropagatesCatalogFailure(t *testing.T) {
 			Visibility: VisibilityPrivate, RuleSetID: &ruleSetID,
 		}}),
 		&dynamicRuleStoreStub{ruleSet: rules.RuleSet{ID: ruleSetID, OwnerID: ownerID}},
-		resolver, nil,
+		resolver, nil, nil,
 	)
 	_, err := service.Resolve(context.Background(), ownerID, playlistID, PageRequest{})
 	if !errors.Is(err, ErrCatalogTimeout) {
@@ -136,7 +137,7 @@ func TestDynamicTrackServiceRanksFullCandidateWindowForViewerBeforePagination(t 
 	first, second, third := uuid.New(), uuid.New(), uuid.New()
 	resolver := &dynamicTrackResolverStub{page: DynamicTrackPage{Items: []DynamicTrack{{TrackID: first}, {TrackID: second}, {TrackID: third}}, Limit: 100, Total: 3}}
 	ranker := &dynamicTrackRankerStub{items: []DynamicTrack{{TrackID: third}, {TrackID: first}, {TrackID: second}}, personalized: true}
-	service := NewDynamicTrackService(NewService(&stubStore{playlist: Playlist{ID: playlistID, OwnerID: ownerID, Type: TypeDynamic, Visibility: VisibilityPublic, RuleSetID: &ruleSetID}}), &dynamicRuleStoreStub{ruleSet: rules.RuleSet{ID: ruleSetID, OwnerID: ownerID}}, resolver, ranker)
+	service := NewDynamicTrackService(NewService(&stubStore{playlist: Playlist{ID: playlistID, OwnerID: ownerID, Type: TypeDynamic, Visibility: VisibilityPublic, RuleSetID: &ruleSetID}}), &dynamicRuleStoreStub{ruleSet: rules.RuleSet{ID: ruleSetID, OwnerID: ownerID}}, resolver, ranker, nil)
 	result, err := service.Resolve(context.Background(), viewerID, playlistID, PageRequest{Limit: 2, Offset: 1})
 	if err != nil {
 		t.Fatalf("Resolve() error = %v", err)
@@ -155,7 +156,7 @@ func TestDynamicTrackServiceKeepsAnonymousResolutionNeutral(t *testing.T) {
 	ranker := &dynamicTrackRankerStub{personalized: true}
 	service := NewDynamicTrackService(
 		NewService(&stubStore{playlist: Playlist{ID: playlistID, OwnerID: ownerID, Type: TypeDynamic, Visibility: VisibilityPublic, RuleSetID: &ruleSetID}}),
-		&dynamicRuleStoreStub{ruleSet: rules.RuleSet{ID: ruleSetID, OwnerID: ownerID}}, resolver, ranker,
+		&dynamicRuleStoreStub{ruleSet: rules.RuleSet{ID: ruleSetID, OwnerID: ownerID}}, resolver, ranker, nil,
 	)
 	result, err := service.Resolve(context.Background(), uuid.Nil, playlistID, PageRequest{Limit: 1, Offset: 5})
 	if err != nil {
@@ -163,6 +164,70 @@ func TestDynamicTrackServiceKeepsAnonymousResolutionNeutral(t *testing.T) {
 	}
 	if ranker.userID != uuid.Nil || resolver.pageRequest != (PageRequest{Limit: 1, Offset: 5}) || result.Personalized || result.Items[0].TrackID != trackID {
 		t.Fatalf("result = %+v; resolver = %+v; ranker = %+v", result, resolver, ranker)
+	}
+}
+
+func TestDynamicTrackServiceCachesPersonalizedOrderUntilRefreshOrRulesChange(t *testing.T) {
+	ownerID, viewerID := uuid.New(), uuid.New()
+	playlistID, ruleSetID := uuid.New(), uuid.New()
+	first, second := uuid.New(), uuid.New()
+	now := time.Date(2026, time.November, 11, 12, 0, 0, 0, time.UTC)
+	ruleStore := &dynamicRuleStoreStub{ruleSet: rules.RuleSet{
+		ID: ruleSetID, OwnerID: ownerID, UpdatedAt: now.Add(-time.Hour),
+	}}
+	resolver := &dynamicTrackResolverStub{page: DynamicTrackPage{
+		Items: []DynamicTrack{{TrackID: first}, {TrackID: second}}, Limit: 100, Total: 2,
+	}}
+	ranker := &dynamicTrackRankerStub{
+		items: []DynamicTrack{{TrackID: second}, {TrackID: first}}, personalized: true,
+	}
+	service := NewDynamicTrackService(
+		NewService(&stubStore{playlist: Playlist{
+			ID: playlistID, OwnerID: ownerID, Type: TypeDynamic,
+			Visibility: VisibilityPublic, RuleSetID: &ruleSetID,
+		}}),
+		ruleStore, resolver, ranker, NewPersonalizationCache(time.Hour),
+	)
+	service.now = func() time.Time { return now }
+
+	firstPage, err := service.Resolve(
+		context.Background(), viewerID, playlistID, PageRequest{Limit: 1},
+	)
+	if err != nil {
+		t.Fatalf("first Resolve() error = %v", err)
+	}
+	secondPage, err := service.Resolve(
+		context.Background(), viewerID, playlistID, PageRequest{Limit: 1, Offset: 1},
+	)
+	if err != nil {
+		t.Fatalf("cached Resolve() error = %v", err)
+	}
+	if resolver.calls != 1 || ranker.calls != 1 ||
+		firstPage.Items[0].TrackID != second || secondPage.Items[0].TrackID != first ||
+		secondPage.Items[0].Position != 2 {
+		t.Fatalf("first = %+v; second = %+v; resolver calls = %d; ranker calls = %d",
+			firstPage, secondPage, resolver.calls, ranker.calls)
+	}
+
+	ranker.items = []DynamicTrack{{TrackID: first}, {TrackID: second}}
+	refreshed, err := service.Resolve(
+		context.Background(), viewerID, playlistID, PageRequest{Limit: 1, Refresh: true},
+	)
+	if err != nil {
+		t.Fatalf("refreshed Resolve() error = %v", err)
+	}
+	if resolver.calls != 2 || ranker.calls != 2 || refreshed.Items[0].TrackID != first {
+		t.Fatalf("refreshed = %+v; resolver calls = %d; ranker calls = %d",
+			refreshed, resolver.calls, ranker.calls)
+	}
+
+	ruleStore.ruleSet.UpdatedAt = now
+	_, err = service.Resolve(context.Background(), viewerID, playlistID, PageRequest{Limit: 1})
+	if err != nil {
+		t.Fatalf("Resolve() after rules change error = %v", err)
+	}
+	if resolver.calls != 3 || ranker.calls != 3 {
+		t.Fatalf("resolver calls = %d; ranker calls = %d, want 3", resolver.calls, ranker.calls)
 	}
 }
 
@@ -188,10 +253,12 @@ type dynamicTrackRankerStub struct {
 	personalized bool
 	err          error
 	userID       uuid.UUID
+	calls        int
 }
 
 func (stub *dynamicTrackRankerStub) Rank(_ context.Context, userID uuid.UUID, _ []uuid.UUID) ([]DynamicTrack, bool, error) {
 	stub.userID = userID
+	stub.calls++
 	return stub.items, stub.personalized, stub.err
 }
 

@@ -70,8 +70,9 @@ type Track struct {
 }
 
 type PageRequest struct {
-	Limit  int
-	Offset int
+	Limit   int
+	Offset  int
+	Refresh bool
 }
 
 type PlaylistPage struct {

@@ -230,12 +230,12 @@ func TestResolveDynamicTracksDescribesReadyAndEmptyResults(t *testing.T) {
 			dependencies := testDependencies(databaseStub{})
 			dependencies.DynamicTracks = service
 			request := httptest.NewRequest(http.MethodGet,
-				"/v1/playlists/"+playlistID.String()+"/resolved-tracks?limit=1&offset=2", nil)
+				"/v1/playlists/"+playlistID.String()+"/resolved-tracks?limit=1&offset=2&refresh=true", nil)
 			response := httptest.NewRecorder()
 			NewRouter(dependencies).ServeHTTP(response, request)
 			if response.Code != http.StatusOK || service.viewerID != uuid.Nil ||
 				service.playlistID != playlistID ||
-				service.page != (playlist.PageRequest{Limit: 1, Offset: 2}) {
+				service.page != (playlist.PageRequest{Limit: 1, Offset: 2, Refresh: true}) {
 				t.Fatalf("status = %d, viewer = %s, playlist = %s, page = %+v, body = %s",
 					response.Code, service.viewerID, service.playlistID, service.page, response.Body.String())
 			}
@@ -245,6 +245,23 @@ func TestResolveDynamicTracksDescribesReadyAndEmptyResults(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestResolveDynamicTracksRejectsInvalidRefresh(t *testing.T) {
+	playlistID := uuid.New()
+	service := &dynamicTracksStub{}
+	dependencies := testDependencies(databaseStub{})
+	dependencies.DynamicTracks = service
+	request := httptest.NewRequest(http.MethodGet,
+		"/v1/playlists/"+playlistID.String()+"/resolved-tracks?refresh=sometimes", nil)
+	response := httptest.NewRecorder()
+
+	NewRouter(dependencies).ServeHTTP(response, request)
+
+	if response.Code != http.StatusBadRequest || service.playlistID != uuid.Nil ||
+		!strings.Contains(response.Body.String(), `"code":"invalid_refresh"`) {
+		t.Fatalf("status = %d, service = %+v, body = %s", response.Code, service, response.Body.String())
 	}
 }
 

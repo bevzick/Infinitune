@@ -86,6 +86,19 @@ func queryInteger(c *gin.Context, key string) (int, bool) {
 	return value, true
 }
 
+func queryBoolean(c *gin.Context, key string) (bool, bool) {
+	raw := c.Query(key)
+	if raw == "" {
+		return false, true
+	}
+	value, err := strconv.ParseBool(raw)
+	if err != nil {
+		writeError(c, http.StatusBadRequest, "invalid_"+key, key+" must be true or false")
+		return false, false
+	}
+	return value, true
+}
+
 func addTrack(service PlaylistTracks, logger *slog.Logger) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		actor, ok := requestIdentity(c)

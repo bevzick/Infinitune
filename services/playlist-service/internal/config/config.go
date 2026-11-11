@@ -14,23 +14,25 @@ import (
 )
 
 const (
-	defaultHTTPHost     = "0.0.0.0"
-	defaultHTTPPort     = "8080"
-	defaultCatalogHost  = "127.0.0.1"
-	defaultCatalogPort  = "9090"
-	defaultPostgresHost = "127.0.0.1"
-	defaultPostgresPort = "5432"
-	defaultJWKSURL      = "http://auth-service:8080/v1/auth/jwks"
-	defaultJWTIssuer    = "infinitune-auth"
-	defaultJWTAudience  = "infinitune-api"
-	defaultJWTKeyID     = "auth-key-1"
-	defaultJWKSRefresh  = 5 * time.Minute
+	defaultHTTPHost           = "0.0.0.0"
+	defaultHTTPPort           = "8080"
+	defaultCatalogHost        = "127.0.0.1"
+	defaultCatalogPort        = "9090"
+	defaultPostgresHost       = "127.0.0.1"
+	defaultPostgresPort       = "5432"
+	defaultJWKSURL            = "http://auth-service:8080/v1/auth/jwks"
+	defaultJWTIssuer          = "infinitune-auth"
+	defaultJWTAudience        = "infinitune-api"
+	defaultJWTKeyID           = "auth-key-1"
+	defaultJWKSRefresh        = 5 * time.Minute
+	defaultPersonalizationTTL = 5 * time.Minute
 )
 
 type Config struct {
 	HTTPAddress           string
 	CatalogAddress        string
 	RecommendationAddress string
+	PersonalizationTTL    time.Duration
 	Database              database.Config
 	Identity              identity.Config
 	Origins               []string
@@ -57,12 +59,20 @@ func Load() (Config, error) {
 	if err != nil {
 		return Config{}, err
 	}
+	personalizationTTL, err := parsePositiveDuration(
+		"PLAYLIST_PERSONALIZATION_TTL",
+		envOrDefault("PLAYLIST_PERSONALIZATION_TTL", defaultPersonalizationTTL.String()),
+	)
+	if err != nil {
+		return Config{}, err
+	}
 	return Config{
 		HTTPAddress: net.JoinHostPort(envOrDefault("PLAYLIST_HTTP_HOST", defaultHTTPHost), httpPort),
 		CatalogAddress: net.JoinHostPort(
 			envOrDefault("CATALOG_GRPC_HOST", defaultCatalogHost), catalogPort,
 		),
 		RecommendationAddress: net.JoinHostPort(envOrDefault("RECOMMENDATION_GRPC_HOST", defaultCatalogHost), recommendationPort),
+		PersonalizationTTL:    personalizationTTL,
 		Database:              databaseConfig,
 		Identity: identity.Config{
 			JWKSURL:         envOrDefault("PLAYLIST_AUTH_JWKS_URL", defaultJWKSURL),
@@ -142,4 +152,12 @@ func parsePort(key, value string) (uint16, error) {
 		return 0, fmt.Errorf("invalid %s %q: expected a number from 1 to 65535", key, value)
 	}
 	return uint16(port), nil
+}
+
+func parsePositiveDuration(key, value string) (time.Duration, error) {
+	duration, err := time.ParseDuration(value)
+	if err != nil || duration <= 0 {
+		return 0, fmt.Errorf("invalid %s %q: expected a positive duration", key, value)
+	}
+	return duration, nil
 }
