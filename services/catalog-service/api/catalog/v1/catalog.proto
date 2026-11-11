@@ -14,6 +14,13 @@ service CatalogService {
   // Hides a published release from discovery while preserving its identifiers.
   rpc ArchiveRelease(ArchiveReleaseRequest) returns (ArchiveReleaseResponse);
 
+  // Creates, updates, publishes, or withdraws lyrics after Content has made a
+  // separate lyrics-rights decision. Audio rights do not imply lyrics rights.
+  rpc PutTrackLyrics(PutTrackLyricsRequest) returns (PutTrackLyricsResponse);
+
+  // Atomically replaces ordered timing lines for synchronized lyrics.
+  rpc ReplaceTrackLyricsLines(ReplaceTrackLyricsLinesRequest) returns (ReplaceTrackLyricsLinesResponse);
+
   // Returns tracks in request order. Fails with NOT_FOUND if any ID is missing.
   rpc GetTracks(GetTracksRequest) returns (GetTracksResponse);
 
@@ -280,4 +287,51 @@ message ArchiveReleaseRequest {
 
 message ArchiveReleaseResponse {
   google.protobuf.Timestamp archived_at = 1;
+}
+
+message PutTrackLyricsRequest {
+  string id = 1;
+  string track_id = 2;
+  string lyrics_type = 3;
+  string language = 4;
+  string content = 5;
+  string source_type = 6;
+  string source_name = 7;
+  string copyright_notice = 8;
+  bool official = 9;
+  bool rights_authorized = 10;
+  bool published = 11;
+}
+
+message PutTrackLyricsResponse {
+  string id = 1;
+  string track_id = 2;
+  string lyrics_type = 3;
+  string language = 4;
+  string content = 5;
+  string source_type = 6;
+  string source_name = 7;
+  string copyright_notice = 8;
+  bool official = 9;
+  bool rights_authorized = 10;
+  bool published = 11;
+  google.protobuf.Timestamp created_at = 12;
+  google.protobuf.Timestamp updated_at = 13;
+}
+
+message LyricsLine {
+  int32 line_number = 1;
+  int32 start_ms = 2;
+  int32 end_ms = 3;
+  string text = 4;
+}
+
+message ReplaceTrackLyricsLinesRequest {
+  string lyrics_id = 1;
+  repeated LyricsLine lines = 2;
+}
+
+message ReplaceTrackLyricsLinesResponse {
+  string lyrics_id = 1;
+  repeated LyricsLine lines = 2;
 }

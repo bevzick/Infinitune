@@ -65,6 +65,7 @@ type playbackStub struct {
 	asset   media.Asset
 	variant media.AudioVariant
 	err     error
+	quality *media.AudioQuality
 }
 
 type ingestStub struct {
@@ -96,9 +97,13 @@ func (stub *ingestStub) Ingest(
 }
 
 func (stub playbackStub) PlaybackVariant(
-	context.Context,
-	uuid.UUID,
+	_ context.Context,
+	_ uuid.UUID,
+	quality media.AudioQuality,
 ) (media.Asset, media.AudioVariant, error) {
+	if stub.quality != nil {
+		*stub.quality = quality
+	}
 	return stub.asset, stub.variant, stub.err
 }
 
@@ -180,6 +185,7 @@ func TestCreatorUploadRequiresContentLength(t *testing.T) {
 func TestPlaybackStreamsReadyMediaObject(t *testing.T) {
 	assetID := uuid.New()
 	variantID := uuid.New()
+	var requestedQuality media.AudioQuality
 	objectStorage := &objectStorageStub{object: storage.Object{
 		Body: newReadSeekCloser("audio bytes"),
 		Size: 11, ContentType: "audio/mp4",
@@ -188,12 +194,13 @@ func TestPlaybackStreamsReadyMediaObject(t *testing.T) {
 	dependencies.Media = playbackStub{
 		asset: media.Asset{ID: assetID, Status: media.StatusReady},
 		variant: media.AudioVariant{
-			ID: variantID, ObjectKey: "variants/track.m4a", BitrateKbps: 320,
+			ID: variantID, ObjectKey: "variants/track.m4a", Codec: "mp3", BitrateKbps: 128,
 		},
+		quality: &requestedQuality,
 	}
 	dependencies.Objects = objectStorage
 	request := httptest.NewRequest(http.MethodGet,
-		"/v1/media/assets/"+assetID.String()+"/playback", nil)
+		"/v1/media/assets/"+assetID.String()+"/playback?quality=low", nil)
 	request.Header.Set("Authorization", "Bearer valid")
 	response := httptest.NewRecorder()
 
@@ -205,11 +212,33 @@ func TestPlaybackStreamsReadyMediaObject(t *testing.T) {
 	if response.Header().Get("Content-Type") != "audio/mp4" ||
 		response.Header().Get("Content-Length") != "11" ||
 		response.Header().Get("Accept-Ranges") != "bytes" ||
-		response.Header().Get("Cache-Control") != "private, no-store" {
+		response.Header().Get("Cache-Control") != "private, no-store" ||
+		response.Header().Get("X-Audio-Quality") != "low" ||
+		response.Header().Get("X-Audio-Codec") != "mp3" ||
+		response.Header().Get("X-Audio-Bitrate-Kbps") != "128" ||
+		requestedQuality != media.AudioQualityLow {
 		t.Fatalf("headers = %v", response.Header())
 	}
 	if objectStorage.key != "variants/track.m4a" {
 		t.Fatalf("Open() key = %q", objectStorage.key)
+	}
+}
+
+func TestPlaybackRejectsUnknownAudioQuality(t *testing.T) {
+	var requestedQuality media.AudioQuality
+	dependencies := playbackDependencies()
+	dependencies.Media = playbackStub{quality: &requestedQuality}
+	request := httptest.NewRequest(http.MethodGet,
+		"/v1/media/assets/"+uuid.NewString()+"/playback?quality=studio", nil)
+	request.Header.Set("Authorization", "Bearer valid")
+	response := httptest.NewRecorder()
+
+	NewRouter(dependencies).ServeHTTP(response, request)
+
+	if response.Code != http.StatusBadRequest || requestedQuality != "" ||
+		!bytes.Contains(response.Body.Bytes(), []byte(`"code":"invalid_audio_quality"`)) {
+		t.Fatalf("status = %d, quality = %q, body = %s",
+			response.Code, requestedQuality, response.Body.String())
 	}
 }
 
@@ -305,7 +334,8 @@ func TestPlaybackCORSPreflightDoesNotRequireToken(t *testing.T) {
 	response := httptest.NewRecorder()
 	NewRouter(dependencies).ServeHTTP(response, request)
 	if response.Code != http.StatusNoContent ||
-		response.Header().Get("Access-Control-Allow-Origin") != "http://localhost:5173" {
+		response.Header().Get("Access-Control-Allow-Origin") != "http://localhost:5173" ||
+		response.Header().Get("Access-Control-Expose-Headers") == "" {
 		t.Fatalf("status = %d, headers = %v", response.Code, response.Header())
 	}
 }

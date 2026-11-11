@@ -147,6 +147,37 @@ func TestTrackDetailReturnsPublicMetadataWithoutInternalIDs(t *testing.T) {
 	}
 }
 
+func TestTrackLyricsReturnsOnlyPublicPresentationFields(t *testing.T) {
+	trackID, lyricsID := uuid.New(), uuid.New()
+	updatedAt := time.Date(2026, time.November, 11, 12, 0, 0, 0, time.UTC)
+	stub := &catalogStub{lyrics: []metadata.TrackLyrics{{
+		ID: lyricsID, TrackID: trackID, Type: metadata.LyricsTypePlain,
+		Language: "uk", Content: "Текст пісні",
+		SourceType: metadata.LyricsSourcePublisher, SourceName: "Publisher",
+		CopyrightNotice: "Licensed", Official: true,
+		RightsAuthorized: true, Published: true, UpdatedAt: updatedAt,
+		Lines: []metadata.LyricsLine{{
+			LineNumber: 1, StartMS: 500, EndMS: 1500, Text: "Текст пісні",
+		}},
+	}}}
+	request := httptest.NewRequest(http.MethodGet,
+		"/v1/catalog/tracks/"+trackID.String()+"/lyrics", nil)
+	response := httptest.NewRecorder()
+
+	NewRouter(testDependencies(stub, healthCheckStub{})).ServeHTTP(response, request)
+
+	body := response.Body.String()
+	if response.Code != http.StatusOK ||
+		!strings.Contains(body, `"id":"`+lyricsID.String()+`"`) ||
+		!strings.Contains(body, `"language":"uk"`) ||
+		!strings.Contains(body, `"content":"Текст пісні"`) ||
+		!strings.Contains(body, `"line_number":1`) ||
+		!strings.Contains(body, `"start_ms":500`) ||
+		strings.Contains(body, "rights_authorized") || strings.Contains(body, `"published"`) {
+		t.Fatalf("status = %d, body = %s", response.Code, body)
+	}
+}
+
 func TestCatalogRoutesReturnStructuredClientErrors(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -258,6 +289,7 @@ func testDependencies(catalog Catalog, database HealthCheck) Dependencies {
 type catalogStub struct {
 	err            error
 	track          metadata.Track
+	lyrics         []metadata.TrackLyrics
 	lastPage       metadata.PageRequest
 	lastTrackQuery metadata.TrackQuery
 }
@@ -289,6 +321,10 @@ func (stub *catalogStub) Tracks(_ context.Context, query metadata.TrackQuery) (m
 	return metadata.Page[metadata.Track]{
 		Items: []metadata.Track{}, Limit: query.Page.Limit, Offset: query.Page.Offset,
 	}, stub.err
+}
+
+func (stub *catalogStub) TrackLyrics(context.Context, uuid.UUID) ([]metadata.TrackLyrics, error) {
+	return stub.lyrics, stub.err
 }
 
 func (stub *catalogStub) Genre(context.Context, uuid.UUID) (metadata.Genre, error) {

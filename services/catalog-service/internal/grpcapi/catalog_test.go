@@ -99,6 +99,59 @@ func TestArchiveReleaseReturnsTimestamp(t *testing.T) {
 	}
 }
 
+func TestPutTrackLyricsKeepsRightsSeparateFromAudioPublication(t *testing.T) {
+	lyricsID, trackID := uuid.New(), uuid.New()
+	now := time.Date(2026, time.November, 11, 12, 0, 0, 0, time.UTC)
+	stub := &catalogStub{lyrics: metadata.TrackLyrics{
+		ID: lyricsID, TrackID: trackID, Type: metadata.LyricsTypePlain,
+		Language: "uk", Content: "Текст", SourceType: metadata.LyricsSourcePublisher,
+		SourceName: "Publisher", Official: true, RightsAuthorized: true,
+		Published: true, CreatedAt: now, UpdatedAt: now,
+	}}
+	response, err := NewCatalogServer(stub).PutTrackLyrics(
+		context.Background(), &catalogv1.PutTrackLyricsRequest{
+			Id: lyricsID.String(), TrackId: trackID.String(), LyricsType: "plain",
+			Language: "uk", Content: "Текст", SourceType: "publisher",
+			SourceName: "Publisher", Official: true,
+			RightsAuthorized: true, Published: true,
+		},
+	)
+	if err != nil || response.GetId() != lyricsID.String() ||
+		!response.GetRightsAuthorized() || !response.GetPublished() ||
+		!response.GetUpdatedAt().AsTime().Equal(now) {
+		t.Fatalf("PutTrackLyrics() = %+v, %v", response, err)
+	}
+	if stub.lyricsInput.TrackID != trackID || !stub.lyricsInput.RightsAuthorized ||
+		stub.lyricsInput.SourceType != metadata.LyricsSourcePublisher {
+		t.Fatalf("lyrics input = %+v", stub.lyricsInput)
+	}
+}
+
+func TestReplaceTrackLyricsLinesMapsPlaybackTiming(t *testing.T) {
+	lyricsID := uuid.New()
+	stub := &catalogStub{lyricsLines: []metadata.LyricsLine{
+		{LineNumber: 1, StartMS: 0, EndMS: 1500, Text: "First"},
+		{LineNumber: 2, StartMS: 1500, EndMS: 3000, Text: "Second"},
+	}}
+	response, err := NewCatalogServer(stub).ReplaceTrackLyricsLines(
+		context.Background(), &catalogv1.ReplaceTrackLyricsLinesRequest{
+			LyricsId: lyricsID.String(),
+			Lines: []*catalogv1.LyricsLine{
+				{LineNumber: 1, StartMs: 0, EndMs: 1500, Text: "First"},
+				{LineNumber: 2, StartMs: 1500, EndMs: 3000, Text: "Second"},
+			},
+		},
+	)
+	if err != nil || response.GetLyricsId() != lyricsID.String() ||
+		len(response.GetLines()) != 2 || response.GetLines()[1].GetStartMs() != 1500 {
+		t.Fatalf("ReplaceTrackLyricsLines() = %+v, %v", response, err)
+	}
+	if stub.lyricsID != lyricsID || len(stub.lyricsLinesInput) != 2 ||
+		stub.lyricsLinesInput[1].Text != "Second" {
+		t.Fatalf("lyrics id = %s; input = %+v", stub.lyricsID, stub.lyricsLinesInput)
+	}
+}
+
 func TestPublishReleaseRejectsInvalidContract(t *testing.T) {
 	t.Parallel()
 	_, err := NewCatalogServer(&catalogStub{}).PublishRelease(
@@ -413,6 +466,29 @@ type catalogStub struct {
 	err              error
 	lastQuery        metadata.TrackQuery
 	lastDynamicQuery metadata.DynamicTrackQuery
+	lyrics           metadata.TrackLyrics
+	lyricsInput      metadata.TrackLyricsInput
+	lyricsID         uuid.UUID
+	lyricsLines      []metadata.LyricsLine
+	lyricsLinesInput []metadata.LyricsLine
+}
+
+func (stub *catalogStub) PutTrackLyrics(
+	_ context.Context,
+	input metadata.TrackLyricsInput,
+) (metadata.TrackLyrics, error) {
+	stub.lyricsInput = input
+	return stub.lyrics, stub.err
+}
+
+func (stub *catalogStub) ReplaceTrackLyricsLines(
+	_ context.Context,
+	lyricsID uuid.UUID,
+	lines []metadata.LyricsLine,
+) ([]metadata.LyricsLine, error) {
+	stub.lyricsID = lyricsID
+	stub.lyricsLinesInput = append([]metadata.LyricsLine(nil), lines...)
+	return stub.lyricsLines, stub.err
 }
 
 func (stub *catalogStub) ArchivePublishedRelease(
@@ -472,6 +548,23 @@ func (stub *catalogStub) EvaluateTrackFilters(
 }
 
 type blockingCatalogStub struct{}
+
+func (blockingCatalogStub) PutTrackLyrics(
+	ctx context.Context,
+	_ metadata.TrackLyricsInput,
+) (metadata.TrackLyrics, error) {
+	<-ctx.Done()
+	return metadata.TrackLyrics{}, ctx.Err()
+}
+
+func (blockingCatalogStub) ReplaceTrackLyricsLines(
+	ctx context.Context,
+	_ uuid.UUID,
+	_ []metadata.LyricsLine,
+) ([]metadata.LyricsLine, error) {
+	<-ctx.Done()
+	return nil, ctx.Err()
+}
 
 func (blockingCatalogStub) ArchivePublishedRelease(
 	ctx context.Context,

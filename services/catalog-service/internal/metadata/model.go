@@ -158,6 +158,60 @@ type TrackInput struct {
 	Moods        []TrackMoodInput
 }
 
+type LyricsType string
+
+const (
+	LyricsTypePlain        LyricsType = "plain"
+	LyricsTypeSynchronized LyricsType = "synchronized"
+)
+
+type LyricsSourceType string
+
+const (
+	LyricsSourceArtist           LyricsSourceType = "artist"
+	LyricsSourcePublisher        LyricsSourceType = "publisher"
+	LyricsSourceLicensedProvider LyricsSourceType = "licensed_provider"
+	LyricsSourcePublicDomain     LyricsSourceType = "public_domain"
+)
+
+type TrackLyrics struct {
+	ID               uuid.UUID
+	TrackID          uuid.UUID
+	Type             LyricsType
+	Language         string
+	Content          string
+	SourceType       LyricsSourceType
+	SourceName       string
+	CopyrightNotice  string
+	Official         bool
+	RightsAuthorized bool
+	Published        bool
+	CreatedAt        time.Time
+	UpdatedAt        time.Time
+	Lines            []LyricsLine
+}
+
+type TrackLyricsInput struct {
+	ID               uuid.UUID
+	TrackID          uuid.UUID
+	Type             LyricsType
+	Language         string
+	Content          string
+	SourceType       LyricsSourceType
+	SourceName       string
+	CopyrightNotice  string
+	Official         bool
+	RightsAuthorized bool
+	Published        bool
+}
+
+type LyricsLine struct {
+	LineNumber int
+	StartMS    int
+	EndMS      int
+	Text       string
+}
+
 type PublicationInput struct {
 	SourceReleaseID uuid.UUID
 	Artist          ArtistInput

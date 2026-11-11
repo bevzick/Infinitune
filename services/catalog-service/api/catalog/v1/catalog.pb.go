@@ -2369,6 +2369,442 @@ func (x *ArchiveReleaseResponse) GetArchivedAt() *timestamppb.Timestamp {
 	return nil
 }
 
+type PutTrackLyricsRequest struct {
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	Id               string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	TrackId          string                 `protobuf:"bytes,2,opt,name=track_id,json=trackId,proto3" json:"track_id,omitempty"`
+	LyricsType       string                 `protobuf:"bytes,3,opt,name=lyrics_type,json=lyricsType,proto3" json:"lyrics_type,omitempty"`
+	Language         string                 `protobuf:"bytes,4,opt,name=language,proto3" json:"language,omitempty"`
+	Content          string                 `protobuf:"bytes,5,opt,name=content,proto3" json:"content,omitempty"`
+	SourceType       string                 `protobuf:"bytes,6,opt,name=source_type,json=sourceType,proto3" json:"source_type,omitempty"`
+	SourceName       string                 `protobuf:"bytes,7,opt,name=source_name,json=sourceName,proto3" json:"source_name,omitempty"`
+	CopyrightNotice  string                 `protobuf:"bytes,8,opt,name=copyright_notice,json=copyrightNotice,proto3" json:"copyright_notice,omitempty"`
+	Official         bool                   `protobuf:"varint,9,opt,name=official,proto3" json:"official,omitempty"`
+	RightsAuthorized bool                   `protobuf:"varint,10,opt,name=rights_authorized,json=rightsAuthorized,proto3" json:"rights_authorized,omitempty"`
+	Published        bool                   `protobuf:"varint,11,opt,name=published,proto3" json:"published,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
+}
+
+func (x *PutTrackLyricsRequest) Reset() {
+	*x = PutTrackLyricsRequest{}
+	mi := &file_api_catalog_v1_catalog_proto_msgTypes[32]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PutTrackLyricsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PutTrackLyricsRequest) ProtoMessage() {}
+
+func (x *PutTrackLyricsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_api_catalog_v1_catalog_proto_msgTypes[32]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PutTrackLyricsRequest.ProtoReflect.Descriptor instead.
+func (*PutTrackLyricsRequest) Descriptor() ([]byte, []int) {
+	return file_api_catalog_v1_catalog_proto_rawDescGZIP(), []int{32}
+}
+
+func (x *PutTrackLyricsRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *PutTrackLyricsRequest) GetTrackId() string {
+	if x != nil {
+		return x.TrackId
+	}
+	return ""
+}
+
+func (x *PutTrackLyricsRequest) GetLyricsType() string {
+	if x != nil {
+		return x.LyricsType
+	}
+	return ""
+}
+
+func (x *PutTrackLyricsRequest) GetLanguage() string {
+	if x != nil {
+		return x.Language
+	}
+	return ""
+}
+
+func (x *PutTrackLyricsRequest) GetContent() string {
+	if x != nil {
+		return x.Content
+	}
+	return ""
+}
+
+func (x *PutTrackLyricsRequest) GetSourceType() string {
+	if x != nil {
+		return x.SourceType
+	}
+	return ""
+}
+
+func (x *PutTrackLyricsRequest) GetSourceName() string {
+	if x != nil {
+		return x.SourceName
+	}
+	return ""
+}
+
+func (x *PutTrackLyricsRequest) GetCopyrightNotice() string {
+	if x != nil {
+		return x.CopyrightNotice
+	}
+	return ""
+}
+
+func (x *PutTrackLyricsRequest) GetOfficial() bool {
+	if x != nil {
+		return x.Official
+	}
+	return false
+}
+
+func (x *PutTrackLyricsRequest) GetRightsAuthorized() bool {
+	if x != nil {
+		return x.RightsAuthorized
+	}
+	return false
+}
+
+func (x *PutTrackLyricsRequest) GetPublished() bool {
+	if x != nil {
+		return x.Published
+	}
+	return false
+}
+
+type PutTrackLyricsResponse struct {
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	Id               string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	TrackId          string                 `protobuf:"bytes,2,opt,name=track_id,json=trackId,proto3" json:"track_id,omitempty"`
+	LyricsType       string                 `protobuf:"bytes,3,opt,name=lyrics_type,json=lyricsType,proto3" json:"lyrics_type,omitempty"`
+	Language         string                 `protobuf:"bytes,4,opt,name=language,proto3" json:"language,omitempty"`
+	Content          string                 `protobuf:"bytes,5,opt,name=content,proto3" json:"content,omitempty"`
+	SourceType       string                 `protobuf:"bytes,6,opt,name=source_type,json=sourceType,proto3" json:"source_type,omitempty"`
+	SourceName       string                 `protobuf:"bytes,7,opt,name=source_name,json=sourceName,proto3" json:"source_name,omitempty"`
+	CopyrightNotice  string                 `protobuf:"bytes,8,opt,name=copyright_notice,json=copyrightNotice,proto3" json:"copyright_notice,omitempty"`
+	Official         bool                   `protobuf:"varint,9,opt,name=official,proto3" json:"official,omitempty"`
+	RightsAuthorized bool                   `protobuf:"varint,10,opt,name=rights_authorized,json=rightsAuthorized,proto3" json:"rights_authorized,omitempty"`
+	Published        bool                   `protobuf:"varint,11,opt,name=published,proto3" json:"published,omitempty"`
+	CreatedAt        *timestamppb.Timestamp `protobuf:"bytes,12,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	UpdatedAt        *timestamppb.Timestamp `protobuf:"bytes,13,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
+}
+
+func (x *PutTrackLyricsResponse) Reset() {
+	*x = PutTrackLyricsResponse{}
+	mi := &file_api_catalog_v1_catalog_proto_msgTypes[33]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PutTrackLyricsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PutTrackLyricsResponse) ProtoMessage() {}
+
+func (x *PutTrackLyricsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_api_catalog_v1_catalog_proto_msgTypes[33]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PutTrackLyricsResponse.ProtoReflect.Descriptor instead.
+func (*PutTrackLyricsResponse) Descriptor() ([]byte, []int) {
+	return file_api_catalog_v1_catalog_proto_rawDescGZIP(), []int{33}
+}
+
+func (x *PutTrackLyricsResponse) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *PutTrackLyricsResponse) GetTrackId() string {
+	if x != nil {
+		return x.TrackId
+	}
+	return ""
+}
+
+func (x *PutTrackLyricsResponse) GetLyricsType() string {
+	if x != nil {
+		return x.LyricsType
+	}
+	return ""
+}
+
+func (x *PutTrackLyricsResponse) GetLanguage() string {
+	if x != nil {
+		return x.Language
+	}
+	return ""
+}
+
+func (x *PutTrackLyricsResponse) GetContent() string {
+	if x != nil {
+		return x.Content
+	}
+	return ""
+}
+
+func (x *PutTrackLyricsResponse) GetSourceType() string {
+	if x != nil {
+		return x.SourceType
+	}
+	return ""
+}
+
+func (x *PutTrackLyricsResponse) GetSourceName() string {
+	if x != nil {
+		return x.SourceName
+	}
+	return ""
+}
+
+func (x *PutTrackLyricsResponse) GetCopyrightNotice() string {
+	if x != nil {
+		return x.CopyrightNotice
+	}
+	return ""
+}
+
+func (x *PutTrackLyricsResponse) GetOfficial() bool {
+	if x != nil {
+		return x.Official
+	}
+	return false
+}
+
+func (x *PutTrackLyricsResponse) GetRightsAuthorized() bool {
+	if x != nil {
+		return x.RightsAuthorized
+	}
+	return false
+}
+
+func (x *PutTrackLyricsResponse) GetPublished() bool {
+	if x != nil {
+		return x.Published
+	}
+	return false
+}
+
+func (x *PutTrackLyricsResponse) GetCreatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return nil
+}
+
+func (x *PutTrackLyricsResponse) GetUpdatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.UpdatedAt
+	}
+	return nil
+}
+
+type LyricsLine struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	LineNumber    int32                  `protobuf:"varint,1,opt,name=line_number,json=lineNumber,proto3" json:"line_number,omitempty"`
+	StartMs       int32                  `protobuf:"varint,2,opt,name=start_ms,json=startMs,proto3" json:"start_ms,omitempty"`
+	EndMs         int32                  `protobuf:"varint,3,opt,name=end_ms,json=endMs,proto3" json:"end_ms,omitempty"`
+	Text          string                 `protobuf:"bytes,4,opt,name=text,proto3" json:"text,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *LyricsLine) Reset() {
+	*x = LyricsLine{}
+	mi := &file_api_catalog_v1_catalog_proto_msgTypes[34]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *LyricsLine) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*LyricsLine) ProtoMessage() {}
+
+func (x *LyricsLine) ProtoReflect() protoreflect.Message {
+	mi := &file_api_catalog_v1_catalog_proto_msgTypes[34]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use LyricsLine.ProtoReflect.Descriptor instead.
+func (*LyricsLine) Descriptor() ([]byte, []int) {
+	return file_api_catalog_v1_catalog_proto_rawDescGZIP(), []int{34}
+}
+
+func (x *LyricsLine) GetLineNumber() int32 {
+	if x != nil {
+		return x.LineNumber
+	}
+	return 0
+}
+
+func (x *LyricsLine) GetStartMs() int32 {
+	if x != nil {
+		return x.StartMs
+	}
+	return 0
+}
+
+func (x *LyricsLine) GetEndMs() int32 {
+	if x != nil {
+		return x.EndMs
+	}
+	return 0
+}
+
+func (x *LyricsLine) GetText() string {
+	if x != nil {
+		return x.Text
+	}
+	return ""
+}
+
+type ReplaceTrackLyricsLinesRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	LyricsId      string                 `protobuf:"bytes,1,opt,name=lyrics_id,json=lyricsId,proto3" json:"lyrics_id,omitempty"`
+	Lines         []*LyricsLine          `protobuf:"bytes,2,rep,name=lines,proto3" json:"lines,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ReplaceTrackLyricsLinesRequest) Reset() {
+	*x = ReplaceTrackLyricsLinesRequest{}
+	mi := &file_api_catalog_v1_catalog_proto_msgTypes[35]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ReplaceTrackLyricsLinesRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ReplaceTrackLyricsLinesRequest) ProtoMessage() {}
+
+func (x *ReplaceTrackLyricsLinesRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_api_catalog_v1_catalog_proto_msgTypes[35]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ReplaceTrackLyricsLinesRequest.ProtoReflect.Descriptor instead.
+func (*ReplaceTrackLyricsLinesRequest) Descriptor() ([]byte, []int) {
+	return file_api_catalog_v1_catalog_proto_rawDescGZIP(), []int{35}
+}
+
+func (x *ReplaceTrackLyricsLinesRequest) GetLyricsId() string {
+	if x != nil {
+		return x.LyricsId
+	}
+	return ""
+}
+
+func (x *ReplaceTrackLyricsLinesRequest) GetLines() []*LyricsLine {
+	if x != nil {
+		return x.Lines
+	}
+	return nil
+}
+
+type ReplaceTrackLyricsLinesResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	LyricsId      string                 `protobuf:"bytes,1,opt,name=lyrics_id,json=lyricsId,proto3" json:"lyrics_id,omitempty"`
+	Lines         []*LyricsLine          `protobuf:"bytes,2,rep,name=lines,proto3" json:"lines,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ReplaceTrackLyricsLinesResponse) Reset() {
+	*x = ReplaceTrackLyricsLinesResponse{}
+	mi := &file_api_catalog_v1_catalog_proto_msgTypes[36]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ReplaceTrackLyricsLinesResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ReplaceTrackLyricsLinesResponse) ProtoMessage() {}
+
+func (x *ReplaceTrackLyricsLinesResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_api_catalog_v1_catalog_proto_msgTypes[36]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ReplaceTrackLyricsLinesResponse.ProtoReflect.Descriptor instead.
+func (*ReplaceTrackLyricsLinesResponse) Descriptor() ([]byte, []int) {
+	return file_api_catalog_v1_catalog_proto_rawDescGZIP(), []int{36}
+}
+
+func (x *ReplaceTrackLyricsLinesResponse) GetLyricsId() string {
+	if x != nil {
+		return x.LyricsId
+	}
+	return ""
+}
+
+func (x *ReplaceTrackLyricsLinesResponse) GetLines() []*LyricsLine {
+	if x != nil {
+		return x.Lines
+	}
+	return nil
+}
+
 var File_api_catalog_v1_catalog_proto protoreflect.FileDescriptor
 
 const file_api_catalog_v1_catalog_proto_rawDesc = "" +
@@ -2526,7 +2962,56 @@ const file_api_catalog_v1_catalog_proto_rawDesc = "" +
 	"\x11source_release_id\x18\x01 \x01(\tR\x0fsourceReleaseId\"U\n" +
 	"\x16ArchiveReleaseResponse\x12;\n" +
 	"\varchived_at\x18\x01 \x01(\v2\x1a.google.protobuf.TimestampR\n" +
-	"archivedAt*\x8a\x01\n" +
+	"archivedAt\"\xed\x02\n" +
+	"\x15PutTrackLyricsRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x19\n" +
+	"\btrack_id\x18\x02 \x01(\tR\atrackId\x12\x1f\n" +
+	"\vlyrics_type\x18\x03 \x01(\tR\n" +
+	"lyricsType\x12\x1a\n" +
+	"\blanguage\x18\x04 \x01(\tR\blanguage\x12\x18\n" +
+	"\acontent\x18\x05 \x01(\tR\acontent\x12\x1f\n" +
+	"\vsource_type\x18\x06 \x01(\tR\n" +
+	"sourceType\x12\x1f\n" +
+	"\vsource_name\x18\a \x01(\tR\n" +
+	"sourceName\x12)\n" +
+	"\x10copyright_notice\x18\b \x01(\tR\x0fcopyrightNotice\x12\x1a\n" +
+	"\bofficial\x18\t \x01(\bR\bofficial\x12+\n" +
+	"\x11rights_authorized\x18\n" +
+	" \x01(\bR\x10rightsAuthorized\x12\x1c\n" +
+	"\tpublished\x18\v \x01(\bR\tpublished\"\xe4\x03\n" +
+	"\x16PutTrackLyricsResponse\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x19\n" +
+	"\btrack_id\x18\x02 \x01(\tR\atrackId\x12\x1f\n" +
+	"\vlyrics_type\x18\x03 \x01(\tR\n" +
+	"lyricsType\x12\x1a\n" +
+	"\blanguage\x18\x04 \x01(\tR\blanguage\x12\x18\n" +
+	"\acontent\x18\x05 \x01(\tR\acontent\x12\x1f\n" +
+	"\vsource_type\x18\x06 \x01(\tR\n" +
+	"sourceType\x12\x1f\n" +
+	"\vsource_name\x18\a \x01(\tR\n" +
+	"sourceName\x12)\n" +
+	"\x10copyright_notice\x18\b \x01(\tR\x0fcopyrightNotice\x12\x1a\n" +
+	"\bofficial\x18\t \x01(\bR\bofficial\x12+\n" +
+	"\x11rights_authorized\x18\n" +
+	" \x01(\bR\x10rightsAuthorized\x12\x1c\n" +
+	"\tpublished\x18\v \x01(\bR\tpublished\x129\n" +
+	"\n" +
+	"created_at\x18\f \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
+	"\n" +
+	"updated_at\x18\r \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\"s\n" +
+	"\n" +
+	"LyricsLine\x12\x1f\n" +
+	"\vline_number\x18\x01 \x01(\x05R\n" +
+	"lineNumber\x12\x19\n" +
+	"\bstart_ms\x18\x02 \x01(\x05R\astartMs\x12\x15\n" +
+	"\x06end_ms\x18\x03 \x01(\x05R\x05endMs\x12\x12\n" +
+	"\x04text\x18\x04 \x01(\tR\x04text\"v\n" +
+	"\x1eReplaceTrackLyricsLinesRequest\x12\x1b\n" +
+	"\tlyrics_id\x18\x01 \x01(\tR\blyricsId\x127\n" +
+	"\x05lines\x18\x02 \x03(\v2!.infinitune.catalog.v1.LyricsLineR\x05lines\"w\n" +
+	"\x1fReplaceTrackLyricsLinesResponse\x12\x1b\n" +
+	"\tlyrics_id\x18\x01 \x01(\tR\blyricsId\x127\n" +
+	"\x05lines\x18\x02 \x03(\v2!.infinitune.catalog.v1.LyricsLineR\x05lines*\x8a\x01\n" +
 	"\tTrackSort\x12\x1a\n" +
 	"\x16TRACK_SORT_UNSPECIFIED\x10\x00\x12\x15\n" +
 	"\x11TRACK_SORT_NEWEST\x10\x01\x12\x15\n" +
@@ -2563,10 +3048,12 @@ const file_api_catalog_v1_catalog_proto_rawDesc = "" +
 	"\x13ARTIST_ROLE_PRIMARY\x10\x01\x12\x18\n" +
 	"\x14ARTIST_ROLE_FEATURED\x10\x02\x12\x18\n" +
 	"\x14ARTIST_ROLE_PRODUCER\x10\x03\x12\x18\n" +
-	"\x14ARTIST_ROLE_COMPOSER\x10\x042\x9a\a\n" +
+	"\x14ARTIST_ROLE_COMPOSER\x10\x042\x94\t\n" +
 	"\x0eCatalogService\x12m\n" +
 	"\x0ePublishRelease\x12,.infinitune.catalog.v1.PublishReleaseRequest\x1a-.infinitune.catalog.v1.PublishReleaseResponse\x12m\n" +
-	"\x0eArchiveRelease\x12,.infinitune.catalog.v1.ArchiveReleaseRequest\x1a-.infinitune.catalog.v1.ArchiveReleaseResponse\x12^\n" +
+	"\x0eArchiveRelease\x12,.infinitune.catalog.v1.ArchiveReleaseRequest\x1a-.infinitune.catalog.v1.ArchiveReleaseResponse\x12m\n" +
+	"\x0ePutTrackLyrics\x12,.infinitune.catalog.v1.PutTrackLyricsRequest\x1a-.infinitune.catalog.v1.PutTrackLyricsResponse\x12\x88\x01\n" +
+	"\x17ReplaceTrackLyricsLines\x125.infinitune.catalog.v1.ReplaceTrackLyricsLinesRequest\x1a6.infinitune.catalog.v1.ReplaceTrackLyricsLinesResponse\x12^\n" +
 	"\tGetTracks\x12'.infinitune.catalog.v1.GetTracksRequest\x1a(.infinitune.catalog.v1.GetTracksResponse\x12s\n" +
 	"\x10ValidateTrackIds\x12..infinitune.catalog.v1.ValidateTrackIdsRequest\x1a/.infinitune.catalog.v1.ValidateTrackIdsResponse\x12s\n" +
 	"\x10ValidateAlbumIds\x12..infinitune.catalog.v1.ValidateAlbumIdsRequest\x1a/.infinitune.catalog.v1.ValidateAlbumIdsResponse\x12v\n" +
@@ -2587,46 +3074,51 @@ func file_api_catalog_v1_catalog_proto_rawDescGZIP() []byte {
 }
 
 var file_api_catalog_v1_catalog_proto_enumTypes = make([]protoimpl.EnumInfo, 5)
-var file_api_catalog_v1_catalog_proto_msgTypes = make([]protoimpl.MessageInfo, 32)
+var file_api_catalog_v1_catalog_proto_msgTypes = make([]protoimpl.MessageInfo, 37)
 var file_api_catalog_v1_catalog_proto_goTypes = []any{
-	(TrackSort)(0),                       // 0: infinitune.catalog.v1.TrackSort
-	(FilterLogic)(0),                     // 1: infinitune.catalog.v1.FilterLogic
-	(TrackFilterField)(0),                // 2: infinitune.catalog.v1.TrackFilterField
-	(TrackFilterOperator)(0),             // 3: infinitune.catalog.v1.TrackFilterOperator
-	(ArtistRole)(0),                      // 4: infinitune.catalog.v1.ArtistRole
-	(*PublishReleaseRequest)(nil),        // 5: infinitune.catalog.v1.PublishReleaseRequest
-	(*PublishArtist)(nil),                // 6: infinitune.catalog.v1.PublishArtist
-	(*PublishAlbum)(nil),                 // 7: infinitune.catalog.v1.PublishAlbum
-	(*PublishTrack)(nil),                 // 8: infinitune.catalog.v1.PublishTrack
-	(*PublishReleaseResponse)(nil),       // 9: infinitune.catalog.v1.PublishReleaseResponse
-	(*PublishedTrack)(nil),               // 10: infinitune.catalog.v1.PublishedTrack
-	(*GetTracksRequest)(nil),             // 11: infinitune.catalog.v1.GetTracksRequest
-	(*GetTracksResponse)(nil),            // 12: infinitune.catalog.v1.GetTracksResponse
-	(*ValidateTrackIdsRequest)(nil),      // 13: infinitune.catalog.v1.ValidateTrackIdsRequest
-	(*ValidateTrackIdsResponse)(nil),     // 14: infinitune.catalog.v1.ValidateTrackIdsResponse
-	(*ValidateAlbumIdsRequest)(nil),      // 15: infinitune.catalog.v1.ValidateAlbumIdsRequest
-	(*ValidateAlbumIdsResponse)(nil),     // 16: infinitune.catalog.v1.ValidateAlbumIdsResponse
-	(*ValidateArtistIdsRequest)(nil),     // 17: infinitune.catalog.v1.ValidateArtistIdsRequest
-	(*ValidateArtistIdsResponse)(nil),    // 18: infinitune.catalog.v1.ValidateArtistIdsResponse
-	(*FilterTracksRequest)(nil),          // 19: infinitune.catalog.v1.FilterTracksRequest
-	(*FilterTracksResponse)(nil),         // 20: infinitune.catalog.v1.FilterTracksResponse
-	(*UUIDList)(nil),                     // 21: infinitune.catalog.v1.UUIDList
-	(*IntegerRange)(nil),                 // 22: infinitune.catalog.v1.IntegerRange
-	(*TrackFilterValue)(nil),             // 23: infinitune.catalog.v1.TrackFilterValue
-	(*TrackFilter)(nil),                  // 24: infinitune.catalog.v1.TrackFilter
-	(*EvaluateTrackFiltersRequest)(nil),  // 25: infinitune.catalog.v1.EvaluateTrackFiltersRequest
-	(*EvaluateTrackFiltersResponse)(nil), // 26: infinitune.catalog.v1.EvaluateTrackFiltersResponse
-	(*Page)(nil),                         // 27: infinitune.catalog.v1.Page
-	(*Track)(nil),                        // 28: infinitune.catalog.v1.Track
-	(*Date)(nil),                         // 29: infinitune.catalog.v1.Date
-	(*ArtistCredit)(nil),                 // 30: infinitune.catalog.v1.ArtistCredit
-	(*Artist)(nil),                       // 31: infinitune.catalog.v1.Artist
-	(*Genre)(nil),                        // 32: infinitune.catalog.v1.Genre
-	(*TrackMood)(nil),                    // 33: infinitune.catalog.v1.TrackMood
-	(*Mood)(nil),                         // 34: infinitune.catalog.v1.Mood
-	(*ArchiveReleaseRequest)(nil),        // 35: infinitune.catalog.v1.ArchiveReleaseRequest
-	(*ArchiveReleaseResponse)(nil),       // 36: infinitune.catalog.v1.ArchiveReleaseResponse
-	(*timestamppb.Timestamp)(nil),        // 37: google.protobuf.Timestamp
+	(TrackSort)(0),                          // 0: infinitune.catalog.v1.TrackSort
+	(FilterLogic)(0),                        // 1: infinitune.catalog.v1.FilterLogic
+	(TrackFilterField)(0),                   // 2: infinitune.catalog.v1.TrackFilterField
+	(TrackFilterOperator)(0),                // 3: infinitune.catalog.v1.TrackFilterOperator
+	(ArtistRole)(0),                         // 4: infinitune.catalog.v1.ArtistRole
+	(*PublishReleaseRequest)(nil),           // 5: infinitune.catalog.v1.PublishReleaseRequest
+	(*PublishArtist)(nil),                   // 6: infinitune.catalog.v1.PublishArtist
+	(*PublishAlbum)(nil),                    // 7: infinitune.catalog.v1.PublishAlbum
+	(*PublishTrack)(nil),                    // 8: infinitune.catalog.v1.PublishTrack
+	(*PublishReleaseResponse)(nil),          // 9: infinitune.catalog.v1.PublishReleaseResponse
+	(*PublishedTrack)(nil),                  // 10: infinitune.catalog.v1.PublishedTrack
+	(*GetTracksRequest)(nil),                // 11: infinitune.catalog.v1.GetTracksRequest
+	(*GetTracksResponse)(nil),               // 12: infinitune.catalog.v1.GetTracksResponse
+	(*ValidateTrackIdsRequest)(nil),         // 13: infinitune.catalog.v1.ValidateTrackIdsRequest
+	(*ValidateTrackIdsResponse)(nil),        // 14: infinitune.catalog.v1.ValidateTrackIdsResponse
+	(*ValidateAlbumIdsRequest)(nil),         // 15: infinitune.catalog.v1.ValidateAlbumIdsRequest
+	(*ValidateAlbumIdsResponse)(nil),        // 16: infinitune.catalog.v1.ValidateAlbumIdsResponse
+	(*ValidateArtistIdsRequest)(nil),        // 17: infinitune.catalog.v1.ValidateArtistIdsRequest
+	(*ValidateArtistIdsResponse)(nil),       // 18: infinitune.catalog.v1.ValidateArtistIdsResponse
+	(*FilterTracksRequest)(nil),             // 19: infinitune.catalog.v1.FilterTracksRequest
+	(*FilterTracksResponse)(nil),            // 20: infinitune.catalog.v1.FilterTracksResponse
+	(*UUIDList)(nil),                        // 21: infinitune.catalog.v1.UUIDList
+	(*IntegerRange)(nil),                    // 22: infinitune.catalog.v1.IntegerRange
+	(*TrackFilterValue)(nil),                // 23: infinitune.catalog.v1.TrackFilterValue
+	(*TrackFilter)(nil),                     // 24: infinitune.catalog.v1.TrackFilter
+	(*EvaluateTrackFiltersRequest)(nil),     // 25: infinitune.catalog.v1.EvaluateTrackFiltersRequest
+	(*EvaluateTrackFiltersResponse)(nil),    // 26: infinitune.catalog.v1.EvaluateTrackFiltersResponse
+	(*Page)(nil),                            // 27: infinitune.catalog.v1.Page
+	(*Track)(nil),                           // 28: infinitune.catalog.v1.Track
+	(*Date)(nil),                            // 29: infinitune.catalog.v1.Date
+	(*ArtistCredit)(nil),                    // 30: infinitune.catalog.v1.ArtistCredit
+	(*Artist)(nil),                          // 31: infinitune.catalog.v1.Artist
+	(*Genre)(nil),                           // 32: infinitune.catalog.v1.Genre
+	(*TrackMood)(nil),                       // 33: infinitune.catalog.v1.TrackMood
+	(*Mood)(nil),                            // 34: infinitune.catalog.v1.Mood
+	(*ArchiveReleaseRequest)(nil),           // 35: infinitune.catalog.v1.ArchiveReleaseRequest
+	(*ArchiveReleaseResponse)(nil),          // 36: infinitune.catalog.v1.ArchiveReleaseResponse
+	(*PutTrackLyricsRequest)(nil),           // 37: infinitune.catalog.v1.PutTrackLyricsRequest
+	(*PutTrackLyricsResponse)(nil),          // 38: infinitune.catalog.v1.PutTrackLyricsResponse
+	(*LyricsLine)(nil),                      // 39: infinitune.catalog.v1.LyricsLine
+	(*ReplaceTrackLyricsLinesRequest)(nil),  // 40: infinitune.catalog.v1.ReplaceTrackLyricsLinesRequest
+	(*ReplaceTrackLyricsLinesResponse)(nil), // 41: infinitune.catalog.v1.ReplaceTrackLyricsLinesResponse
+	(*timestamppb.Timestamp)(nil),           // 42: google.protobuf.Timestamp
 }
 var file_api_catalog_v1_catalog_proto_depIdxs = []int32{
 	6,  // 0: infinitune.catalog.v1.PublishReleaseRequest.artist:type_name -> infinitune.catalog.v1.PublishArtist
@@ -2635,7 +3127,7 @@ var file_api_catalog_v1_catalog_proto_depIdxs = []int32{
 	29, // 3: infinitune.catalog.v1.PublishAlbum.release_date:type_name -> infinitune.catalog.v1.Date
 	29, // 4: infinitune.catalog.v1.PublishTrack.release_date:type_name -> infinitune.catalog.v1.Date
 	10, // 5: infinitune.catalog.v1.PublishReleaseResponse.tracks:type_name -> infinitune.catalog.v1.PublishedTrack
-	37, // 6: infinitune.catalog.v1.PublishReleaseResponse.published_at:type_name -> google.protobuf.Timestamp
+	42, // 6: infinitune.catalog.v1.PublishReleaseResponse.published_at:type_name -> google.protobuf.Timestamp
 	28, // 7: infinitune.catalog.v1.GetTracksResponse.tracks:type_name -> infinitune.catalog.v1.Track
 	0,  // 8: infinitune.catalog.v1.FilterTracksRequest.sort:type_name -> infinitune.catalog.v1.TrackSort
 	28, // 9: infinitune.catalog.v1.FilterTracksResponse.tracks:type_name -> infinitune.catalog.v1.Track
@@ -2654,33 +3146,41 @@ var file_api_catalog_v1_catalog_proto_depIdxs = []int32{
 	30, // 22: infinitune.catalog.v1.Track.artists:type_name -> infinitune.catalog.v1.ArtistCredit
 	32, // 23: infinitune.catalog.v1.Track.genres:type_name -> infinitune.catalog.v1.Genre
 	33, // 24: infinitune.catalog.v1.Track.moods:type_name -> infinitune.catalog.v1.TrackMood
-	37, // 25: infinitune.catalog.v1.Track.created_at:type_name -> google.protobuf.Timestamp
-	37, // 26: infinitune.catalog.v1.Track.updated_at:type_name -> google.protobuf.Timestamp
+	42, // 25: infinitune.catalog.v1.Track.created_at:type_name -> google.protobuf.Timestamp
+	42, // 26: infinitune.catalog.v1.Track.updated_at:type_name -> google.protobuf.Timestamp
 	31, // 27: infinitune.catalog.v1.ArtistCredit.artist:type_name -> infinitune.catalog.v1.Artist
 	4,  // 28: infinitune.catalog.v1.ArtistCredit.role:type_name -> infinitune.catalog.v1.ArtistRole
 	34, // 29: infinitune.catalog.v1.TrackMood.mood:type_name -> infinitune.catalog.v1.Mood
-	37, // 30: infinitune.catalog.v1.ArchiveReleaseResponse.archived_at:type_name -> google.protobuf.Timestamp
-	5,  // 31: infinitune.catalog.v1.CatalogService.PublishRelease:input_type -> infinitune.catalog.v1.PublishReleaseRequest
-	35, // 32: infinitune.catalog.v1.CatalogService.ArchiveRelease:input_type -> infinitune.catalog.v1.ArchiveReleaseRequest
-	11, // 33: infinitune.catalog.v1.CatalogService.GetTracks:input_type -> infinitune.catalog.v1.GetTracksRequest
-	13, // 34: infinitune.catalog.v1.CatalogService.ValidateTrackIds:input_type -> infinitune.catalog.v1.ValidateTrackIdsRequest
-	15, // 35: infinitune.catalog.v1.CatalogService.ValidateAlbumIds:input_type -> infinitune.catalog.v1.ValidateAlbumIdsRequest
-	17, // 36: infinitune.catalog.v1.CatalogService.ValidateArtistIds:input_type -> infinitune.catalog.v1.ValidateArtistIdsRequest
-	19, // 37: infinitune.catalog.v1.CatalogService.FilterTracks:input_type -> infinitune.catalog.v1.FilterTracksRequest
-	25, // 38: infinitune.catalog.v1.CatalogService.EvaluateTrackFilters:input_type -> infinitune.catalog.v1.EvaluateTrackFiltersRequest
-	9,  // 39: infinitune.catalog.v1.CatalogService.PublishRelease:output_type -> infinitune.catalog.v1.PublishReleaseResponse
-	36, // 40: infinitune.catalog.v1.CatalogService.ArchiveRelease:output_type -> infinitune.catalog.v1.ArchiveReleaseResponse
-	12, // 41: infinitune.catalog.v1.CatalogService.GetTracks:output_type -> infinitune.catalog.v1.GetTracksResponse
-	14, // 42: infinitune.catalog.v1.CatalogService.ValidateTrackIds:output_type -> infinitune.catalog.v1.ValidateTrackIdsResponse
-	16, // 43: infinitune.catalog.v1.CatalogService.ValidateAlbumIds:output_type -> infinitune.catalog.v1.ValidateAlbumIdsResponse
-	18, // 44: infinitune.catalog.v1.CatalogService.ValidateArtistIds:output_type -> infinitune.catalog.v1.ValidateArtistIdsResponse
-	20, // 45: infinitune.catalog.v1.CatalogService.FilterTracks:output_type -> infinitune.catalog.v1.FilterTracksResponse
-	26, // 46: infinitune.catalog.v1.CatalogService.EvaluateTrackFilters:output_type -> infinitune.catalog.v1.EvaluateTrackFiltersResponse
-	39, // [39:47] is the sub-list for method output_type
-	31, // [31:39] is the sub-list for method input_type
-	31, // [31:31] is the sub-list for extension type_name
-	31, // [31:31] is the sub-list for extension extendee
-	0,  // [0:31] is the sub-list for field type_name
+	42, // 30: infinitune.catalog.v1.ArchiveReleaseResponse.archived_at:type_name -> google.protobuf.Timestamp
+	42, // 31: infinitune.catalog.v1.PutTrackLyricsResponse.created_at:type_name -> google.protobuf.Timestamp
+	42, // 32: infinitune.catalog.v1.PutTrackLyricsResponse.updated_at:type_name -> google.protobuf.Timestamp
+	39, // 33: infinitune.catalog.v1.ReplaceTrackLyricsLinesRequest.lines:type_name -> infinitune.catalog.v1.LyricsLine
+	39, // 34: infinitune.catalog.v1.ReplaceTrackLyricsLinesResponse.lines:type_name -> infinitune.catalog.v1.LyricsLine
+	5,  // 35: infinitune.catalog.v1.CatalogService.PublishRelease:input_type -> infinitune.catalog.v1.PublishReleaseRequest
+	35, // 36: infinitune.catalog.v1.CatalogService.ArchiveRelease:input_type -> infinitune.catalog.v1.ArchiveReleaseRequest
+	37, // 37: infinitune.catalog.v1.CatalogService.PutTrackLyrics:input_type -> infinitune.catalog.v1.PutTrackLyricsRequest
+	40, // 38: infinitune.catalog.v1.CatalogService.ReplaceTrackLyricsLines:input_type -> infinitune.catalog.v1.ReplaceTrackLyricsLinesRequest
+	11, // 39: infinitune.catalog.v1.CatalogService.GetTracks:input_type -> infinitune.catalog.v1.GetTracksRequest
+	13, // 40: infinitune.catalog.v1.CatalogService.ValidateTrackIds:input_type -> infinitune.catalog.v1.ValidateTrackIdsRequest
+	15, // 41: infinitune.catalog.v1.CatalogService.ValidateAlbumIds:input_type -> infinitune.catalog.v1.ValidateAlbumIdsRequest
+	17, // 42: infinitune.catalog.v1.CatalogService.ValidateArtistIds:input_type -> infinitune.catalog.v1.ValidateArtistIdsRequest
+	19, // 43: infinitune.catalog.v1.CatalogService.FilterTracks:input_type -> infinitune.catalog.v1.FilterTracksRequest
+	25, // 44: infinitune.catalog.v1.CatalogService.EvaluateTrackFilters:input_type -> infinitune.catalog.v1.EvaluateTrackFiltersRequest
+	9,  // 45: infinitune.catalog.v1.CatalogService.PublishRelease:output_type -> infinitune.catalog.v1.PublishReleaseResponse
+	36, // 46: infinitune.catalog.v1.CatalogService.ArchiveRelease:output_type -> infinitune.catalog.v1.ArchiveReleaseResponse
+	38, // 47: infinitune.catalog.v1.CatalogService.PutTrackLyrics:output_type -> infinitune.catalog.v1.PutTrackLyricsResponse
+	41, // 48: infinitune.catalog.v1.CatalogService.ReplaceTrackLyricsLines:output_type -> infinitune.catalog.v1.ReplaceTrackLyricsLinesResponse
+	12, // 49: infinitune.catalog.v1.CatalogService.GetTracks:output_type -> infinitune.catalog.v1.GetTracksResponse
+	14, // 50: infinitune.catalog.v1.CatalogService.ValidateTrackIds:output_type -> infinitune.catalog.v1.ValidateTrackIdsResponse
+	16, // 51: infinitune.catalog.v1.CatalogService.ValidateAlbumIds:output_type -> infinitune.catalog.v1.ValidateAlbumIdsResponse
+	18, // 52: infinitune.catalog.v1.CatalogService.ValidateArtistIds:output_type -> infinitune.catalog.v1.ValidateArtistIdsResponse
+	20, // 53: infinitune.catalog.v1.CatalogService.FilterTracks:output_type -> infinitune.catalog.v1.FilterTracksResponse
+	26, // 54: infinitune.catalog.v1.CatalogService.EvaluateTrackFilters:output_type -> infinitune.catalog.v1.EvaluateTrackFiltersResponse
+	45, // [45:55] is the sub-list for method output_type
+	35, // [35:45] is the sub-list for method input_type
+	35, // [35:35] is the sub-list for extension type_name
+	35, // [35:35] is the sub-list for extension extendee
+	0,  // [0:35] is the sub-list for field type_name
 }
 
 func init() { file_api_catalog_v1_catalog_proto_init() }
@@ -2704,7 +3204,7 @@ func file_api_catalog_v1_catalog_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_api_catalog_v1_catalog_proto_rawDesc), len(file_api_catalog_v1_catalog_proto_rawDesc)),
 			NumEnums:      5,
-			NumMessages:   32,
+			NumMessages:   37,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

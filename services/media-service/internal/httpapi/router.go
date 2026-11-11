@@ -29,7 +29,7 @@ type IdentityVerifier interface {
 }
 
 type Playback interface {
-	PlaybackVariant(context.Context, uuid.UUID) (media.Asset, media.AudioVariant, error)
+	PlaybackVariant(context.Context, uuid.UUID, media.AudioQuality) (media.Asset, media.AudioVariant, error)
 }
 
 type ObjectStorage interface {

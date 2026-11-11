@@ -14,6 +14,8 @@ func cors(allowedOrigins []string) gin.HandlerFunc {
 			c.Header("Vary", "Origin")
 			if slices.Contains(allowedOrigins, origin) {
 				c.Header("Access-Control-Allow-Origin", origin)
+				c.Header("Access-Control-Expose-Headers",
+					"Accept-Ranges, Content-Range, X-Audio-Quality, X-Audio-Codec, X-Audio-Bitrate-Kbps")
 			}
 		}
 		if c.Request.Method == http.MethodOptions {

@@ -21,7 +21,14 @@ func playback(dependencies Dependencies) gin.HandlerFunc {
 			writeError(c, http.StatusBadRequest, "invalid_media_asset_id", "Media asset ID must be a UUID")
 			return
 		}
-		asset, variant, err := dependencies.Media.PlaybackVariant(c.Request.Context(), assetID)
+		quality, err := media.ParseAudioQuality(
+			c.DefaultQuery("quality", string(media.AudioQualityHigh)),
+		)
+		if err != nil {
+			writePlaybackError(c, err)
+			return
+		}
+		asset, variant, err := dependencies.Media.PlaybackVariant(c.Request.Context(), assetID, quality)
 		if err != nil {
 			writePlaybackError(c, err)
 			return
@@ -68,6 +75,9 @@ func playback(dependencies Dependencies) gin.HandlerFunc {
 			contentType = "application/octet-stream"
 		}
 		c.Header("Content-Type", contentType)
+		c.Header("X-Audio-Quality", string(media.QualityOf(variant)))
+		c.Header("X-Audio-Codec", variant.Codec)
+		c.Header("X-Audio-Bitrate-Kbps", strconv.Itoa(variant.BitrateKbps))
 		c.Header("Content-Length", strconv.FormatInt(contentLength, 10))
 		c.Header("Cache-Control", "private, no-store")
 		c.Header("X-Content-Type-Options", "nosniff")
@@ -86,6 +96,8 @@ func playback(dependencies Dependencies) gin.HandlerFunc {
 
 func writePlaybackError(c *gin.Context, err error) {
 	switch {
+	case errors.Is(err, media.ErrInvalidQuality):
+		writeError(c, http.StatusBadRequest, "invalid_audio_quality", "Audio quality must be low, medium, high, or lossless")
 	case errors.Is(err, media.ErrInvalid):
 		writeError(c, http.StatusBadRequest, "invalid_media_asset_id", "Media asset ID is invalid")
 	case errors.Is(err, media.ErrNotFound):

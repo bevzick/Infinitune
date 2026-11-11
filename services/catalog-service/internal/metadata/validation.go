@@ -15,7 +15,10 @@ import (
 	"github.com/google/uuid"
 )
 
-var slugPattern = regexp.MustCompile(`^[a-z0-9]+(?:-[a-z0-9]+)*$`)
+var (
+	slugPattern        = regexp.MustCompile(`^[a-z0-9]+(?:-[a-z0-9]+)*$`)
+	languageTagPattern = regexp.MustCompile(`^[A-Za-z0-9]{1,8}(?:-[A-Za-z0-9]{1,8})*$`)
+)
 
 const maximumPageSize = 100
 
@@ -457,6 +460,79 @@ func validateTrack(input TrackInput) (TrackInput, error) {
 	return input, nil
 }
 
+func validateTrackLyrics(input TrackLyricsInput) (TrackLyricsInput, error) {
+	if err := validateID("id", input.ID); err != nil {
+		return TrackLyricsInput{}, err
+	}
+	if err := validateID("track_id", input.TrackID); err != nil {
+		return TrackLyricsInput{}, err
+	}
+	if !input.Type.valid() {
+		return TrackLyricsInput{}, validationError("lyrics_type", "must be plain or synchronized")
+	}
+	input.Language = strings.ToLower(strings.TrimSpace(input.Language))
+	if len(input.Language) > 35 || !languageTagPattern.MatchString(input.Language) {
+		return TrackLyricsInput{}, validationError("language", "must be a valid language tag")
+	}
+	content, err := requiredText("content", input.Content, 100000)
+	if err != nil {
+		return TrackLyricsInput{}, err
+	}
+	if !input.SourceType.valid() {
+		return TrackLyricsInput{}, validationError("source_type", "is unsupported")
+	}
+	sourceName, err := requiredText("source_name", input.SourceName, 200)
+	if err != nil {
+		return TrackLyricsInput{}, err
+	}
+	input.CopyrightNotice = strings.TrimSpace(input.CopyrightNotice)
+	if utf8.RuneCountInString(input.CopyrightNotice) > 1000 {
+		return TrackLyricsInput{}, validationError("copyright_notice", "must not exceed 1000 characters")
+	}
+	if input.Published && !input.RightsAuthorized {
+		return TrackLyricsInput{}, validationError(
+			"published", "requires separately authorized lyrics rights",
+		)
+	}
+	input.Content = content
+	input.SourceName = sourceName
+	return input, nil
+}
+
+func validateLyricsLines(lines []LyricsLine, durationMS int) ([]LyricsLine, error) {
+	if len(lines) == 0 {
+		return nil, validationError("lines", "must not be empty")
+	}
+	if len(lines) > 10000 {
+		return nil, validationError("lines", "must not contain more than 10000 lines")
+	}
+	canonical := make([]LyricsLine, 0, len(lines))
+	previousEnd := 0
+	for index, line := range lines {
+		path := fmt.Sprintf("lines[%d]", index)
+		if line.LineNumber != index+1 {
+			return nil, validationError(path+".line_number", "must be contiguous and start at 1")
+		}
+		if line.StartMS < 0 || line.EndMS <= line.StartMS {
+			return nil, validationError(path, "must have a positive ordered time range")
+		}
+		if index > 0 && line.StartMS < previousEnd {
+			return nil, validationError(path+".start_ms", "must not overlap the previous line")
+		}
+		if line.EndMS > durationMS {
+			return nil, validationError(path+".end_ms", "must not exceed track duration")
+		}
+		text, err := requiredText(path+".text", line.Text, 2000)
+		if err != nil {
+			return nil, err
+		}
+		line.Text = text
+		canonical = append(canonical, line)
+		previousEnd = line.EndMS
+	}
+	return canonical, nil
+}
+
 func validateArtistPositions(field string, artists []ArtistPositionInput) error {
 	if len(artists) == 0 {
 		return validationError(field, "must contain at least one artist")
@@ -613,6 +689,20 @@ func (value AlbumType) valid() bool {
 func (value ArtistRole) valid() bool {
 	switch value {
 	case ArtistRolePrimary, ArtistRoleFeatured, ArtistRoleProducer, ArtistRoleComposer:
+		return true
+	default:
+		return false
+	}
+}
+
+func (value LyricsType) valid() bool {
+	return value == LyricsTypePlain || value == LyricsTypeSynchronized
+}
+
+func (value LyricsSourceType) valid() bool {
+	switch value {
+	case LyricsSourceArtist, LyricsSourcePublisher,
+		LyricsSourceLicensedProvider, LyricsSourcePublicDomain:
 		return true
 	default:
 		return false

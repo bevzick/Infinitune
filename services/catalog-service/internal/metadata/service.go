@@ -22,6 +22,10 @@ type Store interface {
 	SearchTracks(context.Context, TrackQuery) (Page[Track], error)
 	EvaluateTrackFilters(context.Context, DynamicTrackQuery) (Page[Track], error)
 	SaveTrack(context.Context, TrackInput) (Track, error)
+	PublicTrackLyrics(context.Context, uuid.UUID) ([]TrackLyrics, error)
+	SaveTrackLyrics(context.Context, TrackLyricsInput) (TrackLyrics, error)
+	TrackLyricsTiming(context.Context, uuid.UUID) (TrackLyrics, int, error)
+	ReplaceLyricsLines(context.Context, uuid.UUID, []LyricsLine) ([]LyricsLine, error)
 	PublishRelease(context.Context, PublicationInput, string) (Publication, error)
 	ArchiveRelease(context.Context, uuid.UUID) (Archive, error)
 	GenreByID(context.Context, uuid.UUID) (Genre, error)
@@ -168,6 +172,65 @@ func (service *Service) Track(ctx context.Context, id uuid.UUID) (Track, error) 
 	result, err := service.store.TrackByID(ctx, id)
 	if err != nil {
 		return Track{}, fmt.Errorf("read track: %w", err)
+	}
+	return result, nil
+}
+
+func (service *Service) TrackLyrics(ctx context.Context, trackID uuid.UUID) ([]TrackLyrics, error) {
+	if err := validateID("track_id", trackID); err != nil {
+		return nil, err
+	}
+	result, err := service.store.PublicTrackLyrics(ctx, trackID)
+	if err != nil {
+		return nil, fmt.Errorf("read track lyrics: %w", err)
+	}
+	public := make([]TrackLyrics, 0, len(result))
+	for _, value := range result {
+		if value.Published && value.RightsAuthorized &&
+			(value.Type != LyricsTypeSynchronized || len(value.Lines) > 0) {
+			public = append(public, value)
+		}
+	}
+	return public, nil
+}
+
+func (service *Service) PutTrackLyrics(
+	ctx context.Context,
+	input TrackLyricsInput,
+) (TrackLyrics, error) {
+	canonical, err := validateTrackLyrics(input)
+	if err != nil {
+		return TrackLyrics{}, err
+	}
+	result, err := service.store.SaveTrackLyrics(ctx, canonical)
+	if err != nil {
+		return TrackLyrics{}, fmt.Errorf("save track lyrics: %w", err)
+	}
+	return result, nil
+}
+
+func (service *Service) ReplaceTrackLyricsLines(
+	ctx context.Context,
+	lyricsID uuid.UUID,
+	lines []LyricsLine,
+) ([]LyricsLine, error) {
+	if err := validateID("lyrics_id", lyricsID); err != nil {
+		return nil, err
+	}
+	lyrics, durationMS, err := service.store.TrackLyricsTiming(ctx, lyricsID)
+	if err != nil {
+		return nil, fmt.Errorf("read track lyrics timing: %w", err)
+	}
+	if lyrics.Type != LyricsTypeSynchronized {
+		return nil, validationError("lyrics_id", "must reference synchronized lyrics")
+	}
+	canonical, err := validateLyricsLines(lines, durationMS)
+	if err != nil {
+		return nil, err
+	}
+	result, err := service.store.ReplaceLyricsLines(ctx, lyricsID, canonical)
+	if err != nil {
+		return nil, fmt.Errorf("replace synchronized lyrics lines: %w", err)
 	}
 	return result, nil
 }
