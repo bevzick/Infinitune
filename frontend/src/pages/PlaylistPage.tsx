@@ -44,6 +44,7 @@ export function PlaylistPage() {
   const [totalTracks, setTotalTracks] = useState(0);
   const [resolvedCount, setResolvedCount] = useState(0);
   const [resolution, setResolution] = useState<"ready" | "empty">("ready");
+  const [personalized, setPersonalized] = useState(false);
   const [criteria, setCriteria] = useState<RuleSet | null>(null);
   const [status, setStatus] = useState<"loading" | "ready" | "error">(
     "loading",
@@ -87,6 +88,7 @@ export function PlaylistPage() {
           setResolvedCount(trackPage.items.length);
           setTotalTracks(trackPage.page.total);
           setResolution(trackPage.resolution.status);
+          setPersonalized(trackPage.personalized);
           setStatus("ready");
           return;
         }
@@ -110,6 +112,7 @@ export function PlaylistPage() {
         setEntries(trackPage.items);
         setTracks(resolved.filter((track): track is Track => track !== null));
         setResolvedCount(0);
+        setPersonalized(false);
         setTotalTracks(trackPage.page.total);
         setStatus("ready");
       } catch (reason) {
@@ -365,6 +368,26 @@ export function PlaylistPage() {
                 <h2 id="dynamic-tracks-title">Matching tracks</h2>
               </div>
               <span className="result-count">{totalTracks} matches</span>
+            </div>
+            <div
+              className={`personalization-status${personalized ? " personalization-status-active" : ""}`}
+              aria-live="polite"
+            >
+              <span className="personalization-status-icon" aria-hidden="true">
+                {personalized ? "✦" : "◇"}
+              </span>
+              <div>
+                <strong>
+                  {personalized
+                    ? "Personalized order"
+                    : "Neutral playlist order"}
+                </strong>
+                <small>
+                  {personalized
+                    ? "Ranked for your listening profile. Starting playback captures this order for the active queue."
+                    : "Personalization is off or there are not enough listening signals yet."}
+                </small>
+              </div>
             </div>
             {resolvedCount > tracks.length ? (
               <p className="playlist-note">
