@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { catalogPagePath, trackLyricsPath, trackPagePath } from "./catalogApi";
+import {
+  catalogDetailPath,
+  catalogPagePath,
+  trackLyricsPath,
+  trackPagePath,
+} from "./catalogApi";
 
 describe("catalog paths", () => {
   it("builds a paginated collection path", () => {
@@ -31,6 +36,12 @@ describe("catalog paths", () => {
   it("builds the public lyrics path", () => {
     expect(trackLyricsPath("track/id")).toBe(
       "/v1/catalog/tracks/track%2Fid/lyrics",
+    );
+  });
+
+  it("escapes catalog detail identifiers", () => {
+    expect(catalogDetailPath("tracks", "track/id")).toBe(
+      "/v1/catalog/tracks/track%2Fid",
     );
   });
 });

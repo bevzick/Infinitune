@@ -5,11 +5,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { LibraryPage } from "./LibraryPage";
 
+const libraryApi = vi.hoisted(() => ({
+  loadLibrary: vi.fn(),
+}));
 const playlistApi = vi.hoisted(() => ({
-  listPlaylists: vi.fn(),
   createPlaylist: vi.fn(),
   createDynamicPlaylist: vi.fn(),
 }));
+
+vi.mock("../features/library/libraryApi", () => libraryApi);
 
 vi.mock("../features/playlists/playlistApi", async (importOriginal) => ({
   ...(await importOriginal()),
@@ -22,8 +26,8 @@ vi.mock("../features/session/SessionContext", () => ({
 
 describe("LibraryPage", () => {
   beforeEach(() => {
-    playlistApi.listPlaylists.mockResolvedValue({
-      items: [
+    libraryApi.loadLibrary.mockResolvedValue({
+      playlists: [
         {
           id: "playlist-id",
           owner_id: "user-id",
@@ -35,7 +39,21 @@ describe("LibraryPage", () => {
           updated_at: "2026-11-10T00:00:00Z",
         },
       ],
-      page: { limit: 12, offset: 0, total: 1 },
+      tracks: [],
+      albums: [],
+      artists: [
+        {
+          item: {
+            id: "artist-id",
+            name: "Lumen Harbor",
+            image_url: "",
+            description: "Electronic artist",
+            created_at: "2026-11-01T00:00:00Z",
+            updated_at: "2026-11-01T00:00:00Z",
+          },
+          savedAt: "2026-11-10T00:00:00Z",
+        },
+      ],
     });
   });
   afterEach(() => {
@@ -52,16 +70,32 @@ describe("LibraryPage", () => {
     );
 
     expect(await screen.findByText("Night signals")).toBeInTheDocument();
-    expect(playlistApi.listPlaylists).toHaveBeenCalledWith(
+    expect(libraryApi.loadLibrary).toHaveBeenCalledWith(
       "access-token",
-      12,
-      0,
+      expect.any(AbortSignal),
     );
     await user.click(screen.getByRole("button", { name: "+ New playlist" }));
     expect(
       screen.getByRole("heading", { name: "Create a new playlist" }),
     ).toBeInTheDocument();
     expect(screen.getByLabelText("Name")).toBeInTheDocument();
+  });
+
+  it("switches collections and filters followed artists", async () => {
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter>
+        <LibraryPage />
+      </MemoryRouter>,
+    );
+
+    await screen.findByText("Night signals");
+    await user.click(screen.getByRole("button", { name: /Followed artists/ }));
+    expect(await screen.findByText("Lumen Harbor")).toBeInTheDocument();
+
+    await user.type(screen.getByRole("searchbox"), "missing");
+    expect(screen.getByText("No matching items.")).toBeInTheDocument();
+    expect(screen.queryByText("Lumen Harbor")).not.toBeInTheDocument();
   });
 
   it("switches the create flow to dynamic playlist rules", async () => {

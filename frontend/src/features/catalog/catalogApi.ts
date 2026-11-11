@@ -133,6 +133,21 @@ export function fetchCatalogPage<T>(path: string, signal?: AbortSignal) {
   return apiRequest<CatalogPage<T>>(path, { signal });
 }
 
+export function catalogDetailPath(
+  resource: "artists" | "albums" | "tracks",
+  id: string,
+) {
+  return `/v1/catalog/${resource}/${encodeURIComponent(id)}`;
+}
+
+export function fetchCatalogItem<T>(
+  resource: "artists" | "albums" | "tracks",
+  id: string,
+  signal?: AbortSignal,
+) {
+  return apiRequest<T>(catalogDetailPath(resource, id), { signal });
+}
+
 export function trackLyricsPath(trackId: string) {
   return `/v1/catalog/tracks/${encodeURIComponent(trackId)}/lyrics`;
 }
