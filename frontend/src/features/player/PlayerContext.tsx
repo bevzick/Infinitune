@@ -18,7 +18,13 @@ import {
   ListeningHistoryReporter,
   PlaybackHistoryTracker,
 } from "../history/playbackHistory";
+import {
+  type AudioQuality,
+  getSettings,
+  settingsUpdatedEvent,
+} from "../profile/profileApi";
 import { useSession } from "../session/SessionContext";
+import { playbackPathWithQuality } from "./audioQuality";
 import { snapshotQueue } from "./queue";
 
 export type PlayerStatus = "idle" | "loading" | "playing" | "paused" | "error";
@@ -65,6 +71,7 @@ export function PlayerProvider({ children }: PropsWithChildren) {
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [volume, setVolume] = useState(1);
+  const [audioQuality, setAudioQuality] = useState<AudioQuality>("high");
   const [error, setError] = useState("");
   const currentTrack = queue[currentIndex] ?? null;
 
@@ -118,6 +125,27 @@ export function PlayerProvider({ children }: PropsWithChildren) {
   }, [accessToken, clear, flushHistory]);
 
   useEffect(() => {
+    if (!accessToken) {
+      setAudioQuality("high");
+      return;
+    }
+    const controller = new AbortController();
+    getSettings(accessToken, controller.signal)
+      .then((settings) => setAudioQuality(settings.audio_quality))
+      .catch(() => undefined);
+    const updateQuality = (event: Event) => {
+      const settings = (event as CustomEvent<{ audio_quality?: AudioQuality }>)
+        .detail;
+      if (settings?.audio_quality) setAudioQuality(settings.audio_quality);
+    };
+    window.addEventListener(settingsUpdatedEvent, updateQuality);
+    return () => {
+      controller.abort();
+      window.removeEventListener(settingsUpdatedEvent, updateQuality);
+    };
+  }, [accessToken]);
+
+  useEffect(() => {
     const retry = () => {
       if (previousAccessToken.current) {
         flushHistory(previousAccessToken.current);
@@ -167,10 +195,13 @@ export function PlayerProvider({ children }: PropsWithChildren) {
       setStatus("loading");
 
       try {
-        const blob = await apiBlobRequest(track.playback_url, {
-          accessToken,
-          signal: controller.signal,
-        });
+        const blob = await apiBlobRequest(
+          playbackPathWithQuality(track.playback_url, audioQuality),
+          {
+            accessToken,
+            signal: controller.signal,
+          },
+        );
         if (controller.signal.aborted || !audio.current) return;
         releaseObjectUrl();
         objectUrl.current = URL.createObjectURL(blob);
@@ -192,7 +223,7 @@ export function PlayerProvider({ children }: PropsWithChildren) {
         );
       }
     },
-    [accessToken, finishHistory, releaseObjectUrl],
+    [accessToken, audioQuality, finishHistory, releaseObjectUrl],
   );
 
   const toggle = useCallback(async () => {

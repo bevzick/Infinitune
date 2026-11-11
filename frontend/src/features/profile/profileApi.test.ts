@@ -1,6 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { updateProfile, updateSettings } from "./profileApi";
+import {
+  settingsUpdatedEvent,
+  updateProfile,
+  updateSettings,
+} from "./profileApi";
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -26,8 +30,20 @@ describe("profile API", () => {
   });
 
   it("preserves explicit false setting values", async () => {
-    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({}));
+    const response = {
+      theme: "system",
+      autoplay: false,
+      explicit_content: false,
+      audio_quality: "high",
+      normalize_volume: false,
+      show_listening_activity: false,
+      created_at: "2026-01-10T00:00:00Z",
+      updated_at: "2026-11-11T00:00:00Z",
+    };
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(response));
     vi.stubGlobal("fetch", fetchMock);
+    const settingsListener = vi.fn();
+    window.addEventListener(settingsUpdatedEvent, settingsListener);
 
     await updateSettings("access-token", {
       theme: "system",
@@ -48,6 +64,11 @@ describe("profile API", () => {
       normalize_volume: false,
       show_listening_activity: false,
     });
+    expect(settingsListener).toHaveBeenCalledOnce();
+    expect(
+      (settingsListener.mock.calls[0][0] as CustomEvent).detail.audio_quality,
+    ).toBe("high");
+    window.removeEventListener(settingsUpdatedEvent, settingsListener);
   });
 });
 

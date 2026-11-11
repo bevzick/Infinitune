@@ -47,6 +47,8 @@ export type SettingsUpdateInput = Omit<
   "created_at" | "updated_at"
 >;
 
+export const settingsUpdatedEvent = "infinitune:settings-updated";
+
 export function getOwnProfile(accessToken: string, signal?: AbortSignal) {
   return apiRequest<UserProfile>("/v1/users/me/profile", {
     accessToken,
@@ -77,13 +79,17 @@ export function getSettings(accessToken: string, signal?: AbortSignal) {
   });
 }
 
-export function updateSettings(
+export async function updateSettings(
   accessToken: string,
   input: SettingsUpdateInput,
 ) {
-  return apiRequest<UserSettings>("/v1/users/me/settings", {
+  const settings = await apiRequest<UserSettings>("/v1/users/me/settings", {
     method: "PATCH",
     accessToken,
     body: JSON.stringify(input),
   });
+  window.dispatchEvent(
+    new CustomEvent<UserSettings>(settingsUpdatedEvent, { detail: settings }),
+  );
+  return settings;
 }
