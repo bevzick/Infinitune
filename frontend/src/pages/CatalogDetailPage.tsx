@@ -18,6 +18,7 @@ import {
 } from "../features/catalog/catalogApi";
 import { useCatalogItem } from "../features/catalog/useCatalogItem";
 import { useCatalogPage } from "../features/catalog/useCatalogPage";
+import { InteractionButton } from "../features/interactions/InteractionButton";
 import { usePlayer } from "../features/player/PlayerContext";
 import { Icon } from "../shared/ui/Icon";
 
@@ -50,16 +51,27 @@ function AlbumDetail({ album }: { album: Album }) {
         eyebrow={`${album.album_type} · ${year(album.release_date)}`}
         subtitle={album.artists.map(({ artist }) => artist.name).join(", ")}
         action={
-          <button
-            className="detail-primary"
-            type="button"
-            disabled={!items.length}
-            onClick={() =>
-              void player.playQueue(items, 0, { type: "album", id: album.id })
-            }
-          >
-            <Icon name="play" size={18} /> Play release
-          </button>
+          <>
+            <button
+              className="detail-primary"
+              type="button"
+              disabled={!items.length}
+              onClick={() =>
+                void player.playQueue(items, 0, {
+                  type: "album",
+                  id: album.id,
+                })
+              }
+            >
+              <Icon name="play" size={18} /> Play release
+            </button>
+            <InteractionButton
+              kind="album"
+              id={album.id}
+              label={album.title}
+              compact={false}
+            />
+          </>
         }
       />
 
@@ -149,19 +161,27 @@ function ArtistDetail({ artist }: { artist: Artist }) {
         subtitle={artist.description || "Artist on Infinitune"}
         round
         action={
-          <button
-            className="detail-primary"
-            type="button"
-            disabled={!tracks.length}
-            onClick={() =>
-              void player.playQueue(tracks, 0, {
-                type: "artist",
-                id: artist.id,
-              })
-            }
-          >
-            <Icon name="play" size={18} /> Play tracks
-          </button>
+          <>
+            <button
+              className="detail-primary"
+              type="button"
+              disabled={!tracks.length}
+              onClick={() =>
+                void player.playQueue(tracks, 0, {
+                  type: "artist",
+                  id: artist.id,
+                })
+              }
+            >
+              <Icon name="play" size={18} /> Play tracks
+            </button>
+            <InteractionButton
+              kind="artist"
+              id={artist.id}
+              label={artist.name}
+              compact={false}
+            />
+          </>
         }
       />
 
@@ -253,13 +273,21 @@ function TrackDetail({ track }: { track: Track }) {
           .map(({ artist }) => artist.name)
           .join(", ")}
         action={
-          <button
-            className="detail-primary"
-            type="button"
-            onClick={() => void player.playQueue([track], 0)}
-          >
-            <Icon name="play" size={18} /> Play track
-          </button>
+          <>
+            <button
+              className="detail-primary"
+              type="button"
+              onClick={() => void player.playQueue([track], 0)}
+            >
+              <Icon name="play" size={18} /> Play track
+            </button>
+            <InteractionButton
+              kind="track"
+              id={track.id}
+              label={track.title}
+              compact={false}
+            />
+          </>
         }
       />
 

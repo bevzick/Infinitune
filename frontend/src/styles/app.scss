@@ -4,6 +4,7 @@
 @use "discovery";
 @use "library";
 @use "account";
+@use "interactions";
 
 html {
   background: var(--app-bg);

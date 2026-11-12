@@ -6,6 +6,7 @@ import {
   TrackList,
 } from "../features/catalog/CatalogViews";
 import type { Album, Artist, Track } from "../features/catalog/catalogApi";
+import { interactionsChangedEvent } from "../features/interactions/InteractionContext";
 import { type LibraryData, loadLibrary } from "../features/library/libraryApi";
 import { DynamicPlaylistForm } from "../features/playlists/DynamicRuleForm";
 import { PlaylistForm } from "../features/playlists/PlaylistForm";
@@ -99,6 +100,12 @@ export function LibraryPage() {
       });
     return () => controller.abort();
   }, [accessToken, attempt]);
+
+  useEffect(() => {
+    const refresh = () => setAttempt((value) => value + 1);
+    window.addEventListener(interactionsChangedEvent, refresh);
+    return () => window.removeEventListener(interactionsChangedEvent, refresh);
+  }, []);
 
   const entries = useMemo(
     () => (data ? libraryEntries(data, view, query, sort) : []),

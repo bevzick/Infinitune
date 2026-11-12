@@ -1,6 +1,7 @@
 import { useState } from "react";
 
 import { Icon } from "../../shared/ui/Icon";
+import { InteractionButton } from "../interactions/InteractionButton";
 import { LyricsPanel } from "./LyricsPanel";
 import { usePlayer } from "./PlayerContext";
 
@@ -83,6 +84,9 @@ export function PlayerControls() {
           </span>
         </div>
         <div className="player-tools">
+          {track ? (
+            <InteractionButton kind="track" id={track.id} label={track.title} />
+          ) : null}
           <button
             className="lyrics-toggle"
             type="button"

@@ -3,6 +3,7 @@ export type IconName =
   | "artist"
   | "back"
   | "forward"
+  | "heart"
   | "home"
   | "library"
   | "lyrics"
@@ -13,7 +14,9 @@ export type IconName =
   | "previous"
   | "profile"
   | "search"
+  | "bookmark"
   | "sun"
+  | "user-plus"
   | "volume";
 
 export function Icon({ name, size = 20 }: { name: IconName; size?: number }) {
@@ -46,6 +49,16 @@ const paths: Record<IconName, React.ReactNode> = {
     <>
       <circle cx="11" cy="11" r="7" />
       <path d="m20 20-4-4" />
+    </>
+  ),
+  heart: (
+    <path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8L12 21l8.8-8.6a5.5 5.5 0 0 0 0-7.8Z" />
+  ),
+  bookmark: <path d="M6 3h12v18l-6-4-6 4Z" />,
+  "user-plus": (
+    <>
+      <circle cx="9" cy="8" r="4" />
+      <path d="M2.5 21a6.5 6.5 0 0 1 13 0M19 8v6M16 11h6" />
     </>
   ),
   library: (
