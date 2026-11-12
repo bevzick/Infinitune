@@ -16,3 +16,13 @@ make up
 
 Set `FRONTEND_PORT` to change the host port. Keep `VITE_GATEWAY_URL=/` for the
 containerized same-origin setup.
+
+To verify the production image without starting the backend stack:
+
+```bash
+docker build --tag infinitune-frontend:smoke frontend
+frontend/scripts/container-smoke.sh infinitune-frontend:smoke
+```
+
+The smoke test checks the health endpoint, SPA route fallback, security headers,
+and the unprivileged runtime user. The same check runs in GitHub Actions.
