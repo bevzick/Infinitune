@@ -66,3 +66,9 @@ rights, idempotent media uploads, asynchronous processing, moderation, Catalog
 publication, and authenticated byte-range playback. See the
 [content publishing guide](docs/content-publishing.md) for API examples,
 state transitions, retry behavior, and the isolated end-to-end test command.
+
+## Local operations
+
+See the [local operations runbook](docs/local-operations.md) for first-time
+configuration, stack health checks, migration commands, failure diagnosis, and
+data-preserving recovery steps.
