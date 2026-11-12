@@ -54,6 +54,7 @@ func TestClientMapsPublicationErrors(t *testing.T) {
 	}{
 		{name: "conflict", err: status.Error(codes.AlreadyExists, "exists"), want: ErrConflict},
 		{name: "unavailable", err: status.Error(codes.Unavailable, "down"), want: ErrUnavailable},
+		{name: "approval pending", err: status.Error(codes.FailedPrecondition, "pending"), want: ErrNotApproved},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

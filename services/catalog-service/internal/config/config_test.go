@@ -20,6 +20,8 @@ func TestLoadUsesCatalogDatabase(t *testing.T) {
 	t.Setenv("KAFKA_BROKERS", "kafka-a:9092,kafka-b:9092")
 	t.Setenv("KAFKA_CATALOG_PUBLISHED_TOPIC", "catalog-published")
 	t.Setenv("KAFKA_CATALOG_ARCHIVED_TOPIC", "catalog-archived")
+	t.Setenv("KAFKA_CONTENT_RELEASE_APPROVED_TOPIC", "content-approved")
+	t.Setenv("KAFKA_CATALOG_CONTENT_GROUP", "catalog-content-test")
 	t.Setenv("CATALOG_OUTBOX_POLL_INTERVAL", "250ms")
 	t.Setenv("CATALOG_OUTBOX_BATCH_SIZE", "25")
 
@@ -43,6 +45,8 @@ func TestLoadUsesCatalogDatabase(t *testing.T) {
 	if !slices.Equal(config.Events.Brokers, []string{"kafka-a:9092", "kafka-b:9092"}) ||
 		config.Events.PublishedTopic != "catalog-published" ||
 		config.Events.ArchivedTopic != "catalog-archived" ||
+		config.Events.ContentApprovedTopic != "content-approved" ||
+		config.Events.ContentConsumerGroup != "catalog-content-test" ||
 		config.Events.OutboxInterval != 250*time.Millisecond || config.Events.OutboxBatch != 25 {
 		t.Errorf("Events = %+v", config.Events)
 	}

@@ -99,6 +99,9 @@ func (service *Service) Publish(
 	if errors.Is(err, contentcatalog.ErrInvalid) {
 		return release.Release{}, ErrInconsistentCatalog
 	}
+	if errors.Is(err, contentcatalog.ErrNotApproved) {
+		return release.Release{}, &ReadinessError{Reason: "catalog has not observed moderation approval yet"}
+	}
 	if err != nil {
 		return release.Release{}, fmt.Errorf("publish release to catalog: %w", err)
 	}

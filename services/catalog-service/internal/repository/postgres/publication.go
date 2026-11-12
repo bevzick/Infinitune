@@ -47,6 +47,17 @@ func (repository *MetadataRepository) PublishRelease(
 	if !errors.Is(err, pgx.ErrNoRows) {
 		return metadata.Publication{}, fmt.Errorf("read catalog publication: %w", err)
 	}
+	var approved bool
+	if err = tx.QueryRow(ctx, `
+		SELECT EXISTS (
+			SELECT 1 FROM catalog.content_release_approvals WHERE release_id=$1
+		)
+	`, input.SourceReleaseID).Scan(&approved); err != nil {
+		return metadata.Publication{}, fmt.Errorf("check content release approval: %w", err)
+	}
+	if !approved {
+		return metadata.Publication{}, metadata.ErrNotApproved
+	}
 	if _, err = tx.Exec(ctx, `
 		INSERT INTO catalog.artists (id, name, description, image_url)
 		VALUES ($1, $2, $3, $4)

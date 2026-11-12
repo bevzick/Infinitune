@@ -38,6 +38,16 @@ func TestPublicationRepositoryPublishesAtomicallyAndIdempotently(t *testing.T) {
 		},
 	}
 	service := metadata.NewService(NewMetadataRepository(pool))
+	if _, err := service.PublishApprovedRelease(ctx, input); !errors.Is(err, metadata.ErrNotApproved) {
+		t.Fatalf("PublishApprovedRelease(without approval) error = %v", err)
+	}
+	if err := NewContentApprovalRepository(pool).UpsertContentApproval(ctx, events.ContentReleaseApproval{
+		ReleaseID: sourceID, CreatorID: uuid.New(), ReviewerUserID: uuid.New(),
+		ReviewedSubmissionAt: time.Now().Add(-time.Minute), EventID: uuid.New(),
+		ApprovedAt: time.Now(),
+	}); err != nil {
+		t.Fatalf("project content approval: %v", err)
+	}
 	published, err := service.PublishApprovedRelease(ctx, input)
 	if err != nil || published.SourceReleaseID != sourceID ||
 		published.AlbumID == nil || *published.AlbumID != albumID ||
@@ -146,6 +156,7 @@ func cleanupPublication(
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	_, _ = pool.Exec(ctx, `DELETE FROM catalog.event_outbox WHERE aggregate_id = $1`, sourceID)
+	_, _ = pool.Exec(ctx, `DELETE FROM catalog.content_release_approvals WHERE release_id = $1`, sourceID)
 	_, _ = pool.Exec(ctx, `DELETE FROM catalog.publications WHERE source_release_id = $1`, sourceID)
 	for _, trackID := range trackIDs {
 		_, _ = pool.Exec(ctx, `DELETE FROM catalog.track_artists WHERE track_id = $1`, trackID)

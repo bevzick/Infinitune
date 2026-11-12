@@ -77,7 +77,8 @@ Moderator approval -----> Content service
                               Kafka, key = release_id
                                              |
                                              v
-                              Future workflow consumers
+                              Catalog consumer
+                              (records publication authorization)
 ```
 
 ## Delivery contract
@@ -124,12 +125,9 @@ Moderator approval -----> Content service
 - Content emits release approval only for a newly recorded `approved` moderation decision. The
   review, release status transition, and outbox message are atomic; idempotent review retries reuse
   the existing review and do not enqueue duplicate approval events.
-
-## Suitable next integrations
-
-| Producer | Event | Consumers | Purpose |
-|---|---|---|---|
-| Approval workflow | `content.release.approved.v1` | Catalog | Trigger controlled catalog publication |
+- Catalog consumes retained approval events into an idempotent projection. A new release cannot be
+  published through gRPC until its approval has been observed; an already-published release remains
+  idempotently readable even if it predates the projection.
 
 Commands and permission checks remain synchronous. Kafka should not replace Catalog validation,
 authentication, playback authorization, or user-facing writes that require an immediate response.
@@ -138,5 +136,5 @@ The Compose broker is a single-node development setup with plaintext traffic. Pr
 multiple brokers, replication, TLS/SASL, monitoring, quotas, and an explicit retention/privacy policy.
 
 Start the full local stack with `make up`. The Makefile includes `compose.kafka.yml`; the
-`kafka-init` service creates the History, Catalog, Interaction, and Media topics idempotently
-before producers start.
+`kafka-init` service creates all implemented History, Catalog, Interaction, Media, and Content
+topics idempotently before producers start.

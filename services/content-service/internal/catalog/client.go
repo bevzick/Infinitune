@@ -17,6 +17,7 @@ var (
 	ErrUnavailable = errors.New("catalog service unavailable")
 	ErrConflict    = errors.New("catalog publication conflict")
 	ErrInvalid     = errors.New("invalid catalog response")
+	ErrNotApproved = errors.New("catalog has not observed release approval")
 )
 
 const requestTimeout = 5 * time.Second
@@ -122,8 +123,10 @@ func (client *Client) Publish(
 		switch status.Code(err) {
 		case codes.AlreadyExists, codes.Aborted:
 			return Publication{}, ErrConflict
-		case codes.InvalidArgument, codes.FailedPrecondition:
+		case codes.InvalidArgument:
 			return Publication{}, ErrInvalid
+		case codes.FailedPrecondition:
+			return Publication{}, ErrNotApproved
 		case codes.Unavailable, codes.DeadlineExceeded, codes.Canceled:
 			return Publication{}, fmt.Errorf("publish release: %w", ErrUnavailable)
 		default:

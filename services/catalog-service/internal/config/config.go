@@ -13,25 +13,29 @@ import (
 )
 
 const (
-	defaultHTTPHost       = "0.0.0.0"
-	defaultHTTPPort       = "8080"
-	defaultGRPCHost       = "0.0.0.0"
-	defaultGRPCPort       = "9090"
-	defaultPostgresHost   = "127.0.0.1"
-	defaultPostgresPort   = "5432"
-	defaultKafkaBrokers   = "127.0.0.1:9092"
-	defaultPublishedTopic = "catalog.release.published.v1"
-	defaultArchivedTopic  = "catalog.release.archived.v1"
-	defaultOutboxPoll     = time.Second
-	defaultOutboxBatch    = 100
+	defaultHTTPHost             = "0.0.0.0"
+	defaultHTTPPort             = "8080"
+	defaultGRPCHost             = "0.0.0.0"
+	defaultGRPCPort             = "9090"
+	defaultPostgresHost         = "127.0.0.1"
+	defaultPostgresPort         = "5432"
+	defaultKafkaBrokers         = "127.0.0.1:9092"
+	defaultPublishedTopic       = "catalog.release.published.v1"
+	defaultArchivedTopic        = "catalog.release.archived.v1"
+	defaultContentApprovedTopic = "content.release.approved.v1"
+	defaultContentConsumerGroup = "catalog-content-v1"
+	defaultOutboxPoll           = time.Second
+	defaultOutboxBatch          = 100
 )
 
 type EventsConfig struct {
-	Brokers        []string
-	PublishedTopic string
-	ArchivedTopic  string
-	OutboxInterval time.Duration
-	OutboxBatch    int
+	Brokers              []string
+	PublishedTopic       string
+	ArchivedTopic        string
+	ContentApprovedTopic string
+	ContentConsumerGroup string
+	OutboxInterval       time.Duration
+	OutboxBatch          int
 }
 
 type Config struct {
@@ -93,7 +97,13 @@ func loadEventsConfig() (EventsConfig, error) {
 	archivedTopic := strings.TrimSpace(envOrDefault(
 		"KAFKA_CATALOG_ARCHIVED_TOPIC", defaultArchivedTopic,
 	))
-	if publishedTopic == "" || archivedTopic == "" {
+	approvedTopic := strings.TrimSpace(envOrDefault(
+		"KAFKA_CONTENT_RELEASE_APPROVED_TOPIC", defaultContentApprovedTopic,
+	))
+	contentGroup := strings.TrimSpace(envOrDefault(
+		"KAFKA_CATALOG_CONTENT_GROUP", defaultContentConsumerGroup,
+	))
+	if publishedTopic == "" || archivedTopic == "" || approvedTopic == "" || contentGroup == "" {
 		return EventsConfig{}, fmt.Errorf("Kafka Catalog topics must not be blank")
 	}
 	interval := defaultOutboxPoll
@@ -114,6 +124,7 @@ func loadEventsConfig() (EventsConfig, error) {
 	}
 	return EventsConfig{
 		Brokers: brokers, PublishedTopic: publishedTopic, ArchivedTopic: archivedTopic,
+		ContentApprovedTopic: approvedTopic, ContentConsumerGroup: contentGroup,
 		OutboxInterval: interval, OutboxBatch: batch,
 	}, nil
 }

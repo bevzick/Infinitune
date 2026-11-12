@@ -89,6 +89,18 @@ func main() {
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+	approvalConsumer, err := event_kafka.NewConsumer(
+		cfg.Events.Brokers, cfg.Events.ContentApprovedTopic, cfg.Events.ContentConsumerGroup,
+		events.NewContentApprovalHandler(
+			postgres_repository.NewContentApprovalRepository(databasePool),
+		), logger,
+	)
+	if err != nil {
+		logger.Error("failed to initialize Content Kafka consumer", "error", err)
+		os.Exit(1)
+	}
+	defer approvalConsumer.Close()
+	go approvalConsumer.Run(ctx)
 	outboxDispatcher := events.NewDispatcher(
 		postgres_repository.NewOutboxRepository(databasePool), eventProducer, logger,
 		cfg.Events.OutboxInterval, cfg.Events.OutboxBatch,
