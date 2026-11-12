@@ -4,12 +4,20 @@ on:
   pull_request:
     paths:
       - "frontend/**"
+      - "compose.frontend.yml"
+      - "compose.yml"
+      - ".env.example"
+      - "Makefile"
       - ".github/workflows/frontend.yml"
   push:
     branches:
       - develop
     paths:
       - "frontend/**"
+      - "compose.frontend.yml"
+      - "compose.yml"
+      - ".env.example"
+      - "Makefile"
       - ".github/workflows/frontend.yml"
 
 permissions:
@@ -67,3 +75,25 @@ jobs:
           path: frontend/playwright-report/
           if-no-files-found: ignore
           retention-days: 7
+
+  container:
+    name: Production container smoke test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Validate frontend Compose configuration
+        env:
+          AUTH_JWT_PUBLIC_KEY_BASE64: ci-placeholder
+          POSTGRES_DB: ci_db
+          POSTGRES_PASSWORD: ci_password
+          POSTGRES_USER: ci_user
+        run: docker compose -f compose.yml -f compose.frontend.yml config --quiet
+
+      - name: Build production image
+        run: docker build --tag infinitune-frontend:smoke frontend
+
+      - name: Test production container
+        run: frontend/scripts/container-smoke.sh infinitune-frontend:smoke
