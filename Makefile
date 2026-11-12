@@ -111,7 +111,9 @@ system-smoke-up:
 	@$(MAKE) auth-migrate-up user-migrate-up catalog-seed playlist-migrate-up interaction-migrate-up comment-migrate-up history-migrate-up
 	@$(COMPOSE) up --detach --wait postgres redis kafka kafka-init
 	@$(COMPOSE) build auth-service user-service catalog-service playlist-service interaction-service comment-service history-service
-	@$(COMPOSE) up --detach --wait --no-deps auth-service user-service catalog-service playlist-service interaction-service comment-service history-service kong
+	@$(COMPOSE) up --detach --wait --wait-timeout 180 --no-deps auth-service
+	@$(COMPOSE) up --detach --wait --wait-timeout 180 --no-deps user-service catalog-service playlist-service interaction-service comment-service history-service
+	@$(COMPOSE) up --detach --wait --wait-timeout 180 --no-deps kong
 
 system-smoke: system-smoke-up
 	@GATEWAY_URL="$${GATEWAY_URL:-http://127.0.0.1:$${SYSTEM_TEST_GATEWAY_PORT:-18000}}" bash scripts/system-smoke.sh
@@ -123,7 +125,10 @@ content-media-smoke-up:
 	@$(MAKE) auth-migrate-up user-migrate-up catalog-migrate-up media-migrate-up content-migrate-up media-storage-init
 	@$(COMPOSE) up --detach --wait postgres redis kafka kafka-init minio
 	@$(COMPOSE) build auth-service user-service catalog-service media-service content-service
-	@$(COMPOSE) up --detach --wait --no-deps auth-service user-service catalog-service media-service content-service kong
+	@$(COMPOSE) up --detach --wait --wait-timeout 180 --no-deps auth-service
+	@$(COMPOSE) up --detach --wait --wait-timeout 180 --no-deps user-service catalog-service media-service
+	@$(COMPOSE) up --detach --wait --wait-timeout 180 --no-deps content-service
+	@$(COMPOSE) up --detach --wait --wait-timeout 180 --no-deps kong
 
 content-media-smoke: content-media-smoke-up
 	@GATEWAY_URL="$${GATEWAY_URL:-http://127.0.0.1:$${SYSTEM_TEST_GATEWAY_PORT:-18000}}" bash scripts/content-media-smoke.sh
@@ -164,8 +169,8 @@ media-test:
 	@cd services/media-service && go test ./...
 
 media-test-integration: media-migrate-up media-storage-init
-	@$(COMPOSE) up --detach --build media-service
-	@$(COMPOSE) --profile tools run --rm --build media-integration-test
+	@$(COMPOSE) up --detach --wait --no-deps --build media-service
+	@$(COMPOSE) --profile tools run --rm --no-deps --build media-integration-test
 
 media-migrate-up:
 	@$(COMPOSE) --profile tools run --rm media-migrate up
@@ -180,8 +185,8 @@ playlist-test:
 	@cd services/playlist-service && go test ./...
 
 playlist-test-integration: playlist-migrate-up
-	@$(COMPOSE) up --detach --build playlist-service
-	@$(COMPOSE) --profile tools run --rm --build playlist-integration-test
+	@$(COMPOSE) up --detach --wait --no-deps --build playlist-service
+	@$(COMPOSE) --profile tools run --rm --no-deps --build playlist-integration-test
 
 playlist-migrate-up:
 	@$(COMPOSE) --profile tools run --rm playlist-migrate up
@@ -193,8 +198,8 @@ content-test:
 	@cd services/content-service && go test ./...
 
 content-test-integration: content-migrate-up
-	@$(COMPOSE) up --detach --build content-service
-	@$(COMPOSE) --profile tools run --rm --build content-integration-test
+	@$(COMPOSE) up --detach --wait --no-deps --build content-service
+	@$(COMPOSE) --profile tools run --rm --no-deps --build content-integration-test
 
 content-migrate-up:
 	@$(COMPOSE) --profile tools run --rm content-migrate up
@@ -205,9 +210,9 @@ content-migrate-version:
 interaction-test:
 	@cd services/interaction-service && go test ./...
 
-interaction-test-integration: interaction-migrate-up
-	@$(COMPOSE) up --detach --build interaction-service
-	@$(COMPOSE) --profile tools run --rm --build interaction-integration-test
+interaction-test-integration: interaction-migrate-up comment-migrate-up
+	@$(COMPOSE) up --detach --wait --no-deps --build comment-service interaction-service
+	@$(COMPOSE) --profile tools run --rm --no-deps --build interaction-integration-test
 
 interaction-migrate-up:
 	@$(COMPOSE) --profile tools run --rm interaction-migrate up
@@ -219,8 +224,8 @@ comment-test:
 	@cd services/comment-service && go test ./...
 
 comment-test-integration: comment-migrate-up
-	@$(COMPOSE) up --detach --build comment-service
-	@$(COMPOSE) --profile tools run --rm --build comment-integration-test
+	@$(COMPOSE) up --detach --wait --no-deps --build comment-service
+	@$(COMPOSE) --profile tools run --rm --no-deps --build comment-integration-test
 
 comment-migrate-up:
 	@$(COMPOSE) --profile tools run --rm comment-migrate up
@@ -232,8 +237,8 @@ history-test:
 	@cd services/history-service && go test ./...
 
 history-test-integration: history-migrate-up
-	@$(COMPOSE) up --detach --build history-service
-	@$(COMPOSE) --profile tools run --rm --build history-integration-test
+	@$(COMPOSE) up --detach --wait --no-deps --build history-service
+	@$(COMPOSE) --profile tools run --rm --no-deps --build history-integration-test
 
 history-migrate-up:
 	@$(COMPOSE) --profile tools run --rm history-migrate up
@@ -245,8 +250,8 @@ recommendation-test:
 	@cd services/recommendation-service && go test ./...
 
 recommendation-test-integration: recommendation-migrate-up
-	@$(COMPOSE) up --detach --build recommendation-service
-	@$(COMPOSE) --profile tools run --rm --build recommendation-integration-test
+	@$(COMPOSE) up --detach --wait --no-deps --build recommendation-service
+	@$(COMPOSE) --profile tools run --rm --no-deps --build recommendation-integration-test
 
 recommendation-migrate-up:
 	@$(COMPOSE) --profile tools run --rm recommendation-migrate up
@@ -258,7 +263,8 @@ auth-test:
 	@cd services/auth-service && go test ./...
 
 auth-test-integration: auth-migrate-up
-	@$(COMPOSE) --profile tools run --rm --build auth-integration-test
+	@$(COMPOSE) up --detach --wait redis
+	@$(COMPOSE) --profile tools run --rm --no-deps --build auth-integration-test
 
 auth-migrate-up:
 	@$(COMPOSE) --profile tools run --rm auth-migrate up
@@ -270,7 +276,7 @@ user-test:
 	@cd services/user-service && go test ./...
 
 user-test-integration: user-migrate-up
-	@$(COMPOSE) --profile tools run --rm --build user-integration-test
+	@$(COMPOSE) --profile tools run --rm --no-deps --build user-integration-test
 
 user-migrate-up:
 	@$(COMPOSE) --profile tools run --rm user-migrate up
@@ -282,8 +288,8 @@ catalog-test:
 	@cd services/catalog-service && go test ./...
 
 catalog-test-integration: catalog-seed
-	@$(COMPOSE) up --detach --build catalog-service
-	@$(COMPOSE) --profile tools run --rm --build catalog-integration-test
+	@$(COMPOSE) up --detach --wait --no-deps --build catalog-service
+	@$(COMPOSE) --profile tools run --rm --no-deps --build catalog-integration-test
 
 catalog-migrate-up:
 	@$(COMPOSE) --profile tools run --rm catalog-migrate up

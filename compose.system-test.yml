@@ -2,6 +2,13 @@ services:
   postgres:
     ports: !reset []
 
+  auth-service:
+    healthcheck:
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
   kong:
     ports: !override
       - "127.0.0.1:${SYSTEM_TEST_GATEWAY_PORT:-18000}:8000"
