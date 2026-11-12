@@ -24,6 +24,8 @@ func TestLikeRepositoryIsIdempotentAndIsolatesOwners(t *testing.T) {
 	t.Cleanup(func() {
 		cleanupCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
+		_, _ = pool.Exec(cleanupCtx, `DELETE FROM interaction.event_outbox WHERE aggregate_id = ANY($1::uuid[])`,
+			[]uuid.UUID{ownerID, strangerID})
 		_, _ = pool.Exec(cleanupCtx, `DELETE FROM interaction.track_likes WHERE user_id = ANY($1::uuid[])`,
 			[]uuid.UUID{ownerID, strangerID})
 		_, _ = pool.Exec(cleanupCtx, `DELETE FROM interaction.album_likes WHERE user_id = ANY($1::uuid[])`,
@@ -109,6 +111,23 @@ func TestLikeRepositoryIsIdempotentAndIsolatesOwners(t *testing.T) {
 		if err = repository.UnlikeComment(ctx, ownerID, commentID); err != nil {
 			t.Fatalf("UnlikeComment(idempotent) error = %v", err)
 		}
+	}
+	var preferenceEvents int
+	if err = pool.QueryRow(ctx, `
+		SELECT count(*) FROM interaction.event_outbox
+		WHERE aggregate_id=$1 AND event_type='interaction.preference.changed.v1'
+	`, ownerID).Scan(&preferenceEvents); err != nil {
+		t.Fatalf("count preference events: %v", err)
+	}
+	if preferenceEvents != 7 {
+		t.Fatalf("preference event count = %d, want 7", preferenceEvents)
+	}
+	var strangerEvents int
+	if err = pool.QueryRow(ctx, `SELECT count(*) FROM interaction.event_outbox WHERE aggregate_id=$1`, strangerID).Scan(&strangerEvents); err != nil {
+		t.Fatalf("count stranger events: %v", err)
+	}
+	if strangerEvents != 0 {
+		t.Fatalf("stranger preference event count = %d, want 0", strangerEvents)
 	}
 }
 

@@ -1,6 +1,9 @@
 package config
 
-import "testing"
+import (
+	"testing"
+	"time"
+)
 
 func TestLoadUsesInteractionDatabase(t *testing.T) {
 	t.Setenv("INTERACTION_HTTP_HOST", "127.0.0.1")
@@ -18,6 +21,10 @@ func TestLoadUsesInteractionDatabase(t *testing.T) {
 	t.Setenv("POSTGRES_USER", "interaction_user")
 	t.Setenv("POSTGRES_PASSWORD", "secret")
 	t.Setenv("POSTGRES_INTERACTION_DB", "interaction_db")
+	t.Setenv("KAFKA_BROKERS", "kafka:19092,kafka-backup:29092")
+	t.Setenv("KAFKA_INTERACTION_PREFERENCE_TOPIC", "preferences-test")
+	t.Setenv("INTERACTION_OUTBOX_POLL_INTERVAL", "2s")
+	t.Setenv("INTERACTION_OUTBOX_BATCH_SIZE", "25")
 
 	config, err := Load()
 	if err != nil {
@@ -37,6 +44,10 @@ func TestLoadUsesInteractionDatabase(t *testing.T) {
 		config.Database.Password != "secret" || config.Database.Name != "interaction_db" {
 		t.Fatalf("Database = %+v", config.Database)
 	}
+	if len(config.Events.Brokers) != 2 || config.Events.PreferenceTopic != "preferences-test" ||
+		config.Events.OutboxInterval != 2*time.Second || config.Events.OutboxBatch != 25 {
+		t.Fatalf("Events = %+v", config.Events)
+	}
 }
 
 func TestLoadRejectsInvalidConfiguration(t *testing.T) {
@@ -55,6 +66,8 @@ func TestLoadRejectsInvalidConfiguration(t *testing.T) {
 		{name: "missing database user", key: "POSTGRES_USER", value: ""},
 		{name: "missing database password", key: "POSTGRES_PASSWORD", value: ""},
 		{name: "missing database name", key: "POSTGRES_INTERACTION_DB", value: ""},
+		{name: "invalid Kafka broker", key: "KAFKA_BROKERS", value: "kafka"},
+		{name: "invalid outbox batch", key: "INTERACTION_OUTBOX_BATCH_SIZE", value: "0"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

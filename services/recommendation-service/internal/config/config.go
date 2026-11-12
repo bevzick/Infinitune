@@ -14,35 +14,39 @@ import (
 )
 
 const (
-	defaultHTTPHost              = "0.0.0.0"
-	defaultHTTPPort              = "8080"
-	defaultPostgresHost          = "127.0.0.1"
-	defaultPostgresPort          = "5432"
-	defaultGRPCHost              = "127.0.0.1"
-	defaultGRPCPort              = "9090"
-	defaultRunTTL                = time.Hour
-	defaultJWKSURL               = "http://auth-service:8080/v1/auth/jwks"
-	defaultJWTIssuer             = "infinitune-auth"
-	defaultJWTAudience           = "infinitune-api"
-	defaultJWTKeyID              = "auth-key-1"
-	defaultJWKSRefresh           = 5 * time.Minute
-	defaultKafkaBrokers          = "127.0.0.1:9092"
-	defaultHistoryTopic          = "history.listening.recorded.v1"
-	defaultHistoryClearedTopic   = "history.listening.cleared.v1"
-	defaultHistoryConsumerGroup  = "recommendation-history-v1"
-	defaultCatalogPublishedTopic = "catalog.release.published.v1"
-	defaultCatalogArchivedTopic  = "catalog.release.archived.v1"
-	defaultCatalogConsumerGroup  = "recommendation-catalog-v1"
+	defaultHTTPHost                   = "0.0.0.0"
+	defaultHTTPPort                   = "8080"
+	defaultPostgresHost               = "127.0.0.1"
+	defaultPostgresPort               = "5432"
+	defaultGRPCHost                   = "127.0.0.1"
+	defaultGRPCPort                   = "9090"
+	defaultRunTTL                     = time.Hour
+	defaultJWKSURL                    = "http://auth-service:8080/v1/auth/jwks"
+	defaultJWTIssuer                  = "infinitune-auth"
+	defaultJWTAudience                = "infinitune-api"
+	defaultJWTKeyID                   = "auth-key-1"
+	defaultJWKSRefresh                = 5 * time.Minute
+	defaultKafkaBrokers               = "127.0.0.1:9092"
+	defaultHistoryTopic               = "history.listening.recorded.v1"
+	defaultHistoryClearedTopic        = "history.listening.cleared.v1"
+	defaultHistoryConsumerGroup       = "recommendation-history-v1"
+	defaultCatalogPublishedTopic      = "catalog.release.published.v1"
+	defaultCatalogArchivedTopic       = "catalog.release.archived.v1"
+	defaultCatalogConsumerGroup       = "recommendation-catalog-v1"
+	defaultInteractionPreferenceTopic = "interaction.preference.changed.v1"
+	defaultInteractionConsumerGroup   = "recommendation-interaction-v1"
 )
 
 type EventsConfig struct {
-	Brokers               []string
-	HistoryTopic          string
-	HistoryClearedTopic   string
-	HistoryConsumerGroup  string
-	CatalogPublishedTopic string
-	CatalogArchivedTopic  string
-	CatalogConsumerGroup  string
+	Brokers                    []string
+	HistoryTopic               string
+	HistoryClearedTopic        string
+	HistoryConsumerGroup       string
+	CatalogPublishedTopic      string
+	CatalogArchivedTopic       string
+	CatalogConsumerGroup       string
+	InteractionPreferenceTopic string
+	InteractionConsumerGroup   string
 }
 
 type Config struct {
@@ -159,15 +163,23 @@ func loadEventsConfig() (EventsConfig, error) {
 	catalogGroup := strings.TrimSpace(envOrDefault(
 		"KAFKA_RECOMMENDATION_CATALOG_GROUP", defaultCatalogConsumerGroup,
 	))
+	interactionTopic := strings.TrimSpace(envOrDefault(
+		"KAFKA_INTERACTION_PREFERENCE_TOPIC", defaultInteractionPreferenceTopic,
+	))
+	interactionGroup := strings.TrimSpace(envOrDefault(
+		"KAFKA_RECOMMENDATION_INTERACTION_GROUP", defaultInteractionConsumerGroup,
+	))
 	if topic == "" || clearedTopic == "" || historyGroup == "" ||
-		publishedTopic == "" || archivedTopic == "" || catalogGroup == "" {
+		publishedTopic == "" || archivedTopic == "" || catalogGroup == "" ||
+		interactionTopic == "" || interactionGroup == "" {
 		return EventsConfig{}, fmt.Errorf("Kafka topics and consumer group must not be blank")
 	}
 	return EventsConfig{
 		Brokers: brokers, HistoryTopic: topic,
 		HistoryClearedTopic: clearedTopic, HistoryConsumerGroup: historyGroup,
 		CatalogPublishedTopic: publishedTopic, CatalogArchivedTopic: archivedTopic,
-		CatalogConsumerGroup: catalogGroup,
+		CatalogConsumerGroup:       catalogGroup,
+		InteractionPreferenceTopic: interactionTopic, InteractionConsumerGroup: interactionGroup,
 	}, nil
 }
 

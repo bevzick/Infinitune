@@ -37,13 +37,27 @@ Content approval ---- gRPC publish ----> Catalog service
                          +---------------+----------------+
                          v               v                v
                     Recommendation   Playlist       Future search index
+
+Like/unlike/follow -----> Interaction service
+                                  |
+                                  | same PostgreSQL transaction
+                                  +--> preference table
+                                  +--> interaction.event_outbox
+                                                |
+                                                v
+                              interaction.preference.changed.v1
+                              Kafka, key = user_id
+                                                |
+                                                v
+                                   Recommendation consumer
+                                   (invalidates that user's stale runs)
 ```
 
 ## Delivery contract
 
 - Implemented events are `history.listening.recorded.v1` and
-  `history.listening.cleared.v1`, plus `catalog.release.published.v1` and
-  `catalog.release.archived.v1`.
+  `history.listening.cleared.v1`, `catalog.release.published.v1`,
+  `catalog.release.archived.v1`, and `interaction.preference.changed.v1`.
 - Recording/deleting history and creating the corresponding outbox row happen atomically in
   History PostgreSQL.
 - Delivery is **at least once**. A crash after Kafka accepts an event but before the outbox row
@@ -68,6 +82,9 @@ Content approval ---- gRPC publish ----> Catalog service
   expires every run generated before the release became visible; archive expires only older runs
   containing one of the archived track IDs. Runs generated after the event already read the new
   Catalog state and remain valid.
+- Track and album likes and artist follows emit a preference event only when the stored state
+  actually changes. Comment likes are excluded. The preference mutation and its outbox row are
+  atomic, and Recommendation expires only that user's runs older than `occurred_at`.
 
 ## Suitable next integrations
 
@@ -75,7 +92,6 @@ Content approval ---- gRPC publish ----> Catalog service
 |---|---|---|---|
 | Media | `media.asset.ready.v1` | Content, Catalog | Complete publishing without polling |
 | Content | `content.release.approved.v1` | Catalog, Media | Start controlled publication workflow |
-| Interaction | `interaction.preference.changed.v1` | Recommendation | Invalidate personalized recommendation runs |
 
 Commands and permission checks remain synchronous. Kafka should not replace Catalog validation,
 authentication, playback authorization, or user-facing writes that require an immediate response.
@@ -84,4 +100,5 @@ The Compose broker is a single-node development setup with plaintext traffic. Pr
 multiple brokers, replication, TLS/SASL, monitoring, quotas, and an explicit retention/privacy policy.
 
 Start the full local stack with `make up`. The Makefile includes `compose.kafka.yml`; the
-`kafka-init` service creates the History and Catalog topics idempotently before producers start.
+`kafka-init` service creates the History, Catalog, and Interaction topics idempotently before
+producers start.

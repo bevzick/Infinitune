@@ -8,37 +8,6 @@ import (
 	"github.com/google/uuid"
 )
 
-func (repository *LikeRepository) FollowArtist(
-	ctx context.Context,
-	userID uuid.UUID,
-	artistID uuid.UUID,
-) (interaction.Follow, error) {
-	var result interaction.Follow
-	err := repository.database.QueryRow(ctx, `
-		INSERT INTO interaction.artist_follows (user_id, artist_id)
-		VALUES ($1, $2)
-		ON CONFLICT (user_id, artist_id) DO UPDATE SET user_id = EXCLUDED.user_id
-		RETURNING user_id, artist_id, created_at
-	`, userID, artistID).Scan(&result.UserID, &result.ArtistID, &result.FollowedAt)
-	if err != nil {
-		return interaction.Follow{}, fmt.Errorf("upsert artist follow: %w", err)
-	}
-	return result, nil
-}
-
-func (repository *LikeRepository) UnfollowArtist(
-	ctx context.Context,
-	userID uuid.UUID,
-	artistID uuid.UUID,
-) error {
-	if _, err := repository.database.Exec(ctx, `
-		DELETE FROM interaction.artist_follows WHERE user_id = $1 AND artist_id = $2
-	`, userID, artistID); err != nil {
-		return fmt.Errorf("delete artist follow: %w", err)
-	}
-	return nil
-}
-
 func (repository *LikeRepository) ArtistFollows(
 	ctx context.Context,
 	userID uuid.UUID,

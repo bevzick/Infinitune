@@ -26,6 +26,8 @@ func TestLoadUsesRecommendationDatabaseEnvironment(t *testing.T) {
 	t.Setenv("KAFKA_CATALOG_PUBLISHED_TOPIC", "catalog-published")
 	t.Setenv("KAFKA_CATALOG_ARCHIVED_TOPIC", "catalog-archived")
 	t.Setenv("KAFKA_RECOMMENDATION_CATALOG_GROUP", "recommendation-catalog-test")
+	t.Setenv("KAFKA_INTERACTION_PREFERENCE_TOPIC", "interaction-preferences")
+	t.Setenv("KAFKA_RECOMMENDATION_INTERACTION_GROUP", "recommendation-interaction-test")
 
 	cfg, err := Load()
 	if err != nil {
@@ -56,7 +58,9 @@ func TestLoadUsesRecommendationDatabaseEnvironment(t *testing.T) {
 		cfg.Events.HistoryConsumerGroup != "recommendation-test" ||
 		cfg.Events.CatalogPublishedTopic != "catalog-published" ||
 		cfg.Events.CatalogArchivedTopic != "catalog-archived" ||
-		cfg.Events.CatalogConsumerGroup != "recommendation-catalog-test" {
+		cfg.Events.CatalogConsumerGroup != "recommendation-catalog-test" ||
+		cfg.Events.InteractionPreferenceTopic != "interaction-preferences" ||
+		cfg.Events.InteractionConsumerGroup != "recommendation-interaction-test" {
 		t.Fatalf("Events = %+v", cfg.Events)
 	}
 }

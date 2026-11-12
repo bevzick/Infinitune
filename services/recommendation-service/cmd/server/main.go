@@ -160,6 +160,18 @@ func main() {
 	}
 	defer catalogConsumer.Close()
 	go catalogConsumer.Run(ctx)
+	interactionConsumer, err := event_kafka.NewConsumer(
+		cfg.Events.Brokers,
+		[]string{cfg.Events.InteractionPreferenceTopic},
+		cfg.Events.InteractionConsumerGroup,
+		events.NewInteractionHandler(runRepository), logger,
+	)
+	if err != nil {
+		logger.Error("failed to initialize Interaction Kafka consumer", "error", err)
+		os.Exit(1)
+	}
+	defer interactionConsumer.Close()
+	go interactionConsumer.Run(ctx)
 	errorsChannel := make(chan error, 2)
 	go func() {
 		logger.Info("recommendation service started", "address", cfg.HTTPAddress)
