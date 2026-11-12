@@ -33,3 +33,8 @@ Frontend changes run linting, type checking, unit and browser tests, and the
 production-container smoke test. Backend changes use a matrix job for every Go
 service and the Kafka replay tool; each module verifies dependencies, runs
 `go vet`, executes unit tests with the race detector, and builds all packages.
+Integration tests run in an isolated Docker Compose project per service. They
+create fresh databases, apply migrations, exercise PostgreSQL, Redis, Kafka and
+MinIO integrations, print container logs on failure, and remove resources after
+every job. The CI Compose override keeps internal service ports off the host,
+so the suites remain isolated from an already running development stack.

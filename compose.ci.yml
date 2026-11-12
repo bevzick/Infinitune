@@ -1,0 +1,13 @@
+services:
+  postgres:
+    ports: !reset []
+
+  kong:
+    ports: !reset []
+
+  prometheus:
+    ports: !reset []
+
+  frontend:
+    ports: !reset []
+

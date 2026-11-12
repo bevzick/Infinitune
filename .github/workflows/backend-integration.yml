@@ -1,0 +1,99 @@
+name: Backend integration tests
+
+on:
+  pull_request:
+    paths:
+      - "services/**"
+      - "tools/**"
+      - "scripts/**"
+      - "compose*.yml"
+      - "Makefile"
+      - ".github/workflows/backend-integration.yml"
+  push:
+    branches:
+      - develop
+    paths:
+      - "services/**"
+      - "tools/**"
+      - "scripts/**"
+      - "compose*.yml"
+      - "Makefile"
+      - ".github/workflows/backend-integration.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backend-integration-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  integration:
+    name: ${{ matrix.name }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: auth-service
+            target: auth-test-integration
+          - name: user-service
+            target: user-test-integration
+          - name: catalog-service
+            target: catalog-test-integration
+          - name: media-service
+            target: media-test-integration
+          - name: playlist-service
+            target: playlist-test-integration
+          - name: content-service
+            target: content-test-integration
+          - name: interaction-service
+            target: interaction-test-integration
+          - name: comment-service
+            target: comment-test-integration
+          - name: history-service
+            target: history-test-integration
+          - name: recommendation-service
+            target: recommendation-test-integration
+          - name: kafka-events
+            target: kafka-events-test-integration
+
+    env:
+      COMPOSE_PROJECT_NAME: infinitune-ci-${{ matrix.name }}-${{ github.run_id }}
+      COMPOSE_OVERRIDE: -f compose.ci.yml
+      MINIO_ROOT_PASSWORD: ci_minio_password
+      MINIO_ROOT_USER: ci_minio
+      POSTGRES_DB: ci_platform
+      POSTGRES_PASSWORD: ci_postgres_password
+      POSTGRES_USER: ci_user
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Generate ephemeral JWT signing keys
+        shell: bash
+        run: |
+          private_key=$(openssl genpkey -algorithm Ed25519 -outform DER | base64 -w0)
+          public_key=$(printf '%s' "$private_key" | base64 -d | openssl pkey -inform DER -pubout -outform DER | base64 -w0)
+          echo "::add-mask::$private_key"
+          echo "::add-mask::$public_key"
+          echo "AUTH_JWT_PRIVATE_KEY_BASE64=$private_key" >> "$GITHUB_ENV"
+          echo "AUTH_JWT_PUBLIC_KEY_BASE64=$public_key" >> "$GITHUB_ENV"
+
+      - name: Validate Compose configuration
+        run: make config
+
+      - name: Run integration tests
+        run: make "${{ matrix.target }}"
+
+      - name: Show container logs on failure
+        if: failure()
+        run: make logs-ci
+
+      - name: Remove integration resources
+        if: always()
+        run: make down-volumes
+
