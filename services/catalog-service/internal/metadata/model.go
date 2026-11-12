@@ -249,6 +249,19 @@ type Page[T any] struct {
 	Total  int64
 }
 
+type DiscographyKind string
+
+const (
+	DiscographyKindAlbum DiscographyKind = "album"
+	DiscographyKindTrack DiscographyKind = "track"
+)
+
+type DiscographyItem struct {
+	Kind  DiscographyKind
+	Album *Album
+	Track *Track
+}
+
 type TrackSort string
 
 const (

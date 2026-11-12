@@ -100,6 +100,53 @@ type trackResponse struct {
 	UpdatedAt   time.Time             `json:"updated_at"`
 }
 
+type discographyItemResponse struct {
+	Kind  metadata.DiscographyKind `json:"kind"`
+	Album *albumResponse           `json:"album,omitempty"`
+	Track *trackResponse           `json:"track,omitempty"`
+}
+
+func artistDiscographyHandler(
+	logger *slog.Logger,
+	fetch func(context.Context, uuid.UUID, metadata.PageRequest) (metadata.Page[metadata.DiscographyItem], error),
+) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		artistID, err := uuid.Parse(c.Param("id"))
+		if err != nil || artistID == uuid.Nil {
+			writeError(c, http.StatusBadRequest, "invalid_id", "ID must be a UUID", "id")
+			return
+		}
+		page, ok := pageRequest(c)
+		if !ok {
+			return
+		}
+		result, err := fetch(c.Request.Context(), artistID, page)
+		if err != nil {
+			writeDomainError(c, logger, err)
+			return
+		}
+		items := make([]discographyItemResponse, 0, len(result.Items))
+		for _, item := range result.Items {
+			response := discographyItemResponse{Kind: item.Kind}
+			if item.Album != nil {
+				album := albumResponseFrom(*item.Album)
+				response.Album = &album
+			}
+			if item.Track != nil {
+				track := trackResponseFrom(*item.Track)
+				response.Track = &track
+			}
+			items = append(items, response)
+		}
+		c.JSON(http.StatusOK, pageResponse[discographyItemResponse]{
+			Items: items,
+			Pagination: paginationResponse{
+				Limit: result.Limit, Offset: result.Offset, Total: result.Total,
+			},
+		})
+	}
+}
+
 func listHandler[Model any, Response any](
 	logger *slog.Logger,
 	fetch func(context.Context, metadata.PageRequest) (metadata.Page[Model], error),
