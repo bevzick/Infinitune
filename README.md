@@ -58,3 +58,17 @@ make down-volumes
 The same isolated journey runs in GitHub Actions when one of the participating
 services, Kong routes, or Compose definitions changes. Failed runs print only
 the relevant service logs before removing all containers and volumes.
+
+## Creator content publishing
+
+The creator workflow covers account verification, release drafts, track
+rights, idempotent media uploads, asynchronous processing, moderation, Catalog
+publication, and authenticated byte-range playback. See the
+[content publishing guide](docs/content-publishing.md) for API examples,
+state transitions, retry behavior, and the isolated end-to-end test command.
+
+## Local operations
+
+See the [local operations runbook](docs/local-operations.md) for first-time
+configuration, stack health checks, migration commands, failure diagnosis, and
+data-preserving recovery steps.

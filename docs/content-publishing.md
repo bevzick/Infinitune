@@ -1,0 +1,248 @@
+# Content publishing and media playback
+
+This guide describes the complete API workflow for publishing creator audio.
+All HTTP requests go through Kong. The examples assume:
+
+```bash
+export GATEWAY_URL=http://localhost:8000
+export CREATOR_TOKEN='<creator access token>'
+export MODERATOR_TOKEN='<moderator or admin access token>'
+```
+
+Access tokens contain a snapshot of the user's global roles. After an admin
+assigns the `moderator` role through
+`PUT /v1/auth/users/{user_id}/roles/moderator`, the moderator must log in again
+before the new role appears in the token. Creator account permissions are
+derived from creator membership rather than the global `creator` role.
+
+## Workflow
+
+The publishing state transition is:
+
+```text
+unverified creator -> pending verification -> verified creator
+draft release -> pending review -> approved -> published
+pending upload -> uploading -> completed
+media uploaded -> processing -> ready
+```
+
+The release can be submitted only after its creator is verified, its cover key
+is set, every track has completed media processing, and every track has current
+worldwide streaming and distribution rights.
+
+### 1. Create and verify a creator account
+
+Create an artist, label, or distributor account:
+
+```bash
+creator_response=$(curl --fail-with-body --silent \
+  --request POST "$GATEWAY_URL/v1/creators" \
+  --header "Authorization: Bearer $CREATOR_TOKEN" \
+  --header 'Content-Type: application/json' \
+  --data '{"type":"artist","display_name":"Example Artist"}')
+creator_id=$(jq --raw-output '.id' <<<"$creator_response")
+```
+
+Submit it for verification:
+
+```bash
+curl --fail-with-body --silent \
+  --request POST \
+  "$GATEWAY_URL/v1/creators/$creator_id/verification-submissions" \
+  --header "Authorization: Bearer $CREATOR_TOKEN"
+```
+
+A moderator who is not a member of this creator account reviews it:
+
+```bash
+curl --fail-with-body --silent \
+  --request POST \
+  "$GATEWAY_URL/v1/creators/$creator_id/verification-reviews" \
+  --header "Authorization: Bearer $MODERATOR_TOKEN" \
+  --header 'Content-Type: application/json' \
+  --data '{"decision":"verified"}'
+```
+
+The alternative review decision is `rejected`.
+
+### 2. Create a release draft
+
+Create a release and its complete initial track set. A `single` must contain
+exactly one track at disc 1, position 1.
+
+```bash
+release_date=$(date --utc +%Y-%m-%d)
+release_response=$(curl --fail-with-body --silent \
+  --request POST "$GATEWAY_URL/v1/releases" \
+  --header "Authorization: Bearer $CREATOR_TOKEN" \
+  --header 'Content-Type: application/json' \
+  --data "{
+    \"creator_id\":\"$creator_id\",
+    \"title\":\"Example Single\",
+    \"release_type\":\"single\",
+    \"release_date\":\"$release_date\",
+    \"tracks\":[{
+      \"title\":\"Example Single\",
+      \"track_number\":1,
+      \"disc_number\":1,
+      \"explicit\":false
+    }]
+  }")
+release_id=$(jq --raw-output '.id' <<<"$release_response")
+release_track_id=$(jq --raw-output '.tracks[0].id' <<<"$release_response")
+```
+
+Set the cover object key while preserving every existing track in the update:
+
+```bash
+curl --fail-with-body --silent \
+  --request PUT "$GATEWAY_URL/v1/releases/$release_id" \
+  --header "Authorization: Bearer $CREATOR_TOKEN" \
+  --header 'Content-Type: application/json' \
+  --data "{
+    \"title\":\"Example Single\",
+    \"release_type\":\"single\",
+    \"release_date\":\"$release_date\",
+    \"cover_object_key\":\"creator-content/covers/example.jpg\",
+    \"tracks\":[{
+      \"id\":\"$release_track_id\",
+      \"title\":\"Example Single\",
+      \"track_number\":1,
+      \"disc_number\":1,
+      \"explicit\":false
+    }]
+  }"
+```
+
+The current backend stores the cover key as release metadata. A public cover
+binary upload endpoint is not yet exposed, so production clients must obtain
+the private object key from a separately authorized cover-ingest flow.
+
+### 3. Declare track rights
+
+Territory `001` represents worldwide rights. Both rights must cover the release
+date. Omit `valid_until` for an open-ended grant.
+
+```bash
+for rights_type in streaming distribution; do
+  curl --fail-with-body --silent \
+    --request PUT \
+    "$GATEWAY_URL/v1/release-tracks/$release_track_id/rights" \
+    --header "Authorization: Bearer $CREATOR_TOKEN" \
+    --header 'Content-Type: application/json' \
+    --data "{
+      \"territory_code\":\"001\",
+      \"rights_type\":\"$rights_type\",
+      \"valid_from\":\"$release_date\"
+    }"
+done
+```
+
+### 4. Create an upload session and send the audio
+
+The declared file name, MIME type, and byte size must exactly match the binary
+upload. Supported formats are WAV, FLAC, MP3, and M4A, up to 500 MiB.
+
+```bash
+audio_file=example.wav
+audio_size=$(wc -c <"$audio_file" | tr -d ' ')
+idempotency_key=$(cat /proc/sys/kernel/random/uuid)
+
+upload_response=$(curl --fail-with-body --silent \
+  --request POST \
+  "$GATEWAY_URL/v1/release-tracks/$release_track_id/uploads" \
+  --header "Authorization: Bearer $CREATOR_TOKEN" \
+  --header 'Content-Type: application/json' \
+  --data "{
+    \"idempotency_key\":\"$idempotency_key\",
+    \"original_name\":\"example.wav\",
+    \"mime_type\":\"audio/wav\",
+    \"size_bytes\":$audio_size
+  }")
+upload_url=$(jq --raw-output '.upload_url' <<<"$upload_response")
+
+media_response=$(curl --fail-with-body --silent \
+  --request PUT "$GATEWAY_URL$upload_url" \
+  --header "Authorization: Bearer $CREATOR_TOKEN" \
+  --header 'Content-Type: audio/wav' \
+  --data-binary "@$audio_file")
+media_asset_id=$(jq --raw-output '.media_asset_id' <<<"$media_response")
+```
+
+The upload returns before asynchronous FFmpeg processing finishes. Reusing an
+idempotency key with different metadata returns
+`409 upload_idempotency_conflict`.
+
+### 5. Submit and moderate the release
+
+Submit only after the media asset becomes ready. Until then, the endpoint
+returns `409 release_not_ready`; clients should retry with bounded backoff.
+
+```bash
+curl --fail-with-body --silent \
+  --request POST "$GATEWAY_URL/v1/releases/$release_id/submissions" \
+  --header "Authorization: Bearer $CREATOR_TOKEN"
+```
+
+Approve the pending submission with a different moderator account:
+
+```bash
+curl --fail-with-body --silent \
+  --request POST \
+  "$GATEWAY_URL/v1/releases/$release_id/moderation-reviews" \
+  --header "Authorization: Bearer $MODERATOR_TOKEN" \
+  --header 'Content-Type: application/json' \
+  --data '{"decision":"approved","comment":"Approved for publication"}'
+```
+
+Other release decisions are `rejected` and `changes_requested`; both require a
+non-empty comment.
+
+### 6. Publish, browse, and play
+
+Approval is delivered to Catalog through Kafka. Publication can briefly return
+`409 release_not_ready` until Catalog observes that event. The publication
+operation is idempotent and safe to retry with bounded backoff.
+
+```bash
+curl --fail-with-body --silent \
+  --request POST "$GATEWAY_URL/v1/releases/$release_id/publications" \
+  --header "Authorization: Bearer $CREATOR_TOKEN"
+
+published_release=$(curl --fail-with-body --silent \
+  "$GATEWAY_URL/v1/releases/$release_id" \
+  --header "Authorization: Bearer $CREATOR_TOKEN")
+catalog_track_id=$(jq --raw-output '.tracks[0].catalog_track_id' \
+  <<<"$published_release")
+
+catalog_track=$(curl --fail-with-body --silent \
+  "$GATEWAY_URL/v1/catalog/tracks/$catalog_track_id")
+playback_url=$(jq --raw-output '.playback_url' <<<"$catalog_track")
+
+curl --fail-with-body \
+  "$GATEWAY_URL$playback_url?quality=high" \
+  --header "Authorization: Bearer $CREATOR_TOKEN" \
+  --header 'Range: bytes=0-1023' \
+  --output playback-part.bin
+```
+
+Playback supports `low`, `medium`, `high`, and `lossless` quality selection.
+Successful range requests return `206 Partial Content`, `Content-Range`,
+`Accept-Ranges: bytes`, and audio quality and codec headers.
+
+## Automated verification
+
+The repository contains an isolated end-to-end version of this workflow:
+
+```bash
+COMPOSE_PROJECT_NAME=infinitune-content-media-smoke \
+COMPOSE_OVERRIDE='-f compose.system-test.yml' \
+make content-media-smoke
+
+COMPOSE_PROJECT_NAME=infinitune-content-media-smoke \
+COMPOSE_OVERRIDE='-f compose.system-test.yml' \
+make down-volumes
+```
+
+The test generates a safe WAV fixture, processes it through Media, publishes it
+through Content and Catalog, and verifies authenticated byte-range playback.
