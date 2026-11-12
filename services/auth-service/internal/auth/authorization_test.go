@@ -144,10 +144,82 @@ func TestRoleServiceProtectsRoleBoundaries(t *testing.T) {
 	}
 }
 
+func TestRoleServiceListsUsersForActiveAdmin(t *testing.T) {
+	t.Parallel()
+	actorID := uuid.New()
+	status := AccountStatusBlocked
+	store := newRoleStore()
+	store.users[actorID] = User{ID: actorID, Status: AccountStatusActive}
+	store.roles[actorID] = []string{RoleAdmin}
+	store.page = UserPage{Items: []AdminUser{{
+		User: User{ID: uuid.New(), Status: AccountStatusBlocked}, Roles: []string{RoleListener},
+	}}, Total: 1}
+	page, err := NewRoleService(store).ListUsers(context.Background(), Identity{
+		UserID: actorID, Roles: []string{RoleAdmin},
+	}, UserPageRequest{Status: &status, Limit: 25, Offset: 50})
+	if err != nil || page.Total != 1 || store.pageRequest.Limit != 25 ||
+		store.pageRequest.Offset != 50 || store.pageRequest.Status == nil ||
+		*store.pageRequest.Status != AccountStatusBlocked {
+		t.Fatalf("ListUsers() = %+v, %v; store = %+v", page, err, store)
+	}
+}
+
+func TestRoleServiceUpdatesUserStatusWithAdminProtections(t *testing.T) {
+	t.Parallel()
+	actorID, targetID := uuid.New(), uuid.New()
+	store := newRoleStore()
+	store.users[actorID] = User{ID: actorID, Status: AccountStatusActive}
+	store.users[targetID] = User{ID: targetID, Status: AccountStatusActive}
+	store.roles[actorID] = []string{RoleAdmin}
+	service := NewRoleService(store)
+	actor := Identity{UserID: actorID, Roles: []string{RoleAdmin}}
+	updated, err := service.UpdateUserStatus(
+		context.Background(), actor, targetID, AccountStatusBlocked,
+	)
+	if err != nil || updated.Status != AccountStatusBlocked || store.updatedUserID != targetID {
+		t.Fatalf("UpdateUserStatus() = %+v, %v; store = %+v", updated, err, store)
+	}
+	if _, err = service.UpdateUserStatus(
+		context.Background(), actor, actorID, AccountStatusBlocked,
+	); !errors.Is(err, ErrCannotChangeOwnStatus) {
+		t.Fatalf("UpdateUserStatus(self) error = %v", err)
+	}
+	if _, err = service.UpdateUserStatus(
+		context.Background(), actor, targetID, AccountStatusDeleted,
+	); !errors.Is(err, ErrInvalidAccountStatus) {
+		t.Fatalf("UpdateUserStatus(deleted) error = %v", err)
+	}
+}
+
 type roleStore struct {
-	users       map[uuid.UUID]User
-	roles       map[uuid.UUID][]string
-	removeError error
+	users         map[uuid.UUID]User
+	roles         map[uuid.UUID][]string
+	removeError   error
+	updateError   error
+	page          UserPage
+	pageRequest   UserPageRequest
+	updatedUserID uuid.UUID
+}
+
+func (s *roleStore) ListUsers(_ context.Context, request UserPageRequest) (UserPage, error) {
+	s.pageRequest = request
+	return s.page, nil
+}
+
+func (s *roleStore) UpdateUserStatus(
+	_ context.Context, userID uuid.UUID, status AccountStatus, _ time.Time,
+) (User, error) {
+	s.updatedUserID = userID
+	if s.updateError != nil {
+		return User{}, s.updateError
+	}
+	user, exists := s.users[userID]
+	if !exists {
+		return User{}, ErrUserNotFound
+	}
+	user.Status = status
+	s.users[userID] = user
+	return user, nil
 }
 
 func newRoleStore() *roleStore {

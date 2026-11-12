@@ -170,11 +170,41 @@ func TestUserAndRoleAssignmentRepositories(t *testing.T) {
 			t.Fatalf("RemoveRoleFromUser(last admin) error = %v", err)
 		}
 	}
+	activeStatus := auth.AccountStatusActive
+	page, err := assignments.ListUsers(ctx, auth.UserPageRequest{
+		Status: &activeStatus, Limit: 100,
+	})
+	if err != nil {
+		t.Fatalf("ListUsers() error = %v", err)
+	}
+	foundTarget := false
+	for _, item := range page.Items {
+		if item.User.ID == targetID {
+			foundTarget = true
+			if len(item.Roles) != 1 || item.Roles[0] != auth.RoleListener {
+				t.Fatalf("ListUsers() target roles = %v", item.Roles)
+			}
+		}
+	}
+	if !foundTarget {
+		t.Fatalf("ListUsers() did not include target %s", targetID)
+	}
+	blocked, err := assignments.UpdateUserStatus(
+		ctx, targetID, auth.AccountStatusBlocked, now.Add(time.Minute),
+	)
+	if err != nil || blocked.Status != auth.AccountStatusBlocked {
+		t.Fatalf("UpdateUserStatus(blocked) = %+v, %v", blocked, err)
+	}
+	if _, err = assignments.UpdateUserStatus(
+		ctx, targetID, auth.AccountStatusActive, now.Add(2*time.Minute),
+	); err != nil {
+		t.Fatalf("UpdateUserStatus(active) error = %v", err)
+	}
 
-	if err = users.UpdateStatus(ctx, targetID, auth.AccountStatusBlocked, now.Add(time.Minute)); err != nil {
+	if err = users.UpdateStatus(ctx, targetID, auth.AccountStatusBlocked, now.Add(3*time.Minute)); err != nil {
 		t.Fatalf("UpdateStatus() error = %v", err)
 	}
-	if err = users.SetEmailVerified(ctx, targetID, true, now.Add(2*time.Minute)); err != nil {
+	if err = users.SetEmailVerified(ctx, targetID, true, now.Add(4*time.Minute)); err != nil {
 		t.Fatalf("SetEmailVerified() error = %v", err)
 	}
 	updated, err := users.ByID(ctx, targetID)
