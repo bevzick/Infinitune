@@ -123,9 +123,10 @@ func main() {
 	grpcServer := grpc.NewServer()
 	mediav1.RegisterMediaServiceServer(grpcServer, grpcapi.NewMediaServer(metadataService))
 
+	eventMetrics := events.NewMetrics("media")
 	server := &http.Server{
 		Addr: cfg.HTTPAddress,
-		Handler: httpapi.NewRouter(httpapi.Dependencies{
+		Handler: eventMetrics.Wrap(httpapi.NewRouter(httpapi.Dependencies{
 			Database: databasePool,
 			Storage:  objectStorage,
 			Objects:  objectStorage,
@@ -134,14 +135,14 @@ func main() {
 			Tokens:   tokenVerifier,
 			Origins:  cfg.Origins,
 			Logger:   logger,
-		}),
+		})),
 		ReadHeaderTimeout: readHeaderTimeout,
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	dispatcher := events.NewDispatcher(
 		postgres_repository.NewOutboxRepository(databasePool), producer, logger,
-		cfg.Events.OutboxInterval, cfg.Events.OutboxBatch,
+		cfg.Events.OutboxInterval, cfg.Events.OutboxBatch, eventMetrics,
 	)
 	go dispatcher.Run(ctx)
 	workerStopped := make(chan struct{})

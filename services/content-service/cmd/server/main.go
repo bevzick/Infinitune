@@ -138,9 +138,10 @@ func main() {
 		postgres_repository.NewPlaybackRepository(databasePool),
 	)
 
+	eventMetrics := events.NewMetrics("content")
 	httpServer := &http.Server{
 		Addr: cfg.HTTPAddress,
-		Handler: httpapi.NewRouter(httpapi.Dependencies{
+		Handler: eventMetrics.Wrap(httpapi.NewRouter(httpapi.Dependencies{
 			Database: databasePool, Tokens: tokenVerifier, Creators: creatorService,
 			Members: memberService, Rights: rightsService,
 			Submissions:  submissionService,
@@ -148,7 +149,7 @@ func main() {
 			Publications: publicationService,
 			Releases:     releaseService,
 			Origins:      cfg.Origins, Logger: logger,
-		}),
+		})),
 		ReadHeaderTimeout: readHeaderTimeout,
 	}
 	grpcListener, err := net.Listen("tcp", cfg.GRPCAddress)
@@ -164,13 +165,13 @@ func main() {
 	defer stop()
 	dispatcher := events.NewDispatcher(
 		postgres_repository.NewOutboxRepository(databasePool), producer, logger,
-		cfg.Events.OutboxInterval, cfg.Events.OutboxBatch,
+		cfg.Events.OutboxInterval, cfg.Events.OutboxBatch, eventMetrics,
 	)
 	go dispatcher.Run(ctx)
 	mediaConsumer, err := event_kafka.NewConsumer(
 		cfg.Events.Brokers, cfg.Events.MediaReadyTopic, cfg.Events.MediaConsumerGroup,
 		cfg.Events.DeadLetterTopic,
-		events.NewMediaHandler(mediaReadiness), logger,
+		events.NewMediaHandler(mediaReadiness), logger, eventMetrics,
 	)
 	if err != nil {
 		logger.Error("failed to initialize Media Kafka consumer", "error", err)

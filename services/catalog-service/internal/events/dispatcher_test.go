@@ -39,7 +39,7 @@ func TestDispatcherRetriesFailedCatalogEvent(t *testing.T) {
 
 func newTestDispatcher(outbox Outbox, publisher Publisher) *Dispatcher {
 	return NewDispatcher(
-		outbox, publisher, slog.New(slog.NewTextHandler(io.Discard, nil)), time.Second, 10,
+		outbox, publisher, slog.New(slog.NewTextHandler(io.Discard, nil)), time.Second, 10, NewMetrics("test"),
 	)
 }
 

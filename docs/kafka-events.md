@@ -142,6 +142,16 @@ authentication, playback authorization, or user-facing writes that require an im
 The Compose broker is a single-node development setup with plaintext traffic. Production requires
 multiple brokers, replication, TLS/SASL, monitoring, quotas, and an explicit retention/privacy policy.
 
+## Operational metrics
+
+History, Interaction, Media, Catalog, Content, and Recommendation expose Prometheus-compatible
+Kafka metrics at `GET /metrics` on their existing HTTP port. The endpoint reports outbox claims,
+successful publications, Kafka publication failures, repository/marking failures, successfully
+handled consumer events, handler failures, dead-letter deliveries, dead-letter publication failures,
+and Unix timestamps of the latest successful outbox publication and consumer handling. Counter
+resets are expected when a service restarts. Production monitoring should alert on growing failure
+counters and on stale success timestamps while the corresponding service is receiving traffic.
+
 Start the full local stack with `make up`. The Makefile includes `compose.kafka.yml`; the
 `kafka-init` service creates all implemented History, Catalog, Interaction, Media, Content, and
 dead-letter topics idempotently before producers start.

@@ -76,14 +76,15 @@ func main() {
 	grpcServer := grpc.NewServer()
 	catalogv1.RegisterCatalogServiceServer(grpcServer, grpcapi.NewCatalogServer(metadataService))
 
+	eventMetrics := events.NewMetrics("catalog")
 	server := &http.Server{
 		Addr: cfg.HTTPAddress,
-		Handler: httpapi.NewRouter(httpapi.Dependencies{
+		Handler: eventMetrics.Wrap(httpapi.NewRouter(httpapi.Dependencies{
 			Database: databasePool,
 			Catalog:  metadataService,
 			Origins:  cfg.Origins,
 			Logger:   logger,
-		}),
+		})),
 		ReadHeaderTimeout: readHeaderTimeout,
 	}
 
@@ -94,7 +95,7 @@ func main() {
 		cfg.Events.DeadLetterTopic,
 		events.NewContentApprovalHandler(
 			postgres_repository.NewContentApprovalRepository(databasePool),
-		), logger,
+		), logger, eventMetrics,
 	)
 	if err != nil {
 		logger.Error("failed to initialize Content Kafka consumer", "error", err)
@@ -104,7 +105,7 @@ func main() {
 	go approvalConsumer.Run(ctx)
 	outboxDispatcher := events.NewDispatcher(
 		postgres_repository.NewOutboxRepository(databasePool), eventProducer, logger,
-		cfg.Events.OutboxInterval, cfg.Events.OutboxBatch,
+		cfg.Events.OutboxInterval, cfg.Events.OutboxBatch, eventMetrics,
 	)
 	go outboxDispatcher.Run(ctx)
 

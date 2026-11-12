@@ -88,14 +88,15 @@ func main() {
 	}
 	grpcServer := grpc.NewServer()
 	signalv1.RegisterSignalServiceServer(grpcServer, grpcapi.NewSignalServer(historyService))
-	server := &http.Server{Addr: cfg.HTTPAddress, Handler: httpapi.NewRouter(httpapi.Dependencies{
+	eventMetrics := events.NewMetrics("history")
+	server := &http.Server{Addr: cfg.HTTPAddress, Handler: eventMetrics.Wrap(httpapi.NewRouter(httpapi.Dependencies{
 		Database: databasePool, Tokens: tokenVerifier, History: historyService, Origins: cfg.Origins, Logger: logger,
-	}), ReadHeaderTimeout: readHeaderTimeout}
+	})), ReadHeaderTimeout: readHeaderTimeout}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	outboxDispatcher := events.NewDispatcher(
 		postgres_repository.NewOutboxRepository(databasePool), eventProducer, logger,
-		cfg.Events.OutboxInterval, cfg.Events.OutboxBatch,
+		cfg.Events.OutboxInterval, cfg.Events.OutboxBatch, eventMetrics,
 	)
 	go outboxDispatcher.Run(ctx)
 	errorsChannel := make(chan error, 2)

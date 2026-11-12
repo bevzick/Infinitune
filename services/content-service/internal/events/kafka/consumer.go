@@ -23,9 +23,10 @@ type Consumer struct {
 	logger          *slog.Logger
 	groupID         string
 	deadLetterTopic string
+	metrics         *events.Metrics
 }
 
-func NewConsumer(brokers []string, topic, groupID, deadLetterTopic string, handler Handler, logger *slog.Logger) (*Consumer, error) {
+func NewConsumer(brokers []string, topic, groupID, deadLetterTopic string, handler Handler, logger *slog.Logger, metrics *events.Metrics) (*Consumer, error) {
 	client, err := kgo.NewClient(
 		kgo.SeedBrokers(brokers...), kgo.ConsumeTopics(topic),
 		kgo.ConsumerGroup(groupID), kgo.DisableAutoCommit(),
@@ -34,7 +35,7 @@ func NewConsumer(brokers []string, topic, groupID, deadLetterTopic string, handl
 	if err != nil {
 		return nil, err
 	}
-	return &Consumer{client: client, handler: handler, logger: logger, groupID: groupID, deadLetterTopic: deadLetterTopic}, nil
+	return &Consumer{client: client, handler: handler, logger: logger, groupID: groupID, deadLetterTopic: deadLetterTopic, metrics: metrics}, nil
 }
 
 func (consumer *Consumer) Run(ctx context.Context) {
@@ -44,6 +45,7 @@ func (consumer *Consumer) Run(ctx context.Context) {
 			return
 		}
 		for _, fetchErr := range fetches.Errors() {
+			consumer.metrics.ConsumerOperationFailed()
 			consumer.logger.Error("failed to fetch Kafka event", "topic", fetchErr.Topic, "partition", fetchErr.Partition, "error", fetchErr.Err)
 		}
 		fetches.EachRecord(func(record *kgo.Record) { consumer.process(ctx, record) })
@@ -54,21 +56,27 @@ func (consumer *Consumer) process(ctx context.Context, record *kgo.Record) {
 	for ctx.Err() == nil {
 		err := consumer.handler.Handle(ctx, record.Value)
 		if err == nil {
+			consumer.metrics.ConsumerProcessed(time.Now().UTC())
 			if err = consumer.client.CommitRecords(ctx, record); err != nil {
+				consumer.metrics.ConsumerOperationFailed()
 				consumer.logger.Error("failed to commit Kafka event", "topic", record.Topic, "partition", record.Partition, "offset", record.Offset, "error", err)
 			}
 			return
 		}
+		consumer.metrics.ConsumerHandlerFailed()
 		if errors.Is(err, events.ErrInvalidEvent) {
 			if deadLetterErr := consumer.publishDeadLetter(ctx, record, err); deadLetterErr != nil {
+				consumer.metrics.ConsumerDeadLetterPublishFailed()
 				consumer.logger.Warn("failed to publish invalid event to dead-letter topic", "topic", record.Topic, "partition", record.Partition, "offset", record.Offset, "error", deadLetterErr)
 				if !waitRetry(ctx) {
 					return
 				}
 				continue
 			}
+			consumer.metrics.ConsumerDeadLettered()
 			consumer.logger.Error("routed invalid Kafka event to dead-letter topic", "topic", record.Topic, "partition", record.Partition, "offset", record.Offset, "error", err)
 			if commitErr := consumer.client.CommitRecords(ctx, record); commitErr != nil {
+				consumer.metrics.ConsumerOperationFailed()
 				consumer.logger.Error("failed to commit invalid Kafka event", "topic", record.Topic, "partition", record.Partition, "offset", record.Offset, "error", commitErr)
 			}
 			return

@@ -33,7 +33,7 @@ func TestDispatcherRetriesFailedApprovalEvent(t *testing.T) {
 }
 
 func newTestDispatcher(outbox Outbox, publisher Publisher) *Dispatcher {
-	return NewDispatcher(outbox, publisher, slog.New(slog.NewTextHandler(io.Discard, nil)), time.Second, 10)
+	return NewDispatcher(outbox, publisher, slog.New(slog.NewTextHandler(io.Discard, nil)), time.Second, 10, NewMetrics("test"))
 }
 
 type outboxStub struct {

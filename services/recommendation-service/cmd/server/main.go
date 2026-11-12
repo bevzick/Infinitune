@@ -127,11 +127,12 @@ func main() {
 	}
 	grpcServer := grpc.NewServer()
 	rankingv1.RegisterRankingServiceServer(grpcServer, grpcapi.NewRankingServer(rankingService))
+	eventMetrics := events.NewMetrics("recommendation")
 	server := &http.Server{
-		Addr: cfg.HTTPAddress, Handler: httpapi.NewRouter(httpapi.Dependencies{
+		Addr: cfg.HTTPAddress, Handler: eventMetrics.Wrap(httpapi.NewRouter(httpapi.Dependencies{
 			Database: databasePool, Tokens: tokenVerifier, Recommendations: runService,
 			Origins: cfg.Origins, Logger: logger,
-		}),
+		})),
 		ReadHeaderTimeout: readHeaderTimeout,
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
@@ -141,7 +142,7 @@ func main() {
 		[]string{cfg.Events.HistoryTopic, cfg.Events.HistoryClearedTopic},
 		cfg.Events.HistoryConsumerGroup,
 		cfg.Events.DeadLetterTopic,
-		events.NewHistoryHandler(runRepository), logger,
+		events.NewHistoryHandler(runRepository), logger, eventMetrics,
 	)
 	if err != nil {
 		logger.Error("failed to initialize Kafka consumer", "error", err)
@@ -154,7 +155,7 @@ func main() {
 		[]string{cfg.Events.CatalogPublishedTopic, cfg.Events.CatalogArchivedTopic},
 		cfg.Events.CatalogConsumerGroup,
 		cfg.Events.DeadLetterTopic,
-		events.NewCatalogHandler(runRepository), logger,
+		events.NewCatalogHandler(runRepository), logger, eventMetrics,
 	)
 	if err != nil {
 		logger.Error("failed to initialize Catalog Kafka consumer", "error", err)
@@ -167,7 +168,7 @@ func main() {
 		[]string{cfg.Events.InteractionPreferenceTopic},
 		cfg.Events.InteractionConsumerGroup,
 		cfg.Events.DeadLetterTopic,
-		events.NewInteractionHandler(runRepository), logger,
+		events.NewInteractionHandler(runRepository), logger, eventMetrics,
 	)
 	if err != nil {
 		logger.Error("failed to initialize Interaction Kafka consumer", "error", err)

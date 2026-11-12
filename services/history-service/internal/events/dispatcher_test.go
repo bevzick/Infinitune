@@ -16,10 +16,16 @@ func TestDispatcherMarksPublishedEvents(t *testing.T) {
 
 	message := Message{ID: uuid.New(), Type: ListeningRecordedV1, Attempts: 1}
 	outbox := &outboxStub{messages: []Message{message}}
-	dispatcher := newTestDispatcher(outbox, &publisherStub{})
+	metrics := NewMetrics("test")
+	dispatcher := NewDispatcher(
+		outbox, &publisherStub{}, slog.New(slog.NewTextHandler(io.Discard, nil)), time.Second, 10, metrics,
+	)
 	dispatcher.dispatch(context.Background())
 	if outbox.publishedID != message.ID || outbox.failedID != uuid.Nil {
 		t.Fatalf("published = %s, failed = %s", outbox.publishedID, outbox.failedID)
+	}
+	if metrics.outboxClaimed.Load() != 1 || metrics.outboxPublished.Load() != 1 {
+		t.Fatalf("claimed = %d, published = %d", metrics.outboxClaimed.Load(), metrics.outboxPublished.Load())
 	}
 }
 
@@ -36,11 +42,14 @@ func TestDispatcherReleasesFailedEventsWithBackoff(t *testing.T) {
 		!outbox.retryAt.Equal(now.Add(4*time.Second)) {
 		t.Fatalf("failed = %s, published = %s, retry = %v", outbox.failedID, outbox.publishedID, outbox.retryAt)
 	}
+	if dispatcher.metrics.outboxPublishFailures.Load() != 1 {
+		t.Fatalf("publish failures = %d", dispatcher.metrics.outboxPublishFailures.Load())
+	}
 }
 
 func newTestDispatcher(outbox Outbox, publisher Publisher) *Dispatcher {
 	return NewDispatcher(
-		outbox, publisher, slog.New(slog.NewTextHandler(io.Discard, nil)), time.Second, 10,
+		outbox, publisher, slog.New(slog.NewTextHandler(io.Discard, nil)), time.Second, 10, NewMetrics("test"),
 	)
 }
 

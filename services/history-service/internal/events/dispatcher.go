@@ -18,6 +18,7 @@ type Dispatcher struct {
 	logger    *slog.Logger
 	interval  time.Duration
 	batchSize int
+	metrics   *Metrics
 	now       func() time.Time
 }
 
@@ -27,10 +28,11 @@ func NewDispatcher(
 	logger *slog.Logger,
 	interval time.Duration,
 	batchSize int,
+	metrics *Metrics,
 ) *Dispatcher {
 	return &Dispatcher{
 		outbox: outbox, publisher: publisher, logger: logger,
-		interval: interval, batchSize: batchSize, now: time.Now,
+		interval: interval, batchSize: batchSize, metrics: metrics, now: time.Now,
 	}
 }
 
@@ -52,21 +54,29 @@ func (dispatcher *Dispatcher) dispatch(ctx context.Context) {
 	now := dispatcher.now().UTC()
 	messages, err := dispatcher.outbox.Claim(ctx, dispatcher.batchSize, now.Add(claimLease))
 	if err != nil {
+		dispatcher.metrics.OutboxOperationFailed()
 		dispatcher.logger.Error("failed to claim outbox events", "error", err)
 		return
 	}
+	dispatcher.metrics.OutboxClaimed(len(messages))
 	for _, message := range messages {
 		if err = dispatcher.publisher.Publish(ctx, message); err != nil {
+			dispatcher.metrics.OutboxPublishFailed()
 			retryAt := now.Add(retryDelay(message.Attempts))
 			if markErr := dispatcher.outbox.MarkFailed(ctx, message.ID, err.Error(), retryAt); markErr != nil {
+				dispatcher.metrics.OutboxOperationFailed()
 				dispatcher.logger.Error("failed to release outbox event", "event_id", message.ID, "error", markErr)
 			}
 			dispatcher.logger.Warn("failed to publish outbox event", "event_id", message.ID, "event_type", message.Type, "error", err)
 			continue
 		}
-		if err = dispatcher.outbox.MarkPublished(ctx, message.ID, dispatcher.now().UTC()); err != nil {
+		publishedAt := dispatcher.now().UTC()
+		if err = dispatcher.outbox.MarkPublished(ctx, message.ID, publishedAt); err != nil {
+			dispatcher.metrics.OutboxOperationFailed()
 			dispatcher.logger.Error("failed to mark outbox event published", "event_id", message.ID, "error", err)
+			continue
 		}
+		dispatcher.metrics.OutboxPublished(publishedAt)
 	}
 }
 

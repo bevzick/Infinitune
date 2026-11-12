@@ -98,12 +98,13 @@ func main() {
 		commentlookup.NewValidator(commentv1.NewCommentServiceClient(commentConnection)),
 	)
 
+	eventMetrics := events.NewMetrics("interaction")
 	server := &http.Server{
 		Addr: cfg.HTTPAddress,
-		Handler: httpapi.NewRouter(httpapi.Dependencies{
+		Handler: eventMetrics.Wrap(httpapi.NewRouter(httpapi.Dependencies{
 			Database: databasePool, Tokens: tokenVerifier, Likes: likes, Follows: likes,
 			Origins: cfg.Origins, Logger: logger,
-		}),
+		})),
 		ReadHeaderTimeout: readHeaderTimeout,
 	}
 	grpcListener, err := net.Listen("tcp", cfg.GRPCAddress)
@@ -117,7 +118,7 @@ func main() {
 	defer stop()
 	dispatcher := events.NewDispatcher(
 		postgres_repository.NewOutboxRepository(databasePool), producer, logger,
-		cfg.Events.OutboxInterval, cfg.Events.OutboxBatch,
+		cfg.Events.OutboxInterval, cfg.Events.OutboxBatch, eventMetrics,
 	)
 	go dispatcher.Run(ctx)
 	serverErrors := make(chan error, 2)
