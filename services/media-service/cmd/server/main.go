@@ -18,6 +18,8 @@ import (
 	"github.com/bevzick/Infinitune/services/media-service/internal/config"
 	content_client "github.com/bevzick/Infinitune/services/media-service/internal/content"
 	"github.com/bevzick/Infinitune/services/media-service/internal/database"
+	"github.com/bevzick/Infinitune/services/media-service/internal/events"
+	event_kafka "github.com/bevzick/Infinitune/services/media-service/internal/events/kafka"
 	"github.com/bevzick/Infinitune/services/media-service/internal/grpcapi"
 	"github.com/bevzick/Infinitune/services/media-service/internal/httpapi"
 	"github.com/bevzick/Infinitune/services/media-service/internal/identity"
@@ -87,7 +89,13 @@ func main() {
 		os.Exit(1)
 	}
 	defer contentConnection.Close()
-	mediaRepository := postgres_repository.NewMediaRepository(databasePool)
+	producer, err := event_kafka.NewProducer(cfg.Events.Brokers)
+	if err != nil {
+		logger.Error("failed to initialize Kafka producer", "error", err)
+		os.Exit(1)
+	}
+	defer producer.Close()
+	mediaRepository := postgres_repository.NewMediaRepository(databasePool, cfg.Events.AssetReadyTopic)
 	contentClient := content_client.NewClient(contentv1.NewContentServiceClient(contentConnection))
 	metadataService := media.NewService(mediaRepository, contentClient)
 	ingestService := ingest.NewService(
@@ -131,6 +139,11 @@ func main() {
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+	dispatcher := events.NewDispatcher(
+		postgres_repository.NewOutboxRepository(databasePool), producer, logger,
+		cfg.Events.OutboxInterval, cfg.Events.OutboxBatch,
+	)
+	go dispatcher.Run(ctx)
 	workerStopped := make(chan struct{})
 	go func() {
 		logger.Info("media processing worker started")

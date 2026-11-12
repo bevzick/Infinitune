@@ -51,19 +51,34 @@ Like/unlike/follow -----> Interaction service
                                                 v
                                    Recommendation consumer
                                    (invalidates that user's stale runs)
+
+Audio processing -----> Media service
+                              |
+                              | same PostgreSQL transaction
+                              +--> media asset status = ready
+                              +--> media.event_outbox
+                                           |
+                                           v
+                              media.asset.ready.v1
+                              Kafka, key = media_asset_id
+                                           |
+                                           v
+                              Future Content consumer
 ```
 
 ## Delivery contract
 
 - Implemented events are `history.listening.recorded.v1` and
   `history.listening.cleared.v1`, `catalog.release.published.v1`,
-  `catalog.release.archived.v1`, and `interaction.preference.changed.v1`.
+  `catalog.release.archived.v1`, `interaction.preference.changed.v1`, and
+  `media.asset.ready.v1`.
 - Recording/deleting history and creating the corresponding outbox row happen atomically in
   History PostgreSQL.
 - Delivery is **at least once**. A crash after Kafka accepts an event but before the outbox row
   is marked published can produce a duplicate.
 - `id` is the stable idempotency key. Every consumer must deduplicate it or make handling idempotent.
-- Kafka records are partitioned by `user_id`, so one user's events reach the same partition.
+- History and Interaction records are partitioned by `user_id`; Media readiness is partitioned by
+  `media_asset_id`, so changes for the same aggregate reach the same partition.
   Consumers must still tolerate duplicates and late events because retries can change arrival order.
 - Event schemas are versioned in the event type. Breaking changes require a new version/topic.
 - Kafka being unavailable does not reject a valid listening event; the outbox dispatcher retries.
@@ -85,12 +100,15 @@ Like/unlike/follow -----> Interaction service
 - Track and album likes and artist follows emit a preference event only when the stored state
   actually changes. Comment likes are excluded. The preference mutation and its outbox row are
   atomic, and Recommendation expires only that user's runs older than `occurred_at`.
+- Media publishes readiness only after variant metadata and the asset's `ready` status have been
+  committed with the outbox row. The payload identifies the source upload, Content/Catalog track,
+  duration, and generated audio profiles without exposing storage object keys.
 
 ## Suitable next integrations
 
 | Producer | Event | Consumers | Purpose |
 |---|---|---|---|
-| Media | `media.asset.ready.v1` | Content, Catalog | Complete publishing without polling |
+| Media readiness consumer | `media.asset.ready.v1` | Content | Maintain readiness projection without polling |
 | Content | `content.release.approved.v1` | Catalog, Media | Start controlled publication workflow |
 
 Commands and permission checks remain synchronous. Kafka should not replace Catalog validation,
@@ -100,5 +118,5 @@ The Compose broker is a single-node development setup with plaintext traffic. Pr
 multiple brokers, replication, TLS/SASL, monitoring, quotas, and an explicit retention/privacy policy.
 
 Start the full local stack with `make up`. The Makefile includes `compose.kafka.yml`; the
-`kafka-init` service creates the History, Catalog, and Interaction topics idempotently before
-producers start.
+`kafka-init` service creates the History, Catalog, Interaction, and Media topics idempotently
+before producers start.

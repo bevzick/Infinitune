@@ -144,6 +144,13 @@ func TestMediaRepositoryProcessesQueuedAudioVariants(t *testing.T) {
 	if err = repository.CompleteProcessing(ctx, job, 1000, variants); err != nil {
 		t.Fatalf("CompleteProcessing() error = %v", err)
 	}
+	var readyEvents int
+	if err = pool.QueryRow(ctx, `
+		SELECT count(*) FROM media.event_outbox
+		WHERE aggregate_id=$1 AND event_type='media.asset.ready.v1'
+	`, assetID).Scan(&readyEvents); err != nil || readyEvents != 1 {
+		t.Fatalf("ready outbox events = %d, %v", readyEvents, err)
+	}
 	asset, err := repository.AssetByID(ctx, assetID)
 	if err != nil || asset.Status != media.StatusReady || asset.DurationMS == nil ||
 		*asset.DurationMS != 1000 || len(asset.Variants) != 2 {
@@ -256,6 +263,10 @@ func environmentOrDefault(key, fallback string) string {
 
 func removeMediaAsset(t *testing.T, pool *pgxpool.Pool, assetID uuid.UUID) {
 	t.Helper()
+	if _, err := pool.Exec(context.Background(),
+		`DELETE FROM media.event_outbox WHERE aggregate_id = $1`, assetID); err != nil {
+		t.Errorf("delete media outbox events: %v", err)
+	}
 	if _, err := pool.Exec(context.Background(),
 		`DELETE FROM media.processing_jobs WHERE media_asset_id = $1`, assetID); err != nil {
 		t.Errorf("delete processing jobs: %v", err)
