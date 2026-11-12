@@ -5,6 +5,7 @@
 @use "library";
 @use "account";
 @use "interactions";
+@use "feedback";
 
 html {
   background: var(--app-bg);

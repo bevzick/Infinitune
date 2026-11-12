@@ -3,6 +3,7 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import {
   AlbumGrid,
   ArtistGrid,
+  CatalogLoading,
   TrackList,
 } from "../features/catalog/CatalogViews";
 import type { Album, Artist, Track } from "../features/catalog/catalogApi";
@@ -456,12 +457,7 @@ function LibraryPagination({
 }
 
 export function LibraryLoading() {
-  return (
-    <div className="catalog-state" aria-live="polite">
-      <span className="loading-pulse" aria-hidden="true" />
-      Loading your library…
-    </div>
-  );
+  return <CatalogLoading label="your library" />;
 }
 
 export function LibraryError({

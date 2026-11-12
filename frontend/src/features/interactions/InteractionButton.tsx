@@ -1,6 +1,7 @@
 import { useState } from "react";
 
 import { Icon } from "../../shared/ui/Icon";
+import { useFeedback } from "../feedback/FeedbackContext";
 import { useInteractions } from "./InteractionContext";
 import type { InteractionKind } from "./interactionApi";
 
@@ -16,6 +17,7 @@ export function InteractionButton({
   compact?: boolean;
 }) {
   const interactions = useInteractions();
+  const feedback = useFeedback();
   const [error, setError] = useState(false);
   if (!interactions?.available) return null;
 
@@ -33,7 +35,18 @@ export function InteractionButton({
       title={error ? "Could not update your library. Try again." : action}
       onClick={() => {
         setError(false);
-        void interactions.toggle(kind, id).catch(() => setError(true));
+        void interactions
+          .toggle(kind, id)
+          .then(() =>
+            feedback?.notify(successMessage(kind, label, !active), "success"),
+          )
+          .catch(() => {
+            setError(true);
+            feedback?.notify(
+              `Could not update ${label}. Please try again.`,
+              "error",
+            );
+          });
       }}
     >
       <Icon
@@ -51,6 +64,13 @@ export function InteractionButton({
       ) : null}
     </button>
   );
+}
+
+function successMessage(kind: InteractionKind, label: string, active: boolean) {
+  if (kind === "artist")
+    return `${active ? "Following" : "Unfollowed"} ${label}.`;
+  if (kind === "album") return `${active ? "Saved" : "Removed"} ${label}.`;
+  return `${active ? "Liked" : "Unliked"} ${label}.`;
 }
 
 function addLabel(kind: InteractionKind) {

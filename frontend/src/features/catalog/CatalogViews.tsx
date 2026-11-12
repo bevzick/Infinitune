@@ -108,9 +108,20 @@ export function ArtistGrid({ artists }: { artists: Artist[] }) {
 
 export function CatalogLoading({ label }: { label: string }) {
   return (
-    <div className="catalog-state" aria-live="polite">
-      <span className="loading-pulse" aria-hidden="true" />
-      Loading {label}…
+    <div className="catalog-loading" aria-live="polite" aria-busy="true">
+      <div className="catalog-loading-label">
+        <span className="loading-pulse" aria-hidden="true" />
+        Loading {label}…
+      </div>
+      <div className="catalog-skeleton" aria-hidden="true">
+        {[0, 1, 2].map((index) => (
+          <span className="catalog-skeleton-row" key={index}>
+            <i />
+            <b />
+            <em />
+          </span>
+        ))}
+      </div>
     </div>
   );
 }
