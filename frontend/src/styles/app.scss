@@ -1,6 +1,7 @@
 @use "tokens";
 @use "mixins" as *;
 @use "details";
+@use "discovery";
 
 html {
   background: var(--app-bg);
