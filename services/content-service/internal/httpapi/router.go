@@ -29,6 +29,7 @@ type CreatorAccounts interface {
 	Update(context.Context, uuid.UUID, uuid.UUID, creator.UpdateInput) (creator.Account, error)
 	SubmitVerification(context.Context, uuid.UUID, uuid.UUID) (creator.Account, error)
 	ReviewVerification(context.Context, creator.Actor, uuid.UUID, creator.VerificationStatus) (creator.Account, error)
+	ListVerification(context.Context, creator.Actor, creator.VerificationPageRequest) (creator.VerificationPage, error)
 }
 type CreatorMembers interface {
 	List(context.Context, uuid.UUID, uuid.UUID) ([]creator.Member, error)
@@ -108,6 +109,7 @@ func NewRouter(dependencies Dependencies) http.Handler {
 	content.POST("/releases/:release_id/moderation-reviews", reviewRelease(dependencies.Moderation, dependencies.Logger))
 	content.POST("/releases/:release_id/publications", publishRelease(dependencies.Publications, dependencies.Logger))
 	content.GET("/moderation/releases", listReleaseModerationQueue(dependencies.Releases, dependencies.Logger))
+	content.GET("/moderation/creators", listCreatorVerificationQueue(dependencies.Creators, dependencies.Logger))
 	return router
 }
 

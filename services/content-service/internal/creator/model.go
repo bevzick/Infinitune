@@ -73,6 +73,19 @@ type Account struct {
 	UpdatedAt          time.Time
 }
 
+type VerificationPageRequest struct {
+	Status *VerificationStatus
+	Limit  int
+	Offset int
+}
+
+type VerificationPage struct {
+	Items  []Account
+	Limit  int
+	Offset int
+	Total  int64
+}
+
 type Member struct {
 	CreatorID uuid.UUID
 	UserID    uuid.UUID

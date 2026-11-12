@@ -280,16 +280,60 @@ func TestServiceRequiresVerifiedAccountForProtectedActions(t *testing.T) {
 	}
 }
 
+func TestServiceListsVerificationQueueForModerator(t *testing.T) {
+	moderatorID := uuid.New()
+	store := &storeStub{verificationPage: VerificationPage{
+		Items: []Account{{ID: uuid.New(), VerificationStatus: VerificationPending}},
+		Total: 1,
+	}}
+	page, err := NewService(store).ListVerification(context.Background(), Actor{
+		UserID: moderatorID, Roles: []string{GlobalRoleModerator},
+	}, VerificationPageRequest{Limit: 25, Offset: 5})
+	if err != nil || page.Total != 1 || store.reviewerID != moderatorID ||
+		store.verificationRequest.Limit != 25 || store.verificationRequest.Offset != 5 ||
+		store.verificationRequest.Status == nil ||
+		*store.verificationRequest.Status != VerificationPending {
+		t.Fatalf("ListVerification() = %+v, %v; store = %+v", page, err, store)
+	}
+}
+
+func TestServiceRejectsUnauthorizedOrInvalidVerificationQueue(t *testing.T) {
+	service := NewService(&storeStub{})
+	if _, err := service.ListVerification(context.Background(), Actor{
+		UserID: uuid.New(), Roles: []string{"listener"},
+	}, VerificationPageRequest{}); !errors.Is(err, ErrForbidden) {
+		t.Fatalf("ListVerification(listener) error = %v", err)
+	}
+	unverified := VerificationUnverified
+	if _, err := service.ListVerification(context.Background(), Actor{
+		UserID: uuid.New(), Roles: []string{GlobalRoleAdmin},
+	}, VerificationPageRequest{Status: &unverified}); !errors.Is(err, ErrInvalid) {
+		t.Fatalf("ListVerification(unverified) error = %v", err)
+	}
+}
+
 type storeStub struct {
-	account            Account
-	accounts           []Account
-	member             Member
-	createdOwner       Member
-	expectedUpdatedAt  time.Time
-	transitionExpected VerificationStatus
-	transitionTarget   VerificationStatus
-	createCalls        int
-	updateCalls        int
+	account             Account
+	accounts            []Account
+	member              Member
+	createdOwner        Member
+	expectedUpdatedAt   time.Time
+	transitionExpected  VerificationStatus
+	transitionTarget    VerificationStatus
+	verificationPage    VerificationPage
+	verificationRequest VerificationPageRequest
+	reviewerID          uuid.UUID
+	createCalls         int
+	updateCalls         int
+}
+
+func (store *storeStub) ListVerification(
+	_ context.Context,
+	reviewerID uuid.UUID,
+	request VerificationPageRequest,
+) (VerificationPage, error) {
+	store.reviewerID, store.verificationRequest = reviewerID, request
+	return store.verificationPage, nil
 }
 
 func (store *storeStub) ListForUser(context.Context, uuid.UUID) ([]Account, error) {

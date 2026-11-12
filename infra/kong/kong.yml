@@ -200,7 +200,7 @@ services:
     routes:
       - name: content-options
         paths:
-          - ~/v1/(?:creators|releases|release-tracks|track-rights|moderation/releases)(?:/|$)
+          - ~/v1/(?:creators|releases|release-tracks|track-rights|moderation/(?:releases|creators))(?:/|$)
         methods:
           - OPTIONS
         regex_priority: 110
@@ -208,7 +208,7 @@ services:
 
       - name: content-protected
         paths:
-          - ~/v1/(?:creators|releases|release-tracks|track-rights|moderation/releases)(?:/|$)
+          - ~/v1/(?:creators|releases|release-tracks|track-rights|moderation/(?:releases|creators))(?:/|$)
         methods:
           - GET
           - POST

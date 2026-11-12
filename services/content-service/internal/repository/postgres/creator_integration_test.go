@@ -80,13 +80,14 @@ func TestCreatorRepositoryUpdatesAndTransitionsWithConcurrencyChecks(t *testing.
 	repository := NewCreatorRepository(pool)
 	ctx := context.Background()
 	accountID := uuid.New()
+	ownerID := uuid.New()
 	t.Cleanup(func() { cleanupCreatorAccount(t, pool, accountID) })
 
 	created, err := repository.Create(ctx, creator.Account{
 		ID: accountID, Type: creator.TypeDistributor, DisplayName: "Original Distributor",
 		VerificationStatus: creator.VerificationUnverified,
 	}, creator.Member{
-		CreatorID: accountID, UserID: uuid.New(), Role: creator.RoleOwner,
+		CreatorID: accountID, UserID: ownerID, Role: creator.RoleOwner,
 	})
 	if err != nil {
 		t.Fatalf("Create() error = %v", err)
@@ -113,6 +114,19 @@ func TestCreatorRepositoryUpdatesAndTransitionsWithConcurrencyChecks(t *testing.
 	}
 	if pending.VerificationStatus != creator.VerificationPending {
 		t.Fatalf("TransitionVerification() = %+v", pending)
+	}
+	queueStatus := creator.VerificationPending
+	queue, err := repository.ListVerification(ctx, uuid.New(), creator.VerificationPageRequest{
+		Status: &queueStatus, Limit: 10,
+	})
+	if err != nil || queue.Total != 1 || len(queue.Items) != 1 || queue.Items[0].ID != accountID {
+		t.Fatalf("ListVerification() = %+v, %v", queue, err)
+	}
+	selfQueue, err := repository.ListVerification(ctx, ownerID, creator.VerificationPageRequest{
+		Status: &queueStatus, Limit: 10,
+	})
+	if err != nil || selfQueue.Total != 0 || len(selfQueue.Items) != 0 {
+		t.Fatalf("ListVerification(owner) = %+v, %v", selfQueue, err)
 	}
 	if _, err = repository.TransitionVerification(
 		ctx, accountID, creator.VerificationUnverified, creator.VerificationVerified,
