@@ -128,6 +128,13 @@ Moderator approval -----> Content service
 - Catalog consumes retained approval events into an idempotent projection. A new release cannot be
   published through gRPC until its approval has been observed; an already-published release remains
   idempotently readable even if it predates the projection.
+- Consumers send malformed or unsupported events to `platform.events.dead-letter.v1`, preserving
+  the original key, value, and headers and appending source topic/partition/offset, consumer group,
+  failure reason, and failure time. The source offset is committed only after Kafka accepts the
+  dead-letter record; a failed dead-letter write is retried without dropping the source event.
+- Transient handler failures remain on the source partition and are retried rather than sent to the
+  dead-letter topic. The development dead-letter topic retains records for 30 days so operators can
+  diagnose and explicitly replay corrected events.
 
 Commands and permission checks remain synchronous. Kafka should not replace Catalog validation,
 authentication, playback authorization, or user-facing writes that require an immediate response.
@@ -136,5 +143,5 @@ The Compose broker is a single-node development setup with plaintext traffic. Pr
 multiple brokers, replication, TLS/SASL, monitoring, quotas, and an explicit retention/privacy policy.
 
 Start the full local stack with `make up`. The Makefile includes `compose.kafka.yml`; the
-`kafka-init` service creates all implemented History, Catalog, Interaction, Media, and Content
-topics idempotently before producers start.
+`kafka-init` service creates all implemented History, Catalog, Interaction, Media, Content, and
+dead-letter topics idempotently before producers start.

@@ -91,6 +91,7 @@ func main() {
 	defer stop()
 	approvalConsumer, err := event_kafka.NewConsumer(
 		cfg.Events.Brokers, cfg.Events.ContentApprovedTopic, cfg.Events.ContentConsumerGroup,
+		cfg.Events.DeadLetterTopic,
 		events.NewContentApprovalHandler(
 			postgres_repository.NewContentApprovalRepository(databasePool),
 		), logger,

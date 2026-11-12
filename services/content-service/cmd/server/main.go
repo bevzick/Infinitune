@@ -169,6 +169,7 @@ func main() {
 	go dispatcher.Run(ctx)
 	mediaConsumer, err := event_kafka.NewConsumer(
 		cfg.Events.Brokers, cfg.Events.MediaReadyTopic, cfg.Events.MediaConsumerGroup,
+		cfg.Events.DeadLetterTopic,
 		events.NewMediaHandler(mediaReadiness), logger,
 	)
 	if err != nil {

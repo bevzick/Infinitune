@@ -27,6 +27,7 @@ const (
 	defaultJWTKeyID                   = "auth-key-1"
 	defaultJWKSRefresh                = 5 * time.Minute
 	defaultKafkaBrokers               = "127.0.0.1:9092"
+	defaultDeadLetterTopic            = "platform.events.dead-letter.v1"
 	defaultHistoryTopic               = "history.listening.recorded.v1"
 	defaultHistoryClearedTopic        = "history.listening.cleared.v1"
 	defaultHistoryConsumerGroup       = "recommendation-history-v1"
@@ -39,6 +40,7 @@ const (
 
 type EventsConfig struct {
 	Brokers                    []string
+	DeadLetterTopic            string
 	HistoryTopic               string
 	HistoryClearedTopic        string
 	HistoryConsumerGroup       string
@@ -169,13 +171,16 @@ func loadEventsConfig() (EventsConfig, error) {
 	interactionGroup := strings.TrimSpace(envOrDefault(
 		"KAFKA_RECOMMENDATION_INTERACTION_GROUP", defaultInteractionConsumerGroup,
 	))
+	deadLetterTopic := strings.TrimSpace(envOrDefault(
+		"KAFKA_DEAD_LETTER_TOPIC", defaultDeadLetterTopic,
+	))
 	if topic == "" || clearedTopic == "" || historyGroup == "" ||
 		publishedTopic == "" || archivedTopic == "" || catalogGroup == "" ||
-		interactionTopic == "" || interactionGroup == "" {
+		interactionTopic == "" || interactionGroup == "" || deadLetterTopic == "" {
 		return EventsConfig{}, fmt.Errorf("Kafka topics and consumer group must not be blank")
 	}
 	return EventsConfig{
-		Brokers: brokers, HistoryTopic: topic,
+		Brokers: brokers, DeadLetterTopic: deadLetterTopic, HistoryTopic: topic,
 		HistoryClearedTopic: clearedTopic, HistoryConsumerGroup: historyGroup,
 		CatalogPublishedTopic: publishedTopic, CatalogArchivedTopic: archivedTopic,
 		CatalogConsumerGroup:       catalogGroup,

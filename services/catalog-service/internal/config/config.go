@@ -24,6 +24,7 @@ const (
 	defaultArchivedTopic        = "catalog.release.archived.v1"
 	defaultContentApprovedTopic = "content.release.approved.v1"
 	defaultContentConsumerGroup = "catalog-content-v1"
+	defaultDeadLetterTopic      = "platform.events.dead-letter.v1"
 	defaultOutboxPoll           = time.Second
 	defaultOutboxBatch          = 100
 )
@@ -34,6 +35,7 @@ type EventsConfig struct {
 	ArchivedTopic        string
 	ContentApprovedTopic string
 	ContentConsumerGroup string
+	DeadLetterTopic      string
 	OutboxInterval       time.Duration
 	OutboxBatch          int
 }
@@ -103,7 +105,10 @@ func loadEventsConfig() (EventsConfig, error) {
 	contentGroup := strings.TrimSpace(envOrDefault(
 		"KAFKA_CATALOG_CONTENT_GROUP", defaultContentConsumerGroup,
 	))
-	if publishedTopic == "" || archivedTopic == "" || approvedTopic == "" || contentGroup == "" {
+	deadLetterTopic := strings.TrimSpace(envOrDefault(
+		"KAFKA_DEAD_LETTER_TOPIC", defaultDeadLetterTopic,
+	))
+	if publishedTopic == "" || archivedTopic == "" || approvedTopic == "" || contentGroup == "" || deadLetterTopic == "" {
 		return EventsConfig{}, fmt.Errorf("Kafka Catalog topics must not be blank")
 	}
 	interval := defaultOutboxPoll
@@ -125,7 +130,8 @@ func loadEventsConfig() (EventsConfig, error) {
 	return EventsConfig{
 		Brokers: brokers, PublishedTopic: publishedTopic, ArchivedTopic: archivedTopic,
 		ContentApprovedTopic: approvedTopic, ContentConsumerGroup: contentGroup,
-		OutboxInterval: interval, OutboxBatch: batch,
+		DeadLetterTopic: deadLetterTopic,
+		OutboxInterval:  interval, OutboxBatch: batch,
 	}, nil
 }
 

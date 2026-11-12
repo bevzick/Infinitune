@@ -22,6 +22,7 @@ func TestLoadUsesCatalogDatabase(t *testing.T) {
 	t.Setenv("KAFKA_CATALOG_ARCHIVED_TOPIC", "catalog-archived")
 	t.Setenv("KAFKA_CONTENT_RELEASE_APPROVED_TOPIC", "content-approved")
 	t.Setenv("KAFKA_CATALOG_CONTENT_GROUP", "catalog-content-test")
+	t.Setenv("KAFKA_DEAD_LETTER_TOPIC", "events-dlq-test")
 	t.Setenv("CATALOG_OUTBOX_POLL_INTERVAL", "250ms")
 	t.Setenv("CATALOG_OUTBOX_BATCH_SIZE", "25")
 
@@ -47,6 +48,7 @@ func TestLoadUsesCatalogDatabase(t *testing.T) {
 		config.Events.ArchivedTopic != "catalog-archived" ||
 		config.Events.ContentApprovedTopic != "content-approved" ||
 		config.Events.ContentConsumerGroup != "catalog-content-test" ||
+		config.Events.DeadLetterTopic != "events-dlq-test" ||
 		config.Events.OutboxInterval != 250*time.Millisecond || config.Events.OutboxBatch != 25 {
 		t.Errorf("Events = %+v", config.Events)
 	}

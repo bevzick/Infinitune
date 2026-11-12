@@ -37,6 +37,7 @@ const (
 	defaultReleaseApprovedTopic = "content.release.approved.v1"
 	defaultOutboxPoll           = time.Second
 	defaultOutboxBatch          = 100
+	defaultDeadLetterTopic      = "platform.events.dead-letter.v1"
 )
 
 type EventsConfig struct {
@@ -46,6 +47,7 @@ type EventsConfig struct {
 	ReleaseApprovedTopic string
 	OutboxInterval       time.Duration
 	OutboxBatch          int
+	DeadLetterTopic      string
 }
 
 type Config struct {
@@ -128,7 +130,8 @@ func loadEventsConfig() (EventsConfig, error) {
 	topic := strings.TrimSpace(envOrDefault("KAFKA_MEDIA_ASSET_READY_TOPIC", defaultMediaReadyTopic))
 	group := strings.TrimSpace(envOrDefault("KAFKA_CONTENT_MEDIA_GROUP", defaultMediaConsumerGroup))
 	approvedTopic := strings.TrimSpace(envOrDefault("KAFKA_CONTENT_RELEASE_APPROVED_TOPIC", defaultReleaseApprovedTopic))
-	if topic == "" || group == "" || approvedTopic == "" {
+	deadLetterTopic := strings.TrimSpace(envOrDefault("KAFKA_DEAD_LETTER_TOPIC", defaultDeadLetterTopic))
+	if topic == "" || group == "" || approvedTopic == "" || deadLetterTopic == "" {
 		return EventsConfig{}, fmt.Errorf("Kafka topics and consumer groups must not be blank")
 	}
 	interval := defaultOutboxPoll
@@ -150,6 +153,7 @@ func loadEventsConfig() (EventsConfig, error) {
 	return EventsConfig{
 		Brokers: brokers, MediaReadyTopic: topic, MediaConsumerGroup: group,
 		ReleaseApprovedTopic: approvedTopic, OutboxInterval: interval, OutboxBatch: batch,
+		DeadLetterTopic: deadLetterTopic,
 	}, nil
 }
 

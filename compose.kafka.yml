@@ -42,6 +42,7 @@ services:
       KAFKA_INTERACTION_PREFERENCE_TOPIC: ${KAFKA_INTERACTION_PREFERENCE_TOPIC:-interaction.preference.changed.v1}
       KAFKA_MEDIA_ASSET_READY_TOPIC: ${KAFKA_MEDIA_ASSET_READY_TOPIC:-media.asset.ready.v1}
       KAFKA_CONTENT_RELEASE_APPROVED_TOPIC: ${KAFKA_CONTENT_RELEASE_APPROVED_TOPIC:-content.release.approved.v1}
+      KAFKA_DEAD_LETTER_TOPIC: ${KAFKA_DEAD_LETTER_TOPIC:-platform.events.dead-letter.v1}
     entrypoint:
       - /bin/bash
       - -ec
@@ -56,6 +57,16 @@ services:
           --replication-factor 1 \
           --config cleanup.policy=delete \
           --config retention.ms=604800000
+
+        /opt/kafka/bin/kafka-topics.sh \
+          --bootstrap-server kafka:9092 \
+          --create \
+          --if-not-exists \
+          --topic "$$KAFKA_DEAD_LETTER_TOPIC" \
+          --partitions 3 \
+          --replication-factor 1 \
+          --config cleanup.policy=delete \
+          --config retention.ms=2592000000
 
         /opt/kafka/bin/kafka-topics.sh \
           --bootstrap-server kafka:9092 \

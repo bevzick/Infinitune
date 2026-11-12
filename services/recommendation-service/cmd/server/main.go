@@ -140,6 +140,7 @@ func main() {
 		cfg.Events.Brokers,
 		[]string{cfg.Events.HistoryTopic, cfg.Events.HistoryClearedTopic},
 		cfg.Events.HistoryConsumerGroup,
+		cfg.Events.DeadLetterTopic,
 		events.NewHistoryHandler(runRepository), logger,
 	)
 	if err != nil {
@@ -152,6 +153,7 @@ func main() {
 		cfg.Events.Brokers,
 		[]string{cfg.Events.CatalogPublishedTopic, cfg.Events.CatalogArchivedTopic},
 		cfg.Events.CatalogConsumerGroup,
+		cfg.Events.DeadLetterTopic,
 		events.NewCatalogHandler(runRepository), logger,
 	)
 	if err != nil {
@@ -164,6 +166,7 @@ func main() {
 		cfg.Events.Brokers,
 		[]string{cfg.Events.InteractionPreferenceTopic},
 		cfg.Events.InteractionConsumerGroup,
+		cfg.Events.DeadLetterTopic,
 		events.NewInteractionHandler(runRepository), logger,
 	)
 	if err != nil {
