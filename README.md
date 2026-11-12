@@ -54,3 +54,7 @@ COMPOSE_PROJECT_NAME=infinitune-system-smoke \
 COMPOSE_OVERRIDE='-f compose.system-test.yml' \
 make down-volumes
 ```
+
+The same isolated journey runs in GitHub Actions when one of the participating
+services, Kong routes, or Compose definitions changes. Failed runs print only
+the relevant service logs before removing all containers and volumes.
