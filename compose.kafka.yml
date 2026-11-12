@@ -130,5 +130,21 @@ services:
     networks:
       - backend
 
+  kafka-replay:
+    build:
+      context: ./tools/kafka-replay
+      dockerfile: Dockerfile
+    profiles: ["tools"]
+    depends_on:
+      kafka:
+        condition: service_healthy
+    environment:
+      KAFKA_BROKERS: ${KAFKA_BROKERS:-kafka:9092}
+      KAFKA_DEAD_LETTER_TOPIC: ${KAFKA_DEAD_LETTER_TOPIC:-platform.events.dead-letter.v1}
+      KAFKA_REPLAY_GROUP: ${KAFKA_REPLAY_GROUP:-}
+      KAFKA_REPLAY_MAX_EVENTS: ${KAFKA_REPLAY_MAX_EVENTS:-100}
+    networks:
+      - backend
+
 volumes:
   kafka_data:

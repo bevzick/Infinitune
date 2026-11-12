@@ -155,6 +155,36 @@ The local Compose stack runs Prometheus at `http://127.0.0.1:9091` by default, s
 Kafka-enabled services every 15 seconds, retains samples for 15 days, and loads warning/critical
 rules for outbox, consumer, and dead-letter failures. Override the host port with `PROMETHEUS_PORT`.
 
+## Dead-letter replay
+
+The `kafka-replay` tool restores the original topic, partition, key, payload, and headers from a
+dead-letter record. It requires an explicit destination allowlist and runs in preview mode unless
+`--execute` is present. Preview mode starts at the beginning of the retained dead-letter topic and
+does not commit offsets:
+
+```bash
+docker compose -f compose.yml -f compose.kafka.yml --profile tools run --rm --build kafka-replay \
+  --original-topics history.listening.recorded.v1 \
+  --max-events 20
+```
+
+After correcting the event source or deploying compatible consumer code, execute the reviewed
+batch with a unique, auditable consumer group:
+
+```bash
+docker compose -f compose.yml -f compose.kafka.yml --profile tools run --rm --build kafka-replay \
+  --original-topics history.listening.recorded.v1 \
+  --consumer-group dlq-replay-20261112-01 \
+  --max-events 20 \
+  --execute
+```
+
+Execution stops before publishing a record whose original topic is not allowlisted or whose DLQ
+metadata is malformed. The DLQ offset is committed only after the restored record is acknowledged
+by Kafka. Delivery is therefore at least once: a process failure after publication but before the
+offset commit can replay the same record again. Reusing the same consumer group resumes after the
+last committed record; use a new group only when intentionally replaying the retained batch again.
+
 Start the full local stack with `make up`. The Makefile includes `compose.kafka.yml`; the
 `kafka-init` service creates all implemented History, Catalog, Interaction, Media, Content, and
 dead-letter topics idempotently before producers start.
