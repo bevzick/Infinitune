@@ -11,6 +11,8 @@ services:
         condition: service_healthy
       catalog-service:
         condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
     environment:
       HISTORY_HTTP_HOST: 0.0.0.0
       HISTORY_HTTP_PORT: 8080
@@ -28,6 +30,11 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER is required}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
       POSTGRES_HISTORY_DB: ${POSTGRES_HISTORY_DB:-history_db}
+      KAFKA_BROKERS: ${KAFKA_BROKERS:-kafka:9092}
+      KAFKA_HISTORY_TOPIC: ${KAFKA_HISTORY_TOPIC:-history.listening.recorded.v1}
+      KAFKA_HISTORY_CLEARED_TOPIC: ${KAFKA_HISTORY_CLEARED_TOPIC:-history.listening.cleared.v1}
+      HISTORY_OUTBOX_POLL_INTERVAL: ${HISTORY_OUTBOX_POLL_INTERVAL:-1s}
+      HISTORY_OUTBOX_BATCH_SIZE: ${HISTORY_OUTBOX_BATCH_SIZE:-100}
     expose:
       - "8080"
       - "9090"

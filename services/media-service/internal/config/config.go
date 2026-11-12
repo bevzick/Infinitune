@@ -15,22 +15,33 @@ import (
 )
 
 const (
-	defaultHTTPHost       = "0.0.0.0"
-	defaultHTTPPort       = "8080"
-	defaultGRPCHost       = "0.0.0.0"
-	defaultGRPCPort       = "9090"
-	defaultContentHost    = "127.0.0.1"
-	defaultContentPort    = "9090"
-	defaultPostgresHost   = "127.0.0.1"
-	defaultPostgresPort   = "5432"
-	defaultMinIOEndpoint  = "127.0.0.1:9000"
-	defaultMinIOMediaName = "infinitune-media"
-	defaultJWKSURL        = "http://auth-service:8080/v1/auth/jwks"
-	defaultJWTIssuer      = "infinitune-auth"
-	defaultJWTAudience    = "infinitune-api"
-	defaultJWTKeyID       = "auth-key-1"
-	defaultJWKSRefresh    = 5 * time.Minute
+	defaultHTTPHost        = "0.0.0.0"
+	defaultHTTPPort        = "8080"
+	defaultGRPCHost        = "0.0.0.0"
+	defaultGRPCPort        = "9090"
+	defaultContentHost     = "127.0.0.1"
+	defaultContentPort     = "9090"
+	defaultPostgresHost    = "127.0.0.1"
+	defaultPostgresPort    = "5432"
+	defaultMinIOEndpoint   = "127.0.0.1:9000"
+	defaultMinIOMediaName  = "infinitune-media"
+	defaultJWKSURL         = "http://auth-service:8080/v1/auth/jwks"
+	defaultJWTIssuer       = "infinitune-auth"
+	defaultJWTAudience     = "infinitune-api"
+	defaultJWTKeyID        = "auth-key-1"
+	defaultJWKSRefresh     = 5 * time.Minute
+	defaultKafkaBrokers    = "127.0.0.1:9092"
+	defaultAssetReadyTopic = "media.asset.ready.v1"
+	defaultOutboxPoll      = time.Second
+	defaultOutboxBatch     = 100
 )
+
+type EventsConfig struct {
+	Brokers         []string
+	AssetReadyTopic string
+	OutboxInterval  time.Duration
+	OutboxBatch     int
+}
 
 type Config struct {
 	HTTPAddress    string
@@ -40,6 +51,7 @@ type Config struct {
 	Storage        storage.Config
 	Identity       identity.Config
 	Origins        []string
+	Events         EventsConfig
 }
 
 func Load() (Config, error) {
@@ -67,6 +79,10 @@ func Load() (Config, error) {
 	if err != nil {
 		return Config{}, err
 	}
+	eventsConfig, err := loadEventsConfig()
+	if err != nil {
+		return Config{}, err
+	}
 	return Config{
 		HTTPAddress: net.JoinHostPort(envOrDefault("MEDIA_HTTP_HOST", defaultHTTPHost), httpPort),
 		GRPCAddress: net.JoinHostPort(envOrDefault("MEDIA_GRPC_HOST", defaultGRPCHost), grpcPort),
@@ -83,7 +99,44 @@ func Load() (Config, error) {
 			RefreshInterval: defaultJWKSRefresh,
 		},
 		Origins: origins,
+		Events:  eventsConfig,
 	}, nil
+}
+
+func loadEventsConfig() (EventsConfig, error) {
+	rawBrokers := strings.Split(envOrDefault("KAFKA_BROKERS", defaultKafkaBrokers), ",")
+	brokers := make([]string, 0, len(rawBrokers))
+	for _, raw := range rawBrokers {
+		broker := strings.TrimSpace(raw)
+		if broker == "" {
+			return EventsConfig{}, fmt.Errorf("KAFKA_BROKERS contains an empty broker")
+		}
+		if _, _, err := net.SplitHostPort(broker); err != nil {
+			return EventsConfig{}, fmt.Errorf("invalid KAFKA_BROKERS entry %q", broker)
+		}
+		brokers = append(brokers, broker)
+	}
+	topic := strings.TrimSpace(envOrDefault("KAFKA_MEDIA_ASSET_READY_TOPIC", defaultAssetReadyTopic))
+	if topic == "" {
+		return EventsConfig{}, fmt.Errorf("Kafka media asset ready topic must not be blank")
+	}
+	interval := defaultOutboxPoll
+	if raw := os.Getenv("MEDIA_OUTBOX_POLL_INTERVAL"); raw != "" {
+		parsed, err := time.ParseDuration(raw)
+		if err != nil || parsed <= 0 {
+			return EventsConfig{}, fmt.Errorf("invalid MEDIA_OUTBOX_POLL_INTERVAL %q", raw)
+		}
+		interval = parsed
+	}
+	batch := defaultOutboxBatch
+	if raw := os.Getenv("MEDIA_OUTBOX_BATCH_SIZE"); raw != "" {
+		parsed, err := strconv.Atoi(raw)
+		if err != nil || parsed < 1 || parsed > 1000 {
+			return EventsConfig{}, fmt.Errorf("invalid MEDIA_OUTBOX_BATCH_SIZE %q: expected 1..1000", raw)
+		}
+		batch = parsed
+	}
+	return EventsConfig{Brokers: brokers, AssetReadyTopic: topic, OutboxInterval: interval, OutboxBatch: batch}, nil
 }
 
 func parseAllowedOrigins(value string) ([]string, error) {

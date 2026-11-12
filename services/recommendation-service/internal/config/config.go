@@ -14,19 +14,42 @@ import (
 )
 
 const (
-	defaultHTTPHost     = "0.0.0.0"
-	defaultHTTPPort     = "8080"
-	defaultPostgresHost = "127.0.0.1"
-	defaultPostgresPort = "5432"
-	defaultGRPCHost     = "127.0.0.1"
-	defaultGRPCPort     = "9090"
-	defaultRunTTL       = time.Hour
-	defaultJWKSURL      = "http://auth-service:8080/v1/auth/jwks"
-	defaultJWTIssuer    = "infinitune-auth"
-	defaultJWTAudience  = "infinitune-api"
-	defaultJWTKeyID     = "auth-key-1"
-	defaultJWKSRefresh  = 5 * time.Minute
+	defaultHTTPHost                   = "0.0.0.0"
+	defaultHTTPPort                   = "8080"
+	defaultPostgresHost               = "127.0.0.1"
+	defaultPostgresPort               = "5432"
+	defaultGRPCHost                   = "127.0.0.1"
+	defaultGRPCPort                   = "9090"
+	defaultRunTTL                     = time.Hour
+	defaultJWKSURL                    = "http://auth-service:8080/v1/auth/jwks"
+	defaultJWTIssuer                  = "infinitune-auth"
+	defaultJWTAudience                = "infinitune-api"
+	defaultJWTKeyID                   = "auth-key-1"
+	defaultJWKSRefresh                = 5 * time.Minute
+	defaultKafkaBrokers               = "127.0.0.1:9092"
+	defaultDeadLetterTopic            = "platform.events.dead-letter.v1"
+	defaultHistoryTopic               = "history.listening.recorded.v1"
+	defaultHistoryClearedTopic        = "history.listening.cleared.v1"
+	defaultHistoryConsumerGroup       = "recommendation-history-v1"
+	defaultCatalogPublishedTopic      = "catalog.release.published.v1"
+	defaultCatalogArchivedTopic       = "catalog.release.archived.v1"
+	defaultCatalogConsumerGroup       = "recommendation-catalog-v1"
+	defaultInteractionPreferenceTopic = "interaction.preference.changed.v1"
+	defaultInteractionConsumerGroup   = "recommendation-interaction-v1"
 )
+
+type EventsConfig struct {
+	Brokers                    []string
+	DeadLetterTopic            string
+	HistoryTopic               string
+	HistoryClearedTopic        string
+	HistoryConsumerGroup       string
+	CatalogPublishedTopic      string
+	CatalogArchivedTopic       string
+	CatalogConsumerGroup       string
+	InteractionPreferenceTopic string
+	InteractionConsumerGroup   string
+}
 
 type Config struct {
 	HTTPAddress        string
@@ -40,6 +63,7 @@ type Config struct {
 	Database           database.Config
 	Identity           identity.Config
 	Origins            []string
+	Events             EventsConfig
 }
 
 func Load() (Config, error) {
@@ -83,6 +107,10 @@ func Load() (Config, error) {
 	if err != nil {
 		return Config{}, err
 	}
+	eventsConfig, err := loadEventsConfig()
+	if err != nil {
+		return Config{}, err
+	}
 	return Config{
 		HTTPAddress: net.JoinHostPort(
 			envOrDefault("RECOMMENDATION_HTTP_HOST", defaultHTTPHost),
@@ -104,6 +132,59 @@ func Load() (Config, error) {
 			RefreshInterval: defaultJWKSRefresh,
 		},
 		Origins: origins,
+		Events:  eventsConfig,
+	}, nil
+}
+
+func loadEventsConfig() (EventsConfig, error) {
+	rawBrokers := strings.Split(envOrDefault("KAFKA_BROKERS", defaultKafkaBrokers), ",")
+	brokers := make([]string, 0, len(rawBrokers))
+	for _, raw := range rawBrokers {
+		broker := strings.TrimSpace(raw)
+		if broker == "" {
+			return EventsConfig{}, fmt.Errorf("KAFKA_BROKERS contains an empty broker")
+		}
+		if _, _, err := net.SplitHostPort(broker); err != nil {
+			return EventsConfig{}, fmt.Errorf("invalid KAFKA_BROKERS entry %q", broker)
+		}
+		brokers = append(brokers, broker)
+	}
+	topic := strings.TrimSpace(envOrDefault("KAFKA_HISTORY_TOPIC", defaultHistoryTopic))
+	clearedTopic := strings.TrimSpace(envOrDefault(
+		"KAFKA_HISTORY_CLEARED_TOPIC", defaultHistoryClearedTopic,
+	))
+	historyGroup := strings.TrimSpace(envOrDefault(
+		"KAFKA_RECOMMENDATION_GROUP", defaultHistoryConsumerGroup,
+	))
+	publishedTopic := strings.TrimSpace(envOrDefault(
+		"KAFKA_CATALOG_PUBLISHED_TOPIC", defaultCatalogPublishedTopic,
+	))
+	archivedTopic := strings.TrimSpace(envOrDefault(
+		"KAFKA_CATALOG_ARCHIVED_TOPIC", defaultCatalogArchivedTopic,
+	))
+	catalogGroup := strings.TrimSpace(envOrDefault(
+		"KAFKA_RECOMMENDATION_CATALOG_GROUP", defaultCatalogConsumerGroup,
+	))
+	interactionTopic := strings.TrimSpace(envOrDefault(
+		"KAFKA_INTERACTION_PREFERENCE_TOPIC", defaultInteractionPreferenceTopic,
+	))
+	interactionGroup := strings.TrimSpace(envOrDefault(
+		"KAFKA_RECOMMENDATION_INTERACTION_GROUP", defaultInteractionConsumerGroup,
+	))
+	deadLetterTopic := strings.TrimSpace(envOrDefault(
+		"KAFKA_DEAD_LETTER_TOPIC", defaultDeadLetterTopic,
+	))
+	if topic == "" || clearedTopic == "" || historyGroup == "" ||
+		publishedTopic == "" || archivedTopic == "" || catalogGroup == "" ||
+		interactionTopic == "" || interactionGroup == "" || deadLetterTopic == "" {
+		return EventsConfig{}, fmt.Errorf("Kafka topics and consumer group must not be blank")
+	}
+	return EventsConfig{
+		Brokers: brokers, DeadLetterTopic: deadLetterTopic, HistoryTopic: topic,
+		HistoryClearedTopic: clearedTopic, HistoryConsumerGroup: historyGroup,
+		CatalogPublishedTopic: publishedTopic, CatalogArchivedTopic: archivedTopic,
+		CatalogConsumerGroup:       catalogGroup,
+		InteractionPreferenceTopic: interactionTopic, InteractionConsumerGroup: interactionGroup,
 	}, nil
 }
 

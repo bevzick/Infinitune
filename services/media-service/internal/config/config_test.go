@@ -3,6 +3,7 @@ package config
 import (
 	"slices"
 	"testing"
+	"time"
 )
 
 func TestLoadUsesMediaDependencies(t *testing.T) {
@@ -27,6 +28,10 @@ func TestLoadUsesMediaDependencies(t *testing.T) {
 	t.Setenv("AUTH_JWT_AUDIENCE", "test-audience")
 	t.Setenv("AUTH_JWT_KEY_ID", "test-key")
 	t.Setenv("MEDIA_ALLOWED_ORIGINS", "http://localhost:5173, https://app.example.test")
+	t.Setenv("KAFKA_BROKERS", "kafka:19092,kafka-backup:29092")
+	t.Setenv("KAFKA_MEDIA_ASSET_READY_TOPIC", "media-ready-test")
+	t.Setenv("MEDIA_OUTBOX_POLL_INTERVAL", "2s")
+	t.Setenv("MEDIA_OUTBOX_BATCH_SIZE", "25")
 
 	config, err := Load()
 	if err != nil {
@@ -57,6 +62,10 @@ func TestLoadUsesMediaDependencies(t *testing.T) {
 	if !slices.Equal(config.Origins, []string{"http://localhost:5173", "https://app.example.test"}) {
 		t.Errorf("Origins = %v", config.Origins)
 	}
+	if len(config.Events.Brokers) != 2 || config.Events.AssetReadyTopic != "media-ready-test" ||
+		config.Events.OutboxInterval != 2*time.Second || config.Events.OutboxBatch != 25 {
+		t.Errorf("Events = %+v", config.Events)
+	}
 }
 
 func TestLoadRejectsInvalidConfiguration(t *testing.T) {
@@ -75,6 +84,8 @@ func TestLoadRejectsInvalidConfiguration(t *testing.T) {
 		{"endpoint contains scheme", "MINIO_ENDPOINT", "http://minio:9000"},
 		{"invalid TLS flag", "MINIO_USE_SSL", "sometimes"},
 		{"invalid allowed origin", "MEDIA_ALLOWED_ORIGINS", "javascript:alert(1)"},
+		{"invalid Kafka broker", "KAFKA_BROKERS", "kafka"},
+		{"invalid outbox batch", "MEDIA_OUTBOX_BATCH_SIZE", "0"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

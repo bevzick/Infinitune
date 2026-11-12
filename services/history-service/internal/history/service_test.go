@@ -93,7 +93,8 @@ func TestClearOnlyForVerifiedOwnerAndValidCutoff(t *testing.T) {
 	service := NewService(store, catalogStub{})
 	service.now = func() time.Time { return now }
 	result, err := service.Clear(context.Background(), userID, ClearRequest{Before: &before})
-	if err != nil || result.Deleted != 4 || store.userID != userID || store.before == nil || !store.before.Equal(before) {
+	if err != nil || result.Deleted != 4 || store.userID != userID || store.before == nil ||
+		!store.before.Equal(before) || !store.deletedAt.Equal(now) {
 		t.Fatalf("Clear()=%+v,%v store=%+v", result, err, store)
 	}
 	future := now.Add(time.Hour)
@@ -108,14 +109,15 @@ func validInput(now time.Time, listenedMS int) RecordInput {
 }
 
 type storeStub struct {
-	event   Event
-	calls   int
-	err     error
-	items   []Event
-	userID  uuid.UUID
-	limit   int
-	before  *time.Time
-	deleted int64
+	event     Event
+	calls     int
+	err       error
+	items     []Event
+	userID    uuid.UUID
+	limit     int
+	before    *time.Time
+	deleted   int64
+	deletedAt time.Time
 }
 
 func (stub *storeStub) List(_ context.Context, userID uuid.UUID, _ ListFilter, limit int) ([]Event, error) {
@@ -123,9 +125,15 @@ func (stub *storeStub) List(_ context.Context, userID uuid.UUID, _ ListFilter, l
 	stub.limit = limit
 	return stub.items, stub.err
 }
-func (stub *storeStub) Delete(_ context.Context, userID uuid.UUID, before *time.Time) (int64, error) {
+func (stub *storeStub) Delete(
+	_ context.Context,
+	userID uuid.UUID,
+	before *time.Time,
+	deletedAt time.Time,
+) (int64, error) {
 	stub.userID = userID
 	stub.before = before
+	stub.deletedAt = deletedAt
 	return stub.deleted, stub.err
 }
 

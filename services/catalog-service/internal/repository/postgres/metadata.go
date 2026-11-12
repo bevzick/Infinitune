@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/bevzick/Infinitune/services/catalog-service/internal/events"
 	"github.com/bevzick/Infinitune/services/catalog-service/internal/metadata"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -20,12 +21,20 @@ type metadataDatabase interface {
 
 type MetadataRepository struct {
 	database metadataDatabase
+	topics   events.Topics
 }
 
 var _ metadata.Store = (*MetadataRepository)(nil)
 
-func NewMetadataRepository(database metadataDatabase) *MetadataRepository {
-	return &MetadataRepository{database: database}
+func NewMetadataRepository(database metadataDatabase, configured ...events.Topics) *MetadataRepository {
+	topics := events.Topics{
+		ReleasePublished: events.ReleasePublishedV1,
+		ReleaseArchived:  events.ReleaseArchivedV1,
+	}
+	if len(configured) > 0 {
+		topics = configured[0]
+	}
+	return &MetadataRepository{database: database, topics: topics}
 }
 
 func (repository *MetadataRepository) ArtistByID(

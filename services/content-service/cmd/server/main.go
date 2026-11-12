@@ -21,6 +21,8 @@ import (
 	"github.com/bevzick/Infinitune/services/content-service/internal/config"
 	"github.com/bevzick/Infinitune/services/content-service/internal/creator"
 	"github.com/bevzick/Infinitune/services/content-service/internal/database"
+	"github.com/bevzick/Infinitune/services/content-service/internal/events"
+	event_kafka "github.com/bevzick/Infinitune/services/content-service/internal/events/kafka"
 	"github.com/bevzick/Infinitune/services/content-service/internal/grpcapi"
 	"github.com/bevzick/Infinitune/services/content-service/internal/httpapi"
 	"github.com/bevzick/Infinitune/services/content-service/internal/identity"
@@ -68,6 +70,12 @@ func main() {
 		os.Exit(1)
 	}
 	defer databasePool.Close()
+	producer, err := event_kafka.NewProducer(cfg.Events.Brokers)
+	if err != nil {
+		logger.Error("failed to initialize Kafka producer", "error", err)
+		os.Exit(1)
+	}
+	defer producer.Close()
 	repository := postgres_repository.NewCreatorRepository(databasePool)
 	creatorService := creator.NewService(repository)
 	tokenVerifier, err := identity.NewVerifier(cfg.Identity, nil)
@@ -100,20 +108,24 @@ func main() {
 	memberService := creator.NewMemberService(repository,
 		user.NewDirectory(userv1.NewUserServiceClient(userConnection)))
 	accessService := creator.NewAccessService(repository)
+	mediaReadiness := postgres_repository.NewMediaReadinessRepository(databasePool)
+	mediaAssets := content_media.NewProjectedStore(
+		mediaReadiness, content_media.NewClient(mediav1.NewMediaServiceClient(mediaConnection)),
+	)
 	rightsService := rights.NewService(
 		postgres_repository.NewRightsRepository(databasePool), accessService,
 	)
 	submissionService := submission.NewService(
 		postgres_repository.NewSubmissionRepository(databasePool), accessService,
-		content_media.NewClient(mediav1.NewMediaServiceClient(mediaConnection)),
+		mediaAssets,
 	)
 	moderationService := moderation.NewService(
-		postgres_repository.NewModerationRepository(databasePool),
+		postgres_repository.NewModerationRepository(databasePool, cfg.Events.ReleaseApprovedTopic),
 	)
 	catalogClient := content_catalog.NewClient(catalogv1.NewCatalogServiceClient(catalogConnection))
 	publicationService := publication.NewService(
 		postgres_repository.NewPublicationRepository(databasePool), accessService,
-		content_media.NewClient(mediav1.NewMediaServiceClient(mediaConnection)),
+		mediaAssets,
 		catalogClient,
 	)
 	releaseService := release.NewService(
@@ -126,9 +138,10 @@ func main() {
 		postgres_repository.NewPlaybackRepository(databasePool),
 	)
 
+	eventMetrics := events.NewMetrics("content")
 	httpServer := &http.Server{
 		Addr: cfg.HTTPAddress,
-		Handler: httpapi.NewRouter(httpapi.Dependencies{
+		Handler: eventMetrics.Wrap(httpapi.NewRouter(httpapi.Dependencies{
 			Database: databasePool, Tokens: tokenVerifier, Creators: creatorService,
 			Members: memberService, Rights: rightsService,
 			Submissions:  submissionService,
@@ -136,7 +149,7 @@ func main() {
 			Publications: publicationService,
 			Releases:     releaseService,
 			Origins:      cfg.Origins, Logger: logger,
-		}),
+		})),
 		ReadHeaderTimeout: readHeaderTimeout,
 	}
 	grpcListener, err := net.Listen("tcp", cfg.GRPCAddress)
@@ -150,6 +163,22 @@ func main() {
 	)
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+	dispatcher := events.NewDispatcher(
+		postgres_repository.NewOutboxRepository(databasePool), producer, logger,
+		cfg.Events.OutboxInterval, cfg.Events.OutboxBatch, eventMetrics,
+	)
+	go dispatcher.Run(ctx)
+	mediaConsumer, err := event_kafka.NewConsumer(
+		cfg.Events.Brokers, cfg.Events.MediaReadyTopic, cfg.Events.MediaConsumerGroup,
+		cfg.Events.DeadLetterTopic,
+		events.NewMediaHandler(mediaReadiness), logger, eventMetrics,
+	)
+	if err != nil {
+		logger.Error("failed to initialize Media Kafka consumer", "error", err)
+		os.Exit(1)
+	}
+	defer mediaConsumer.Close()
+	go mediaConsumer.Run(ctx)
 	serverErrors := make(chan error, 2)
 	go func() {
 		logger.Info("content service started", "address", cfg.HTTPAddress)

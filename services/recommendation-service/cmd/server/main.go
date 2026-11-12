@@ -21,6 +21,8 @@ import (
 	userv1 "github.com/bevzick/Infinitune/services/recommendation-service/api/user/v1"
 	"github.com/bevzick/Infinitune/services/recommendation-service/internal/config"
 	"github.com/bevzick/Infinitune/services/recommendation-service/internal/database"
+	"github.com/bevzick/Infinitune/services/recommendation-service/internal/events"
+	event_kafka "github.com/bevzick/Infinitune/services/recommendation-service/internal/events/kafka"
 	"github.com/bevzick/Infinitune/services/recommendation-service/internal/grpcapi"
 	"github.com/bevzick/Infinitune/services/recommendation-service/internal/httpapi"
 	"github.com/bevzick/Infinitune/services/recommendation-service/internal/identity"
@@ -107,9 +109,10 @@ func main() {
 		ranking.NewCatalogSource(catalogv1.NewCatalogServiceClient(catalogConnection)),
 		ranking.NewContentClient(contentv1.NewContentServiceClient(contentConnection)),
 	)
+	runRepository := postgres_repository.NewRunRepository(databasePool)
 	runService, err := recommendation.NewService(
 		rankingService,
-		postgres_repository.NewRunRepository(databasePool),
+		runRepository,
 		ranking.AlgorithmVersion,
 		cfg.RunTTL,
 	)
@@ -124,15 +127,55 @@ func main() {
 	}
 	grpcServer := grpc.NewServer()
 	rankingv1.RegisterRankingServiceServer(grpcServer, grpcapi.NewRankingServer(rankingService))
+	eventMetrics := events.NewMetrics("recommendation")
 	server := &http.Server{
-		Addr: cfg.HTTPAddress, Handler: httpapi.NewRouter(httpapi.Dependencies{
+		Addr: cfg.HTTPAddress, Handler: eventMetrics.Wrap(httpapi.NewRouter(httpapi.Dependencies{
 			Database: databasePool, Tokens: tokenVerifier, Recommendations: runService,
 			Origins: cfg.Origins, Logger: logger,
-		}),
+		})),
 		ReadHeaderTimeout: readHeaderTimeout,
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+	historyConsumer, err := event_kafka.NewConsumer(
+		cfg.Events.Brokers,
+		[]string{cfg.Events.HistoryTopic, cfg.Events.HistoryClearedTopic},
+		cfg.Events.HistoryConsumerGroup,
+		cfg.Events.DeadLetterTopic,
+		events.NewHistoryHandler(runRepository), logger, eventMetrics,
+	)
+	if err != nil {
+		logger.Error("failed to initialize Kafka consumer", "error", err)
+		os.Exit(1)
+	}
+	defer historyConsumer.Close()
+	go historyConsumer.Run(ctx)
+	catalogConsumer, err := event_kafka.NewConsumer(
+		cfg.Events.Brokers,
+		[]string{cfg.Events.CatalogPublishedTopic, cfg.Events.CatalogArchivedTopic},
+		cfg.Events.CatalogConsumerGroup,
+		cfg.Events.DeadLetterTopic,
+		events.NewCatalogHandler(runRepository), logger, eventMetrics,
+	)
+	if err != nil {
+		logger.Error("failed to initialize Catalog Kafka consumer", "error", err)
+		os.Exit(1)
+	}
+	defer catalogConsumer.Close()
+	go catalogConsumer.Run(ctx)
+	interactionConsumer, err := event_kafka.NewConsumer(
+		cfg.Events.Brokers,
+		[]string{cfg.Events.InteractionPreferenceTopic},
+		cfg.Events.InteractionConsumerGroup,
+		cfg.Events.DeadLetterTopic,
+		events.NewInteractionHandler(runRepository), logger, eventMetrics,
+	)
+	if err != nil {
+		logger.Error("failed to initialize Interaction Kafka consumer", "error", err)
+		os.Exit(1)
+	}
+	defer interactionConsumer.Close()
+	go interactionConsumer.Run(ctx)
 	errorsChannel := make(chan error, 2)
 	go func() {
 		logger.Info("recommendation service started", "address", cfg.HTTPAddress)

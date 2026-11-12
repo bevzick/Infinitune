@@ -12,27 +12,15 @@ import (
 
 type LikeRepository struct {
 	database *pgxpool.Pool
+	topic    string
 }
 
-func NewLikeRepository(database *pgxpool.Pool) *LikeRepository {
-	return &LikeRepository{database: database}
-}
-
-func (repository *LikeRepository) LikeTrack(
-	ctx context.Context, userID, trackID uuid.UUID,
-) (interaction.Like, error) {
-	return repository.upsert(ctx, `
-		INSERT INTO interaction.track_likes (user_id, track_id)
-		VALUES ($1, $2)
-		ON CONFLICT (user_id, track_id) DO UPDATE SET user_id = EXCLUDED.user_id
-		RETURNING user_id, track_id, created_at
-	`, userID, trackID, "track")
-}
-
-func (repository *LikeRepository) UnlikeTrack(ctx context.Context, userID, trackID uuid.UUID) error {
-	return repository.remove(ctx, `
-		DELETE FROM interaction.track_likes WHERE user_id = $1 AND track_id = $2
-	`, userID, trackID, "track")
+func NewLikeRepository(database *pgxpool.Pool, configuredTopic ...string) *LikeRepository {
+	topic := "interaction.preference.changed.v1"
+	if len(configuredTopic) > 0 {
+		topic = configuredTopic[0]
+	}
+	return &LikeRepository{database: database, topic: topic}
 }
 
 func (repository *LikeRepository) TrackLikes(
@@ -47,23 +35,6 @@ func (repository *LikeRepository) TrackLikes(
 		ORDER BY created_at DESC, track_id DESC
 		LIMIT $2 OFFSET $3
 	`, "track")
-}
-
-func (repository *LikeRepository) LikeAlbum(
-	ctx context.Context, userID, albumID uuid.UUID,
-) (interaction.Like, error) {
-	return repository.upsert(ctx, `
-		INSERT INTO interaction.album_likes (user_id, album_id)
-		VALUES ($1, $2)
-		ON CONFLICT (user_id, album_id) DO UPDATE SET user_id = EXCLUDED.user_id
-		RETURNING user_id, album_id, created_at
-	`, userID, albumID, "album")
-}
-
-func (repository *LikeRepository) UnlikeAlbum(ctx context.Context, userID, albumID uuid.UUID) error {
-	return repository.remove(ctx, `
-		DELETE FROM interaction.album_likes WHERE user_id = $1 AND album_id = $2
-	`, userID, albumID, "album")
 }
 
 func (repository *LikeRepository) AlbumLikes(

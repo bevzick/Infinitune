@@ -19,6 +19,16 @@ func TestLoadUsesRecommendationDatabaseEnvironment(t *testing.T) {
 	t.Setenv("RECOMMENDATION_RUN_TTL", "45m")
 	t.Setenv("RECOMMENDATION_AUTH_JWKS_URL", "https://auth.example.test/v1/auth/jwks")
 	t.Setenv("RECOMMENDATION_ALLOWED_ORIGINS", "https://app.example.test")
+	t.Setenv("KAFKA_BROKERS", "kafka-a:9092,kafka-b:9092")
+	t.Setenv("KAFKA_HISTORY_TOPIC", "history-events")
+	t.Setenv("KAFKA_HISTORY_CLEARED_TOPIC", "history-cleared")
+	t.Setenv("KAFKA_RECOMMENDATION_GROUP", "recommendation-test")
+	t.Setenv("KAFKA_CATALOG_PUBLISHED_TOPIC", "catalog-published")
+	t.Setenv("KAFKA_CATALOG_ARCHIVED_TOPIC", "catalog-archived")
+	t.Setenv("KAFKA_RECOMMENDATION_CATALOG_GROUP", "recommendation-catalog-test")
+	t.Setenv("KAFKA_INTERACTION_PREFERENCE_TOPIC", "interaction-preferences")
+	t.Setenv("KAFKA_DEAD_LETTER_TOPIC", "events-dlq-test")
+	t.Setenv("KAFKA_RECOMMENDATION_INTERACTION_GROUP", "recommendation-interaction-test")
 
 	cfg, err := Load()
 	if err != nil {
@@ -42,6 +52,28 @@ func TestLoadUsesRecommendationDatabaseEnvironment(t *testing.T) {
 	}
 	if cfg.Identity.JWKSURL != "https://auth.example.test/v1/auth/jwks" || len(cfg.Origins) != 1 || cfg.Origins[0] != "https://app.example.test" {
 		t.Fatalf("identity/origins = %+v, %v", cfg.Identity, cfg.Origins)
+	}
+	if len(cfg.Events.Brokers) != 2 || cfg.Events.Brokers[1] != "kafka-b:9092" ||
+		cfg.Events.HistoryTopic != "history-events" ||
+		cfg.Events.HistoryClearedTopic != "history-cleared" ||
+		cfg.Events.HistoryConsumerGroup != "recommendation-test" ||
+		cfg.Events.CatalogPublishedTopic != "catalog-published" ||
+		cfg.Events.CatalogArchivedTopic != "catalog-archived" ||
+		cfg.Events.CatalogConsumerGroup != "recommendation-catalog-test" ||
+		cfg.Events.InteractionPreferenceTopic != "interaction-preferences" ||
+		cfg.Events.InteractionConsumerGroup != "recommendation-interaction-test" ||
+		cfg.Events.DeadLetterTopic != "events-dlq-test" {
+		t.Fatalf("Events = %+v", cfg.Events)
+	}
+}
+
+func TestLoadRejectsInvalidKafkaBroker(t *testing.T) {
+	t.Setenv("POSTGRES_USER", "recommendation_user")
+	t.Setenv("POSTGRES_PASSWORD", "secret")
+	t.Setenv("POSTGRES_RECOMMENDATION_DB", "recommendation_db")
+	t.Setenv("KAFKA_BROKERS", "missing-port")
+	if _, err := Load(); err == nil {
+		t.Fatal("Load() error = nil")
 	}
 }
 

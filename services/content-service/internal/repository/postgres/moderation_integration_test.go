@@ -47,6 +47,13 @@ func TestModerationRepositoryRecordsDecisionIdempotently(t *testing.T) {
 	if err != nil || again.ID != recorded.ID || !again.CreatedAt.Equal(recorded.CreatedAt) {
 		t.Fatalf("RecordReview(idempotent) = %+v, %v", again, err)
 	}
+	var approvalEvents int
+	if err = pool.QueryRow(ctx, `
+		SELECT count(*) FROM content.event_outbox
+		WHERE aggregate_id=$1 AND event_type='content.release.approved.v1'
+	`, releaseID).Scan(&approvalEvents); err != nil || approvalEvents != 1 {
+		t.Fatalf("approval outbox events = %d, %v", approvalEvents, err)
+	}
 	_, err = repository.RecordReview(ctx, moderation.Review{
 		ID: uuid.New(), ReleaseID: releaseID, ReviewerUserID: reviewerID,
 		Decision: moderation.DecisionRejected, Comment: "changed mind",
@@ -94,6 +101,10 @@ func TestModerationRepositoryRequestsChanges(t *testing.T) {
 	loaded, loadErr := NewReleaseRepository(pool).ByID(ctx, releaseID)
 	if loadErr != nil || loaded.Release.Status != release.StatusChangesRequested {
 		t.Fatalf("changed release = %+v, %v", loaded.Release, loadErr)
+	}
+	var events int
+	if err = pool.QueryRow(ctx, `SELECT count(*) FROM content.event_outbox WHERE aggregate_id=$1`, releaseID).Scan(&events); err != nil || events != 0 {
+		t.Fatalf("changes requested outbox events = %d, %v", events, err)
 	}
 }
 

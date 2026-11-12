@@ -3,6 +3,7 @@ package config
 import (
 	"slices"
 	"testing"
+	"time"
 )
 
 func TestLoadUsesCatalogDatabase(t *testing.T) {
@@ -16,6 +17,14 @@ func TestLoadUsesCatalogDatabase(t *testing.T) {
 	t.Setenv("CATALOG_GRPC_HOST", "127.0.0.2")
 	t.Setenv("CATALOG_GRPC_PORT", "9091")
 	t.Setenv("CATALOG_ALLOWED_ORIGINS", "https://app.example.com")
+	t.Setenv("KAFKA_BROKERS", "kafka-a:9092,kafka-b:9092")
+	t.Setenv("KAFKA_CATALOG_PUBLISHED_TOPIC", "catalog-published")
+	t.Setenv("KAFKA_CATALOG_ARCHIVED_TOPIC", "catalog-archived")
+	t.Setenv("KAFKA_CONTENT_RELEASE_APPROVED_TOPIC", "content-approved")
+	t.Setenv("KAFKA_CATALOG_CONTENT_GROUP", "catalog-content-test")
+	t.Setenv("KAFKA_DEAD_LETTER_TOPIC", "events-dlq-test")
+	t.Setenv("CATALOG_OUTBOX_POLL_INTERVAL", "250ms")
+	t.Setenv("CATALOG_OUTBOX_BATCH_SIZE", "25")
 
 	config, err := Load()
 	if err != nil {
@@ -33,6 +42,25 @@ func TestLoadUsesCatalogDatabase(t *testing.T) {
 	}
 	if !slices.Equal(config.Origins, []string{"https://app.example.com"}) {
 		t.Errorf("Origins = %v", config.Origins)
+	}
+	if !slices.Equal(config.Events.Brokers, []string{"kafka-a:9092", "kafka-b:9092"}) ||
+		config.Events.PublishedTopic != "catalog-published" ||
+		config.Events.ArchivedTopic != "catalog-archived" ||
+		config.Events.ContentApprovedTopic != "content-approved" ||
+		config.Events.ContentConsumerGroup != "catalog-content-test" ||
+		config.Events.DeadLetterTopic != "events-dlq-test" ||
+		config.Events.OutboxInterval != 250*time.Millisecond || config.Events.OutboxBatch != 25 {
+		t.Errorf("Events = %+v", config.Events)
+	}
+}
+
+func TestLoadRejectsInvalidKafkaConfiguration(t *testing.T) {
+	t.Setenv("POSTGRES_USER", "catalog_user")
+	t.Setenv("POSTGRES_PASSWORD", "secret")
+	t.Setenv("POSTGRES_CATALOG_DB", "catalog_db")
+	t.Setenv("KAFKA_BROKERS", "missing-port")
+	if _, err := Load(); err == nil {
+		t.Fatal("Load() error = nil")
 	}
 }
 

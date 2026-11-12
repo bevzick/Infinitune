@@ -20,6 +20,8 @@ import (
 	"github.com/bevzick/Infinitune/services/interaction-service/internal/commentlookup"
 	"github.com/bevzick/Infinitune/services/interaction-service/internal/config"
 	"github.com/bevzick/Infinitune/services/interaction-service/internal/database"
+	"github.com/bevzick/Infinitune/services/interaction-service/internal/events"
+	event_kafka "github.com/bevzick/Infinitune/services/interaction-service/internal/events/kafka"
 	"github.com/bevzick/Infinitune/services/interaction-service/internal/grpcapi"
 	"github.com/bevzick/Infinitune/services/interaction-service/internal/httpapi"
 	"github.com/bevzick/Infinitune/services/interaction-service/internal/identity"
@@ -83,19 +85,26 @@ func main() {
 	}
 	defer commentConnection.Close()
 
-	repository := postgres_repository.NewLikeRepository(databasePool)
+	producer, err := event_kafka.NewProducer(cfg.Events.Brokers)
+	if err != nil {
+		logger.Error("failed to initialize Kafka producer", "error", err)
+		os.Exit(1)
+	}
+	defer producer.Close()
+	repository := postgres_repository.NewLikeRepository(databasePool, cfg.Events.PreferenceTopic)
 	likes := interaction.NewService(
 		repository,
 		catalog.NewValidator(catalogv1.NewCatalogServiceClient(catalogConnection)),
 		commentlookup.NewValidator(commentv1.NewCommentServiceClient(commentConnection)),
 	)
 
+	eventMetrics := events.NewMetrics("interaction")
 	server := &http.Server{
 		Addr: cfg.HTTPAddress,
-		Handler: httpapi.NewRouter(httpapi.Dependencies{
+		Handler: eventMetrics.Wrap(httpapi.NewRouter(httpapi.Dependencies{
 			Database: databasePool, Tokens: tokenVerifier, Likes: likes, Follows: likes,
 			Origins: cfg.Origins, Logger: logger,
-		}),
+		})),
 		ReadHeaderTimeout: readHeaderTimeout,
 	}
 	grpcListener, err := net.Listen("tcp", cfg.GRPCAddress)
@@ -107,6 +116,11 @@ func main() {
 	signalv1.RegisterSignalServiceServer(grpcServer, grpcapi.NewSignalServer(likes))
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+	dispatcher := events.NewDispatcher(
+		postgres_repository.NewOutboxRepository(databasePool), producer, logger,
+		cfg.Events.OutboxInterval, cfg.Events.OutboxBatch, eventMetrics,
+	)
+	go dispatcher.Run(ctx)
 	serverErrors := make(chan error, 2)
 	go func() {
 		logger.Info("interaction service started", "address", cfg.HTTPAddress)

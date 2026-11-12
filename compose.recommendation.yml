@@ -19,6 +19,8 @@ services:
         condition: service_healthy
       auth-service:
         condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
     environment:
       RECOMMENDATION_HTTP_HOST: 0.0.0.0
       RECOMMENDATION_HTTP_PORT: 8080
@@ -45,6 +47,16 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER is required}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
       POSTGRES_RECOMMENDATION_DB: ${POSTGRES_RECOMMENDATION_DB:-recommendation_db}
+      KAFKA_BROKERS: ${KAFKA_BROKERS:-kafka:9092}
+      KAFKA_HISTORY_TOPIC: ${KAFKA_HISTORY_TOPIC:-history.listening.recorded.v1}
+      KAFKA_HISTORY_CLEARED_TOPIC: ${KAFKA_HISTORY_CLEARED_TOPIC:-history.listening.cleared.v1}
+      KAFKA_RECOMMENDATION_GROUP: ${KAFKA_RECOMMENDATION_GROUP:-recommendation-history-v1}
+      KAFKA_CATALOG_PUBLISHED_TOPIC: ${KAFKA_CATALOG_PUBLISHED_TOPIC:-catalog.release.published.v1}
+      KAFKA_CATALOG_ARCHIVED_TOPIC: ${KAFKA_CATALOG_ARCHIVED_TOPIC:-catalog.release.archived.v1}
+      KAFKA_RECOMMENDATION_CATALOG_GROUP: ${KAFKA_RECOMMENDATION_CATALOG_GROUP:-recommendation-catalog-v1}
+      KAFKA_INTERACTION_PREFERENCE_TOPIC: ${KAFKA_INTERACTION_PREFERENCE_TOPIC:-interaction.preference.changed.v1}
+      KAFKA_DEAD_LETTER_TOPIC: ${KAFKA_DEAD_LETTER_TOPIC:-platform.events.dead-letter.v1}
+      KAFKA_RECOMMENDATION_INTERACTION_GROUP: ${KAFKA_RECOMMENDATION_INTERACTION_GROUP:-recommendation-interaction-v1}
     expose:
       - "8080"
       - "9090"

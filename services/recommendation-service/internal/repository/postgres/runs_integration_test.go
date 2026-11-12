@@ -121,6 +121,103 @@ func TestRunRepositoryRollsBackRunWhenAnItemFails(t *testing.T) {
 	}
 }
 
+func TestInvalidateBeforeExpiresOnlyOlderRuns(t *testing.T) {
+	pool := openIntegrationDatabase(t)
+	repository := NewRunRepository(pool)
+	ctx := context.Background()
+	userID := uuid.New()
+	eventTime := time.Now().UTC().Truncate(time.Microsecond)
+	older, err := recommendation.NewRun(
+		uuid.New(), userID, "transparent-v1", eventTime.Add(-time.Minute),
+		eventTime.Add(time.Hour), nil,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	newer, err := recommendation.NewRun(
+		uuid.New(), userID, "transparent-v1", eventTime.Add(time.Minute),
+		eventTime.Add(2*time.Hour), nil,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, run := range []recommendation.Run{older, newer} {
+		if _, err = repository.Save(ctx, run); err != nil {
+			t.Fatalf("Save() error = %v", err)
+		}
+		runID := run.ID
+		t.Cleanup(func() {
+			_, _ = pool.Exec(context.Background(),
+				`DELETE FROM recommendation.recommendation_runs WHERE id=$1`, runID)
+		})
+	}
+	updated, err := repository.InvalidateBefore(ctx, userID, eventTime)
+	if err != nil || updated != 1 {
+		t.Fatalf("InvalidateBefore() = %d, %v", updated, err)
+	}
+	storedOlder, err := repository.ByID(ctx, older.ID)
+	if err != nil || !storedOlder.ExpiresAt.Equal(eventTime) {
+		t.Fatalf("older run = %+v, %v", storedOlder, err)
+	}
+	storedNewer, err := repository.ByID(ctx, newer.ID)
+	if err != nil || !storedNewer.ExpiresAt.Equal(newer.ExpiresAt) {
+		t.Fatalf("newer run = %+v, %v", storedNewer, err)
+	}
+}
+
+func TestCatalogInvalidationTargetsAffectedRuns(t *testing.T) {
+	pool := openIntegrationDatabase(t)
+	repository := NewRunRepository(pool)
+	ctx := context.Background()
+	eventTime := time.Now().UTC().Truncate(time.Microsecond)
+	archivedTrack, otherTrack := uuid.New(), uuid.New()
+	newRun := func(generatedAt time.Time, trackID uuid.UUID) recommendation.Run {
+		run, err := recommendation.NewRun(
+			uuid.New(), uuid.New(), "transparent-v1", generatedAt,
+			generatedAt.Add(2*time.Hour),
+			[]recommendation.Item{{TrackID: trackID, Score: 1, Rank: 1, Reason: "test"}},
+		)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err = repository.Save(ctx, run); err != nil {
+			t.Fatalf("Save() error = %v", err)
+		}
+		t.Cleanup(func() {
+			_, _ = pool.Exec(context.Background(),
+				`DELETE FROM recommendation.recommendation_runs WHERE id=$1`, run.ID)
+		})
+		return run
+	}
+	olderAffected := newRun(eventTime.Add(-time.Minute), archivedTrack)
+	olderUnrelated := newRun(eventTime.Add(-time.Minute), otherTrack)
+	newerAffected := newRun(eventTime.Add(time.Minute), archivedTrack)
+
+	updated, err := repository.InvalidateTracksBefore(
+		ctx, []uuid.UUID{archivedTrack}, eventTime,
+	)
+	if err != nil || updated != 1 {
+		t.Fatalf("InvalidateTracksBefore() = %d, %v", updated, err)
+	}
+	stored, err := repository.ByID(ctx, olderAffected.ID)
+	if err != nil || !stored.ExpiresAt.Equal(eventTime) {
+		t.Fatalf("older affected run = %+v, %v", stored, err)
+	}
+	stored, err = repository.ByID(ctx, newerAffected.ID)
+	if err != nil || !stored.ExpiresAt.Equal(newerAffected.ExpiresAt) {
+		t.Fatalf("newer affected run = %+v, %v", stored, err)
+	}
+
+	updated, err = repository.InvalidateAllBefore(ctx, eventTime)
+	if err != nil || updated != 1 {
+		t.Fatalf("InvalidateAllBefore() = %d, %v", updated, err)
+	}
+	stored, err = repository.ByID(ctx, olderUnrelated.ID)
+	if err != nil || !stored.ExpiresAt.Equal(eventTime) {
+		t.Fatalf("older unrelated run = %+v, %v", stored, err)
+	}
+}
+
 func TestRunRepositorySerializesConcurrentGeneration(t *testing.T) {
 	pool := openIntegrationDatabase(t)
 	repository := NewRunRepository(pool)

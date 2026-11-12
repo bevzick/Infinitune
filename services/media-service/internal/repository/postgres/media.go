@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/bevzick/Infinitune/services/media-service/internal/events"
 	"github.com/bevzick/Infinitune/services/media-service/internal/media"
 	"github.com/bevzick/Infinitune/services/media-service/internal/processing"
 	"github.com/google/uuid"
@@ -22,13 +23,18 @@ type mediaDatabase interface {
 
 type MediaRepository struct {
 	database mediaDatabase
+	topic    string
 }
 
 var _ media.Store = (*MediaRepository)(nil)
 var _ processing.Queue = (*MediaRepository)(nil)
 
-func NewMediaRepository(database mediaDatabase) *MediaRepository {
-	return &MediaRepository{database: database}
+func NewMediaRepository(database mediaDatabase, configuredTopic ...string) *MediaRepository {
+	topic := events.AssetReadyV1
+	if len(configuredTopic) > 0 {
+		topic = configuredTopic[0]
+	}
+	return &MediaRepository{database: database, topic: topic}
 }
 
 func (repository *MediaRepository) AssetByID(
@@ -236,13 +242,32 @@ func (repository *MediaRepository) CompleteProcessing(
 	if commandTag.RowsAffected() != 1 {
 		return fmt.Errorf("processing job is not running")
 	}
-	_, err = tx.Exec(ctx, `
+	var occurredAt time.Time
+	err = tx.QueryRow(ctx, `
 		UPDATE media.media_assets
 		SET status = 'ready', duration_ms = $2, updated_at = now()
 		WHERE id = $1
-	`, job.Asset.ID, durationMS)
+		RETURNING updated_at
+	`, job.Asset.ID, durationMS).Scan(&occurredAt)
 	if err != nil {
 		return fmt.Errorf("mark media asset ready: %w", err)
+	}
+	readyAsset := job.Asset
+	readyAsset.Status = media.StatusReady
+	readyAsset.DurationMS = &durationMS
+	readyAsset.Variants = variants
+	message, err := events.NewAssetReady(readyAsset, variants, occurredAt, repository.topic)
+	if err != nil {
+		return fmt.Errorf("encode media asset ready event: %w", err)
+	}
+	_, err = tx.Exec(ctx, `
+		INSERT INTO media.event_outbox (
+			id, aggregate_id, event_type, topic, partition_key, payload, occurred_at
+		) VALUES ($1,$2,$3,$4,$5,$6,$7)
+	`, message.ID, message.AggregateID, message.Type, message.Topic,
+		message.Key, message.Payload, message.OccurredAt)
+	if err != nil {
+		return fmt.Errorf("enqueue media asset ready event: %w", err)
 	}
 	if err = tx.Commit(ctx); err != nil {
 		return fmt.Errorf("commit completed processing: %w", err)

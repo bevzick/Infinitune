@@ -142,6 +142,10 @@ func TestServiceRejectsUnavailablePublicationDependencies(t *testing.T) {
 			ID: uuid.New(), SourceUploadID: uploadID, ContentTrackID: trackID,
 			DurationMS: 1000, Status: contentmedia.StatusReady,
 		}}}, catalog: &catalogStub{err: contentcatalog.ErrUnavailable}, wantError: ErrCatalogUnavailable},
+		{name: "catalog approval pending", media: &mediaStub{assets: map[uuid.UUID]contentmedia.Asset{uploadID: {
+			ID: uuid.New(), SourceUploadID: uploadID, ContentTrackID: trackID,
+			DurationMS: 1000, Status: contentmedia.StatusReady,
+		}}}, catalog: &catalogStub{err: contentcatalog.ErrNotApproved}, wantError: ErrNotReady},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

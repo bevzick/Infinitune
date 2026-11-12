@@ -1,6 +1,9 @@
 package config
 
-import "testing"
+import (
+	"testing"
+	"time"
+)
 
 func TestLoadUsesContentDatabase(t *testing.T) {
 	t.Setenv("CONTENT_HTTP_HOST", "127.0.0.1")
@@ -19,6 +22,13 @@ func TestLoadUsesContentDatabase(t *testing.T) {
 	t.Setenv("POSTGRES_USER", "content_user")
 	t.Setenv("POSTGRES_PASSWORD", "secret")
 	t.Setenv("POSTGRES_CONTENT_DB", "content_db")
+	t.Setenv("KAFKA_BROKERS", "kafka:19092,kafka-backup:29092")
+	t.Setenv("KAFKA_MEDIA_ASSET_READY_TOPIC", "media-ready-test")
+	t.Setenv("KAFKA_CONTENT_MEDIA_GROUP", "content-media-test")
+	t.Setenv("KAFKA_CONTENT_RELEASE_APPROVED_TOPIC", "content-approved-test")
+	t.Setenv("CONTENT_OUTBOX_POLL_INTERVAL", "2s")
+	t.Setenv("CONTENT_OUTBOX_BATCH_SIZE", "25")
+	t.Setenv("KAFKA_DEAD_LETTER_TOPIC", "events-dlq-test")
 
 	config, err := Load()
 	if err != nil {
@@ -44,6 +54,13 @@ func TestLoadUsesContentDatabase(t *testing.T) {
 		config.Database.Name != "content_db" {
 		t.Errorf("Database = %+v", config.Database)
 	}
+	if len(config.Events.Brokers) != 2 || config.Events.MediaReadyTopic != "media-ready-test" ||
+		config.Events.MediaConsumerGroup != "content-media-test" ||
+		config.Events.ReleaseApprovedTopic != "content-approved-test" ||
+		config.Events.OutboxInterval != 2*time.Second || config.Events.OutboxBatch != 25 ||
+		config.Events.DeadLetterTopic != "events-dlq-test" {
+		t.Errorf("Events = %+v", config.Events)
+	}
 }
 
 func TestLoadRejectsInvalidConfiguration(t *testing.T) {
@@ -63,6 +80,10 @@ func TestLoadRejectsInvalidConfiguration(t *testing.T) {
 		{name: "missing database user", key: "POSTGRES_USER", value: ""},
 		{name: "missing database password", key: "POSTGRES_PASSWORD", value: ""},
 		{name: "missing database name", key: "POSTGRES_CONTENT_DB", value: ""},
+		{name: "invalid Kafka broker", key: "KAFKA_BROKERS", value: "kafka"},
+		{name: "blank Kafka group", key: "KAFKA_CONTENT_MEDIA_GROUP", value: " "},
+		{name: "invalid outbox batch", key: "CONTENT_OUTBOX_BATCH_SIZE", value: "0"},
+		{name: "blank dead-letter topic", key: "KAFKA_DEAD_LETTER_TOPIC", value: " "},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

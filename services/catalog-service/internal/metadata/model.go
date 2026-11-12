@@ -12,6 +12,7 @@ var (
 	ErrConflict         = errors.New("catalog metadata conflicts with existing data")
 	ErrInvalid          = errors.New("catalog metadata is invalid")
 	ErrInvalidReference = errors.New("catalog metadata references are invalid")
+	ErrNotApproved      = errors.New("content release approval has not been observed")
 )
 
 type AlbumType string

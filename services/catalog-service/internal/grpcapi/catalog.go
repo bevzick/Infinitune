@@ -699,6 +699,8 @@ func mapCatalogError(err error, internalMessage string) error {
 		return status.Error(codes.AlreadyExists, "catalog data conflicts with an existing item")
 	case errors.Is(err, metadata.ErrInvalidReference):
 		return status.Error(codes.FailedPrecondition, "catalog references are invalid")
+	case errors.Is(err, metadata.ErrNotApproved):
+		return status.Error(codes.FailedPrecondition, "release approval has not been observed")
 	case errors.Is(err, metadata.ErrNotFound):
 		return status.Error(codes.NotFound, "catalog item was not found")
 	default:
