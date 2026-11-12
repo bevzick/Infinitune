@@ -4,6 +4,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useSession } from "../features/session/SessionContext";
 import { ThemeToggle } from "../features/theme/ThemeToggle";
 import { ApiError } from "../shared/api/client";
+import { useDocumentTitle } from "../shared/hooks/useDocumentTitle";
 
 type LoginLocationState = {
   from?: string;
@@ -101,6 +102,7 @@ type AuthPageProps = {
 };
 
 export function AuthPage({ title, subtitle, children }: AuthPageProps) {
+  useDocumentTitle(title);
   return (
     <main className="auth-page">
       <Link className="auth-brand" to="/" aria-label="Infinitune home">

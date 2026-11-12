@@ -1,9 +1,10 @@
 import { type FormEvent, useState } from "react";
-import { NavLink, Outlet, useNavigate } from "react-router-dom";
+import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 
 import { PlayerControls } from "../features/player/PlayerControls";
 import { useSession } from "../features/session/SessionContext";
 import { ThemeToggle } from "../features/theme/ThemeToggle";
+import { useDocumentTitle } from "../shared/hooks/useDocumentTitle";
 import { Icon, type IconName } from "../shared/ui/Icon";
 
 type NavigationItem = {
@@ -27,7 +28,9 @@ const catalogNavigation: NavigationItem[] = [
 export function AppLayout() {
   const session = useSession();
   const navigate = useNavigate();
+  const location = useLocation();
   const [logoutError, setLogoutError] = useState("");
+  useDocumentTitle(pageTitle(location.pathname));
 
   async function signOut() {
     setLogoutError("");
@@ -50,9 +53,13 @@ export function AppLayout() {
 
   return (
     <div className="app-shell">
-      <a className="skip-link" href="#main-content">
+      <button
+        className="skip-link"
+        type="button"
+        onClick={() => document.getElementById("main-content")?.focus()}
+      >
         Skip to content
-      </a>
+      </button>
 
       <aside className="sidebar" aria-label="Primary navigation">
         <Brand />
@@ -135,7 +142,7 @@ export function AppLayout() {
             {logoutError}
           </p>
         ) : null}
-        <main id="main-content" className="page-content">
+        <main id="main-content" className="page-content" tabIndex={-1}>
           <Outlet />
         </main>
       </div>
@@ -148,6 +155,20 @@ export function AppLayout() {
       </nav>
     </div>
   );
+}
+
+export function pageTitle(pathname: string) {
+  if (pathname === "/") return "Discover";
+  if (pathname === "/search") return "Search";
+  if (pathname === "/artists") return "Artists";
+  if (pathname.startsWith("/artists/")) return "Artist";
+  if (pathname === "/albums") return "Albums";
+  if (pathname.startsWith("/albums/")) return "Album";
+  if (pathname.startsWith("/tracks/")) return "Track";
+  if (pathname === "/library") return "Library";
+  if (pathname.startsWith("/library/")) return "Playlist";
+  if (pathname === "/profile") return "Profile";
+  return "Infinitune";
 }
 
 function Brand() {
