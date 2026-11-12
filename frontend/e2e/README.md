@@ -18,3 +18,8 @@ PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium npm run test:e2e
 
 Use `npm run test:e2e:ui` for interactive debugging. Failed tests retain a
 trace and screenshot in the ignored `test-results` directory.
+
+Pull requests that change the frontend run linting, type checking, unit tests,
+the production build, and this smoke suite through the `Frontend checks`
+GitHub Actions workflow. A failed browser run uploads its HTML report for seven
+days.
