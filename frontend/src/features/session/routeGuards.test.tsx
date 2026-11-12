@@ -2,7 +2,7 @@ import { render, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { ProtectedRoute } from "./routeGuards";
+import { GuestRoute, ProtectedRoute } from "./routeGuards";
 
 const session = vi.hoisted(() => ({ status: "anonymous" }));
 
@@ -30,9 +30,31 @@ describe("ProtectedRoute", () => {
     expect(screen.getByText("/login|/library?sort=recent")).toBeInTheDocument();
     expect(screen.queryByText("Private library")).not.toBeInTheDocument();
   });
+
+  it("returns an authenticated listener to the preserved route", () => {
+    session.status = "authenticated";
+    render(
+      <MemoryRouter
+        initialEntries={[
+          { pathname: "/login", state: { from: "/library?sort=recent" } },
+        ]}
+      >
+        <Routes>
+          <Route path="/library" element={<LocationProbe />} />
+          <Route element={<GuestRoute />}>
+            <Route path="/login" element={<div>Login form</div>} />
+          </Route>
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText("/library|")).toBeInTheDocument();
+    expect(screen.queryByText("Login form")).not.toBeInTheDocument();
+  });
 });
 
 function LocationProbe() {
   const location = useLocation();
-  return <span>{`${location.pathname}|${location.state.from}`}</span>;
+  const from = (location.state as { from?: string } | null)?.from ?? "";
+  return <span>{`${location.pathname}|${from}`}</span>;
 }

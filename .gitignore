@@ -25,6 +25,9 @@ node_modules/
 # Frontend build and tool caches
 dist/
 .vite/
+playwright-report/
+test-results/
+blob-report/
 
 # Go workspace file
 go.work

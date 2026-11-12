@@ -22,11 +22,24 @@ export function ProtectedRoute() {
 
 export function GuestRoute() {
   const session = useSession();
+  const location = useLocation();
   if (session.status === "loading") return <SessionLoading />;
   if (session.status === "error")
     return <SessionUnavailable onRetry={session.retry} />;
-  if (session.status === "authenticated") return <Navigate to="/" replace />;
+  if (session.status === "authenticated") {
+    return <Navigate to={guestDestination(location.state)} replace />;
+  }
   return <Outlet />;
+}
+
+function guestDestination(state: unknown) {
+  if (!state || typeof state !== "object" || !("from" in state)) return "/";
+  const from = state.from;
+  return typeof from === "string" &&
+    from.startsWith("/") &&
+    !from.startsWith("//")
+    ? from
+    : "/";
 }
 
 function SessionUnavailable({ onRetry }: { onRetry(): void }) {
