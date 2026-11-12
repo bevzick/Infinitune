@@ -7,24 +7,39 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/bevzick/Infinitune/services/catalog-service/internal/database"
 )
 
 const (
-	defaultHTTPHost     = "0.0.0.0"
-	defaultHTTPPort     = "8080"
-	defaultGRPCHost     = "0.0.0.0"
-	defaultGRPCPort     = "9090"
-	defaultPostgresHost = "127.0.0.1"
-	defaultPostgresPort = "5432"
+	defaultHTTPHost       = "0.0.0.0"
+	defaultHTTPPort       = "8080"
+	defaultGRPCHost       = "0.0.0.0"
+	defaultGRPCPort       = "9090"
+	defaultPostgresHost   = "127.0.0.1"
+	defaultPostgresPort   = "5432"
+	defaultKafkaBrokers   = "127.0.0.1:9092"
+	defaultPublishedTopic = "catalog.release.published.v1"
+	defaultArchivedTopic  = "catalog.release.archived.v1"
+	defaultOutboxPoll     = time.Second
+	defaultOutboxBatch    = 100
 )
+
+type EventsConfig struct {
+	Brokers        []string
+	PublishedTopic string
+	ArchivedTopic  string
+	OutboxInterval time.Duration
+	OutboxBatch    int
+}
 
 type Config struct {
 	HTTPAddress string
 	GRPCAddress string
 	Database    database.Config
 	Origins     []string
+	Events      EventsConfig
 }
 
 func Load() (Config, error) {
@@ -46,11 +61,60 @@ func Load() (Config, error) {
 		return Config{}, err
 	}
 
+	eventsConfig, err := loadEventsConfig()
+	if err != nil {
+		return Config{}, err
+	}
 	return Config{
 		HTTPAddress: net.JoinHostPort(envOrDefault("CATALOG_HTTP_HOST", defaultHTTPHost), port),
 		GRPCAddress: net.JoinHostPort(envOrDefault("CATALOG_GRPC_HOST", defaultGRPCHost), grpcPort),
 		Database:    databaseConfig,
 		Origins:     origins,
+		Events:      eventsConfig,
+	}, nil
+}
+
+func loadEventsConfig() (EventsConfig, error) {
+	rawBrokers := strings.Split(envOrDefault("KAFKA_BROKERS", defaultKafkaBrokers), ",")
+	brokers := make([]string, 0, len(rawBrokers))
+	for _, raw := range rawBrokers {
+		broker := strings.TrimSpace(raw)
+		if broker == "" {
+			return EventsConfig{}, fmt.Errorf("KAFKA_BROKERS contains an empty broker")
+		}
+		if _, _, err := net.SplitHostPort(broker); err != nil {
+			return EventsConfig{}, fmt.Errorf("invalid KAFKA_BROKERS entry %q", broker)
+		}
+		brokers = append(brokers, broker)
+	}
+	publishedTopic := strings.TrimSpace(envOrDefault(
+		"KAFKA_CATALOG_PUBLISHED_TOPIC", defaultPublishedTopic,
+	))
+	archivedTopic := strings.TrimSpace(envOrDefault(
+		"KAFKA_CATALOG_ARCHIVED_TOPIC", defaultArchivedTopic,
+	))
+	if publishedTopic == "" || archivedTopic == "" {
+		return EventsConfig{}, fmt.Errorf("Kafka Catalog topics must not be blank")
+	}
+	interval := defaultOutboxPoll
+	if raw := os.Getenv("CATALOG_OUTBOX_POLL_INTERVAL"); raw != "" {
+		parsed, err := time.ParseDuration(raw)
+		if err != nil || parsed <= 0 {
+			return EventsConfig{}, fmt.Errorf("invalid CATALOG_OUTBOX_POLL_INTERVAL %q", raw)
+		}
+		interval = parsed
+	}
+	batch := defaultOutboxBatch
+	if raw := os.Getenv("CATALOG_OUTBOX_BATCH_SIZE"); raw != "" {
+		parsed, err := strconv.Atoi(raw)
+		if err != nil || parsed < 1 || parsed > 1000 {
+			return EventsConfig{}, fmt.Errorf("invalid CATALOG_OUTBOX_BATCH_SIZE %q: expected 1..1000", raw)
+		}
+		batch = parsed
+	}
+	return EventsConfig{
+		Brokers: brokers, PublishedTopic: publishedTopic, ArchivedTopic: archivedTopic,
+		OutboxInterval: interval, OutboxBatch: batch,
 	}, nil
 }
 

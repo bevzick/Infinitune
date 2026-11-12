@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/bevzick/Infinitune/services/catalog-service/internal/events"
 	"github.com/bevzick/Infinitune/services/catalog-service/internal/metadata"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -28,6 +29,15 @@ func (repository *MetadataRepository) PublishRelease(
 	if err == nil {
 		if existingFingerprint != fingerprint {
 			return metadata.Publication{}, metadata.ErrConflict
+		}
+		message, messageErr := events.NewReleasePublished(
+			existing, repository.topics.ReleasePublished,
+		)
+		if messageErr != nil {
+			return metadata.Publication{}, fmt.Errorf("encode catalog publication event: %w", messageErr)
+		}
+		if err = enqueueEvent(ctx, tx, message); err != nil {
+			return metadata.Publication{}, err
 		}
 		if err = tx.Commit(ctx); err != nil {
 			return metadata.Publication{}, fmt.Errorf("commit idempotent catalog publication: %w", err)
@@ -109,6 +119,13 @@ func (repository *MetadataRepository) PublishRelease(
 			ContentTrackID: track.ContentID, CatalogTrackID: track.ID,
 		})
 	}
+	message, err := events.NewReleasePublished(result, repository.topics.ReleasePublished)
+	if err != nil {
+		return metadata.Publication{}, fmt.Errorf("encode catalog publication event: %w", err)
+	}
+	if err = enqueueEvent(ctx, tx, message); err != nil {
+		return metadata.Publication{}, err
+	}
 	if err = tx.Commit(ctx); err != nil {
 		return metadata.Publication{}, publicationWriteError("commit catalog publication", err)
 	}
@@ -119,20 +136,59 @@ func (repository *MetadataRepository) ArchiveRelease(
 	ctx context.Context,
 	sourceReleaseID uuid.UUID,
 ) (metadata.Archive, error) {
+	tx, err := repository.database.Begin(ctx)
+	if err != nil {
+		return metadata.Archive{}, fmt.Errorf("begin catalog archive: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	if _, err = tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`,
+		sourceReleaseID.String()); err != nil {
+		return metadata.Archive{}, fmt.Errorf("lock catalog archive: %w", err)
+	}
+	publication, _, err := publicationBySource(ctx, tx, sourceReleaseID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return metadata.Archive{}, metadata.ErrNotFound
+	}
+	if err != nil {
+		return metadata.Archive{}, fmt.Errorf("read catalog publication for archive: %w", err)
+	}
 	var result metadata.Archive
-	err := repository.database.QueryRow(ctx, `
+	err = tx.QueryRow(ctx, `
 		UPDATE catalog.publications
 		SET archived_at = COALESCE(archived_at, clock_timestamp())
 		WHERE source_release_id = $1
 		RETURNING source_release_id, archived_at
 	`, sourceReleaseID).Scan(&result.SourceReleaseID, &result.ArchivedAt)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return metadata.Archive{}, metadata.ErrNotFound
-	}
 	if err != nil {
 		return metadata.Archive{}, fmt.Errorf("archive catalog publication: %w", err)
 	}
+	message, err := events.NewReleaseArchived(
+		publication, result.ArchivedAt, repository.topics.ReleaseArchived,
+	)
+	if err != nil {
+		return metadata.Archive{}, fmt.Errorf("encode catalog archive event: %w", err)
+	}
+	if err = enqueueEvent(ctx, tx, message); err != nil {
+		return metadata.Archive{}, err
+	}
+	if err = tx.Commit(ctx); err != nil {
+		return metadata.Archive{}, fmt.Errorf("commit catalog archive: %w", err)
+	}
 	return result, nil
+}
+
+func enqueueEvent(ctx context.Context, tx pgx.Tx, message events.Message) error {
+	_, err := tx.Exec(ctx, `
+		INSERT INTO catalog.event_outbox (
+			id, aggregate_id, event_type, topic, partition_key, payload, occurred_at
+		) VALUES ($1,$2,$3,$4,$5,$6,$7)
+		ON CONFLICT (aggregate_id, event_type) DO NOTHING
+	`, message.ID, message.AggregateID, message.Type, message.Topic,
+		message.Key, message.Payload, message.OccurredAt)
+	if err != nil {
+		return fmt.Errorf("enqueue catalog event: %w", err)
+	}
+	return nil
 }
 
 func publicationBySource(

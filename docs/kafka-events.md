@@ -25,12 +25,25 @@ History service ---- gRPC validation ----> Catalog service
          v                           v
 Recommendation consumer       Future analytics consumer
 (invalidates stale runs)       (aggregates, trends)
+
+Content approval ---- gRPC publish ----> Catalog service
+                                         |
+                                         | catalog.event_outbox
+                                         v
+                       catalog.release.published.v1 ┐
+                                                    ├─ Kafka, key = source_release_id
+                       catalog.release.archived.v1  ┘
+                                         |
+                         +---------------+----------------+
+                         v               v                v
+                    Recommendation   Playlist       Future search index
 ```
 
 ## Delivery contract
 
 - Implemented events are `history.listening.recorded.v1` and
-  `history.listening.cleared.v1`.
+  `history.listening.cleared.v1`, plus `catalog.release.published.v1` and
+  `catalog.release.archived.v1`.
 - Recording/deleting history and creating the corresponding outbox row happen atomically in
   History PostgreSQL.
 - Delivery is **at least once**. A crash after Kafka accepts an event but before the outbox row
@@ -45,13 +58,17 @@ Recommendation consumer       Future analytics consumer
 - Consumers that persist listening signals must apply clear events as deletion watermarks and
   ignore a late recorded event when it falls inside an already cleared range. Recommendation does
   not copy raw history and only invalidates cached runs; its next calculation reads current History.
+- Catalog lifecycle payloads contain canonical artist, optional album, and track identifiers.
+  Publication/archive changes and their outbox rows share one Catalog transaction. Repeated gRPC
+  commands reuse the same `aggregate_id + event_type` outbox identity and do not emit duplicates.
+- Catalog topics are a change feed, not a complete snapshot. A new search/index consumer must first
+  bootstrap current published metadata through a dedicated Catalog contract and then apply events;
+  `occurred_at` resolves late publish/archive delivery for the same release.
 
 ## Suitable next integrations
 
 | Producer | Event | Consumers | Purpose |
 |---|---|---|---|
-| Catalog | `catalog.release.published.v1` | Search, Recommendation | Update indexes and candidate sets |
-| Catalog | `catalog.release.archived.v1` | Search, Playlist, Recommendation | Remove unavailable tracks |
 | Media | `media.asset.ready.v1` | Content, Catalog | Complete publishing without polling |
 | Content | `content.release.approved.v1` | Catalog, Media | Start controlled publication workflow |
 | Interaction | `interaction.preference.changed.v1` | Recommendation | Invalidate personalized recommendation runs |
@@ -63,4 +80,4 @@ The Compose broker is a single-node development setup with plaintext traffic. Pr
 multiple brokers, replication, TLS/SASL, monitoring, quotas, and an explicit retention/privacy policy.
 
 Start the full local stack with `make up`. The Makefile includes `compose.kafka.yml`; the
-`kafka-init` service creates both History topics idempotently before History starts.
+`kafka-init` service creates the History and Catalog topics idempotently before producers start.

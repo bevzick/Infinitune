@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/bevzick/Infinitune/services/catalog-service/internal/events"
 	"github.com/bevzick/Infinitune/services/catalog-service/internal/metadata"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -103,6 +104,19 @@ func TestPublicationRepositoryPublishesAtomicallyAndIdempotently(t *testing.T) {
 	if err != nil || len(artistValidation.ValidIDs) != 1 || artistValidation.ValidIDs[0] != artistID {
 		t.Fatalf("ValidateArtistIDs(after archive) = %+v, %v", artistValidation, err)
 	}
+	var publishedEvents, archivedEvents int
+	if err = pool.QueryRow(ctx, `
+		SELECT
+			count(*) FILTER (WHERE event_type=$2),
+			count(*) FILTER (WHERE event_type=$3)
+		FROM catalog.event_outbox
+		WHERE aggregate_id=$1
+	`, sourceID, events.ReleasePublishedV1, events.ReleaseArchivedV1).Scan(
+		&publishedEvents, &archivedEvents,
+	); err != nil || publishedEvents != 1 || archivedEvents != 1 {
+		t.Fatalf("outbox events = published %d, archived %d; error = %v",
+			publishedEvents, archivedEvents, err)
+	}
 }
 
 func publicationTrack(
@@ -131,6 +145,7 @@ func cleanupPublication(
 	t.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
+	_, _ = pool.Exec(ctx, `DELETE FROM catalog.event_outbox WHERE aggregate_id = $1`, sourceID)
 	_, _ = pool.Exec(ctx, `DELETE FROM catalog.publications WHERE source_release_id = $1`, sourceID)
 	for _, trackID := range trackIDs {
 		_, _ = pool.Exec(ctx, `DELETE FROM catalog.track_artists WHERE track_id = $1`, trackID)
