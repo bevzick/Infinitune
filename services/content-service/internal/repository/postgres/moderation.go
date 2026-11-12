@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/bevzick/Infinitune/services/content-service/internal/events"
 	"github.com/bevzick/Infinitune/services/content-service/internal/moderation"
 	"github.com/bevzick/Infinitune/services/content-service/internal/release"
 	"github.com/google/uuid"
@@ -15,11 +16,16 @@ import (
 )
 
 type ModerationRepository struct {
-	database *pgxpool.Pool
+	database      *pgxpool.Pool
+	approvedTopic string
 }
 
-func NewModerationRepository(database *pgxpool.Pool) *ModerationRepository {
-	return &ModerationRepository{database: database}
+func NewModerationRepository(database *pgxpool.Pool, configuredTopic ...string) *ModerationRepository {
+	topic := events.ReleaseApprovedV1
+	if len(configuredTopic) > 0 {
+		topic = configuredTopic[0]
+	}
+	return &ModerationRepository{database: database, approvedTopic: topic}
 }
 
 func (repository *ModerationRepository) RecordReview(
@@ -106,6 +112,21 @@ func (repository *ModerationRepository) RecordReview(
 	}
 	if commandTag.RowsAffected() != 1 {
 		return moderation.Review{}, moderation.ErrConflict
+	}
+	if recorded.Decision == moderation.DecisionApproved {
+		message, messageErr := events.NewReleaseApproved(recorded, creatorID, repository.approvedTopic)
+		if messageErr != nil {
+			return moderation.Review{}, fmt.Errorf("encode release approved event: %w", messageErr)
+		}
+		_, messageErr = tx.Exec(ctx, `
+			INSERT INTO content.event_outbox (
+				id, aggregate_id, event_type, topic, partition_key, payload, occurred_at
+			) VALUES ($1,$2,$3,$4,$5,$6,$7)
+		`, message.ID, message.AggregateID, message.Type, message.Topic,
+			message.Key, message.Payload, message.OccurredAt)
+		if messageErr != nil {
+			return moderation.Review{}, fmt.Errorf("enqueue release approved event: %w", messageErr)
+		}
 	}
 	if err = tx.Commit(ctx); err != nil {
 		return moderation.Review{}, fmt.Errorf("commit moderation review: %w", mapModerationError(err))

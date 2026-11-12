@@ -178,6 +178,9 @@ func cleanupReleaseAggregate(
 	t.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
+	if _, err := pool.Exec(ctx, `DELETE FROM content.event_outbox WHERE aggregate_id = $1`, releaseID); err != nil {
+		t.Errorf("cleanup release outbox: %v", err)
+	}
 	if _, err := pool.Exec(ctx, `DELETE FROM content.releases WHERE id = $1`, releaseID); err != nil {
 		t.Errorf("cleanup release: %v", err)
 	}

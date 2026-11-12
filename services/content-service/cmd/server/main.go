@@ -70,6 +70,12 @@ func main() {
 		os.Exit(1)
 	}
 	defer databasePool.Close()
+	producer, err := event_kafka.NewProducer(cfg.Events.Brokers)
+	if err != nil {
+		logger.Error("failed to initialize Kafka producer", "error", err)
+		os.Exit(1)
+	}
+	defer producer.Close()
 	repository := postgres_repository.NewCreatorRepository(databasePool)
 	creatorService := creator.NewService(repository)
 	tokenVerifier, err := identity.NewVerifier(cfg.Identity, nil)
@@ -114,7 +120,7 @@ func main() {
 		mediaAssets,
 	)
 	moderationService := moderation.NewService(
-		postgres_repository.NewModerationRepository(databasePool),
+		postgres_repository.NewModerationRepository(databasePool, cfg.Events.ReleaseApprovedTopic),
 	)
 	catalogClient := content_catalog.NewClient(catalogv1.NewCatalogServiceClient(catalogConnection))
 	publicationService := publication.NewService(
@@ -156,6 +162,11 @@ func main() {
 	)
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+	dispatcher := events.NewDispatcher(
+		postgres_repository.NewOutboxRepository(databasePool), producer, logger,
+		cfg.Events.OutboxInterval, cfg.Events.OutboxBatch,
+	)
+	go dispatcher.Run(ctx)
 	mediaConsumer, err := event_kafka.NewConsumer(
 		cfg.Events.Brokers, cfg.Events.MediaReadyTopic, cfg.Events.MediaConsumerGroup,
 		events.NewMediaHandler(mediaReadiness), logger,

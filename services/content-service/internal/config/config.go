@@ -14,32 +14,38 @@ import (
 )
 
 const (
-	defaultHTTPHost           = "0.0.0.0"
-	defaultHTTPPort           = "8080"
-	defaultGRPCHost           = "0.0.0.0"
-	defaultGRPCPort           = "9090"
-	defaultUserHost           = "127.0.0.1"
-	defaultUserPort           = "9090"
-	defaultMediaHost          = "127.0.0.1"
-	defaultMediaPort          = "9090"
-	defaultCatalogHost        = "127.0.0.1"
-	defaultCatalogPort        = "9090"
-	defaultPostgresHost       = "127.0.0.1"
-	defaultPostgresPort       = "5432"
-	defaultJWKSURL            = "http://auth-service:8080/v1/auth/jwks"
-	defaultJWTIssuer          = "infinitune-auth"
-	defaultJWTAudience        = "infinitune-api"
-	defaultJWTKeyID           = "auth-key-1"
-	defaultJWKSRefresh        = 5 * time.Minute
-	defaultKafkaBrokers       = "127.0.0.1:9092"
-	defaultMediaReadyTopic    = "media.asset.ready.v1"
-	defaultMediaConsumerGroup = "content-media-v1"
+	defaultHTTPHost             = "0.0.0.0"
+	defaultHTTPPort             = "8080"
+	defaultGRPCHost             = "0.0.0.0"
+	defaultGRPCPort             = "9090"
+	defaultUserHost             = "127.0.0.1"
+	defaultUserPort             = "9090"
+	defaultMediaHost            = "127.0.0.1"
+	defaultMediaPort            = "9090"
+	defaultCatalogHost          = "127.0.0.1"
+	defaultCatalogPort          = "9090"
+	defaultPostgresHost         = "127.0.0.1"
+	defaultPostgresPort         = "5432"
+	defaultJWKSURL              = "http://auth-service:8080/v1/auth/jwks"
+	defaultJWTIssuer            = "infinitune-auth"
+	defaultJWTAudience          = "infinitune-api"
+	defaultJWTKeyID             = "auth-key-1"
+	defaultJWKSRefresh          = 5 * time.Minute
+	defaultKafkaBrokers         = "127.0.0.1:9092"
+	defaultMediaReadyTopic      = "media.asset.ready.v1"
+	defaultMediaConsumerGroup   = "content-media-v1"
+	defaultReleaseApprovedTopic = "content.release.approved.v1"
+	defaultOutboxPoll           = time.Second
+	defaultOutboxBatch          = 100
 )
 
 type EventsConfig struct {
-	Brokers            []string
-	MediaReadyTopic    string
-	MediaConsumerGroup string
+	Brokers              []string
+	MediaReadyTopic      string
+	MediaConsumerGroup   string
+	ReleaseApprovedTopic string
+	OutboxInterval       time.Duration
+	OutboxBatch          int
 }
 
 type Config struct {
@@ -121,10 +127,30 @@ func loadEventsConfig() (EventsConfig, error) {
 	}
 	topic := strings.TrimSpace(envOrDefault("KAFKA_MEDIA_ASSET_READY_TOPIC", defaultMediaReadyTopic))
 	group := strings.TrimSpace(envOrDefault("KAFKA_CONTENT_MEDIA_GROUP", defaultMediaConsumerGroup))
-	if topic == "" || group == "" {
-		return EventsConfig{}, fmt.Errorf("Kafka media topic and consumer group must not be blank")
+	approvedTopic := strings.TrimSpace(envOrDefault("KAFKA_CONTENT_RELEASE_APPROVED_TOPIC", defaultReleaseApprovedTopic))
+	if topic == "" || group == "" || approvedTopic == "" {
+		return EventsConfig{}, fmt.Errorf("Kafka topics and consumer groups must not be blank")
 	}
-	return EventsConfig{Brokers: brokers, MediaReadyTopic: topic, MediaConsumerGroup: group}, nil
+	interval := defaultOutboxPoll
+	if raw := os.Getenv("CONTENT_OUTBOX_POLL_INTERVAL"); raw != "" {
+		parsed, err := time.ParseDuration(raw)
+		if err != nil || parsed <= 0 {
+			return EventsConfig{}, fmt.Errorf("invalid CONTENT_OUTBOX_POLL_INTERVAL %q", raw)
+		}
+		interval = parsed
+	}
+	batch := defaultOutboxBatch
+	if raw := os.Getenv("CONTENT_OUTBOX_BATCH_SIZE"); raw != "" {
+		parsed, err := strconv.Atoi(raw)
+		if err != nil || parsed < 1 || parsed > 1000 {
+			return EventsConfig{}, fmt.Errorf("invalid CONTENT_OUTBOX_BATCH_SIZE %q: expected 1..1000", raw)
+		}
+		batch = parsed
+	}
+	return EventsConfig{
+		Brokers: brokers, MediaReadyTopic: topic, MediaConsumerGroup: group,
+		ReleaseApprovedTopic: approvedTopic, OutboxInterval: interval, OutboxBatch: batch,
+	}, nil
 }
 
 func parseAllowedOrigins(value string) ([]string, error) {

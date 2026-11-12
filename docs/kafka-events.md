@@ -65,6 +65,19 @@ Audio processing -----> Media service
                                            v
                               Content consumer
                               (updates local readiness projection)
+
+Moderator approval -----> Content service
+                                |
+                                | same PostgreSQL transaction
+                                +--> release status = approved
+                                +--> content.event_outbox
+                                             |
+                                             v
+                              content.release.approved.v1
+                              Kafka, key = release_id
+                                             |
+                                             v
+                              Future workflow consumers
 ```
 
 ## Delivery contract
@@ -72,7 +85,7 @@ Audio processing -----> Media service
 - Implemented events are `history.listening.recorded.v1` and
   `history.listening.cleared.v1`, `catalog.release.published.v1`,
   `catalog.release.archived.v1`, `interaction.preference.changed.v1`, and
-  `media.asset.ready.v1`.
+  `media.asset.ready.v1`, and `content.release.approved.v1`.
 - Recording/deleting history and creating the corresponding outbox row happen atomically in
   History PostgreSQL.
 - Delivery is **at least once**. A crash after Kafka accepts an event but before the outbox row
@@ -108,12 +121,15 @@ Audio processing -----> Media service
   an idempotent projection ordered by `occurred_at`. Submission and publication read the local
   projection first; Media gRPC remains a compatibility fallback for assets created before the
   event flow was deployed or older than Kafka retention.
+- Content emits release approval only for a newly recorded `approved` moderation decision. The
+  review, release status transition, and outbox message are atomic; idempotent review retries reuse
+  the existing review and do not enqueue duplicate approval events.
 
 ## Suitable next integrations
 
 | Producer | Event | Consumers | Purpose |
 |---|---|---|---|
-| Content | `content.release.approved.v1` | Catalog, Media | Start controlled publication workflow |
+| Approval workflow | `content.release.approved.v1` | Catalog | Trigger controlled catalog publication |
 
 Commands and permission checks remain synchronous. Kafka should not replace Catalog validation,
 authentication, playback authorization, or user-facing writes that require an immediate response.
