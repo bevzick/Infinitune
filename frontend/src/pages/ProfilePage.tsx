@@ -12,11 +12,13 @@ import {
   updateSettings,
 } from "../features/profile/profileApi";
 import { useSession } from "../features/session/SessionContext";
+import { useTheme } from "../features/theme/ThemeContext";
 import { ApiError } from "../shared/api/client";
 import { LibraryError, LibraryLoading } from "./LibraryPage";
 
 export function ProfilePage() {
   const { accessToken } = useSession();
+  const { setTheme } = useTheme();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [settings, setSettings] = useState<UserSettings | null>(null);
   const [status, setStatus] = useState<
@@ -34,6 +36,7 @@ export function ProfilePage() {
         const currentSettings = await getSettings(accessToken, signal);
         setProfile(currentProfile);
         setSettings(currentSettings);
+        setTheme(resolveTheme(currentSettings.theme));
         setStatus("ready");
       } catch (reason) {
         if (signal?.aborted) return;
@@ -47,7 +50,7 @@ export function ProfilePage() {
         setStatus("error");
       }
     },
-    [accessToken],
+    [accessToken, setTheme],
   );
 
   useEffect(() => {
@@ -337,6 +340,7 @@ function SettingsEditor({
   onChange(settings: UserSettings): void;
 }) {
   const { accessToken } = useSession();
+  const { setTheme } = useTheme();
   const [draft, setDraft] = useState<SettingsUpdateInput>(() =>
     settingsDraft(settings),
   );
@@ -362,6 +366,7 @@ function SettingsEditor({
       const updated = await updateSettings(accessToken, draft);
       onChange(updated);
       setDraft(settingsDraft(updated));
+      setTheme(resolveTheme(updated.theme));
       setSaved(true);
     } catch (reason) {
       setError(apiError(reason, "Could not save your settings"));
@@ -392,12 +397,12 @@ function SettingsEditor({
             Interface theme
             <select
               value={draft.theme}
-              onChange={(event) =>
-                update(
-                  "theme",
-                  event.target.value as SettingsUpdateInput["theme"],
-                )
-              }
+              onChange={(event) => {
+                const preference = event.target
+                  .value as SettingsUpdateInput["theme"];
+                update("theme", preference);
+                setTheme(resolveTheme(preference));
+              }}
             >
               <option value="system">Use system setting</option>
               <option value="dark">Dark</option>
@@ -512,6 +517,13 @@ function settingsDraft(settings: UserSettings): SettingsUpdateInput {
     normalize_volume: settings.normalize_volume,
     show_listening_activity: settings.show_listening_activity,
   };
+}
+
+function resolveTheme(preference: SettingsUpdateInput["theme"]) {
+  if (preference === "light" || preference === "dark") return preference;
+  return window.matchMedia?.("(prefers-color-scheme: light)").matches
+    ? "light"
+    : "dark";
 }
 
 function apiError(reason: unknown, fallback: string) {

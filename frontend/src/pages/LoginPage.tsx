@@ -115,9 +115,16 @@ export function AuthPage({ title, subtitle, children }: AuthPageProps) {
         <p className="auth-subtitle">{subtitle}</p>
         {children}
       </section>
-      <div className="auth-atmosphere" aria-hidden="true">
-        <span>∞</span>
-      </div>
+      <aside className="auth-showcase" aria-hidden="true">
+        <div className="auth-showcase-copy">
+          <span>YOUR MUSIC, YOUR SPACE</span>
+          <strong>Keep every discovery within reach.</strong>
+          <p>Build playlists, follow artists, and continue on any device.</p>
+        </div>
+        <div className="auth-atmosphere">
+          <span>∞</span>
+        </div>
+      </aside>
     </main>
   );
 }
