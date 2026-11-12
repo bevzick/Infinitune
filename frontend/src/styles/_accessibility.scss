@@ -1,0 +1,82 @@
+.page-content:focus {
+  outline: 3px solid color-mix(in srgb, var(--app-accent) 72%, transparent);
+  outline-offset: -3px;
+}
+
+@media (pointer: coarse) {
+  button,
+  .nav-link,
+  .catalog-pagination a,
+  .back-link {
+    min-height: 2.75rem;
+  }
+
+  .icon-button,
+  .interaction-button-compact {
+    min-width: 2.75rem;
+    min-height: 2.75rem;
+  }
+}
+
+@media (max-width: 850px) {
+  .app-shell {
+    padding-bottom: calc(9.25rem + env(safe-area-inset-bottom));
+  }
+
+  .mobile-nav {
+    height: calc(4.7rem + env(safe-area-inset-bottom));
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .player-shell {
+    bottom: calc(5.15rem + env(safe-area-inset-bottom));
+  }
+
+  .lyrics-panel {
+    bottom: calc(10.5rem + env(safe-area-inset-bottom));
+  }
+
+  .feedback-viewport {
+    bottom: calc(10rem + env(safe-area-inset-bottom));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  .nav-link,
+  .playlist-card,
+  .interaction-button,
+  .auth-submit,
+  .detail-primary,
+  .setting-toggle i,
+  .setting-toggle i::after {
+    transition: none;
+  }
+}
+
+@media (forced-colors: active) {
+  .brand-mark,
+  .playlist-cover,
+  .playlist-detail-cover,
+  .profile-avatar,
+  .catalog-art,
+  .route-loading-mark {
+    border: 1px solid CanvasText;
+    color: CanvasText;
+    background: Canvas;
+    forced-color-adjust: auto;
+  }
+
+  .detail-primary,
+  .auth-submit,
+  .search-submit,
+  .profile-form-actions button,
+  .playlist-form-actions > button:first-child {
+    border: 1px solid ButtonText;
+    color: ButtonText;
+    background: ButtonFace;
+  }
+}

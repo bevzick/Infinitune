@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import type { PlaybackContext } from "../history/historyApi";
+import { InteractionButton } from "../interactions/InteractionButton";
 import { usePlayer } from "../player/PlayerContext";
 import type { Album, Artist, Track } from "./catalogApi";
 
@@ -35,7 +36,7 @@ export function TrackList({
             {track.title.slice(0, 1).toUpperCase()}
           </button>
           <div className="track-main">
-            <strong>{track.title}</strong>
+            <Link to={`/tracks/${track.id}`}>{track.title}</Link>
             <span>{primaryArtists(track)}</span>
           </div>
           <div className="track-tags">
@@ -44,6 +45,7 @@ export function TrackList({
             ))}
           </div>
           {track.explicit ? <span className="explicit-mark">E</span> : null}
+          <InteractionButton kind="track" id={track.id} label={track.title} />
           {actions ? (
             <div className="track-actions">{actions(track, index)}</div>
           ) : null}
@@ -60,20 +62,24 @@ export function AlbumGrid({ albums }: { albums: Album[] }) {
   return (
     <div className="album-grid">
       {albums.map((album) => (
-        <Link
-          className="album-card"
-          to={`/search?album=${album.id}`}
-          key={album.id}
-        >
-          <Artwork src={album.cover_url} label={album.title} shape="square" />
-          <strong>{album.title}</strong>
-          <span>
-            {album.artists.map(({ artist }) => artist.name).join(", ")}
-          </span>
-          <small>
-            {album.album_type.toUpperCase()} · {album.release_date.slice(0, 4)}
-          </small>
-        </Link>
+        <article className="album-card-shell" key={album.id}>
+          <Link className="album-card" to={`/albums/${album.id}`}>
+            <CatalogArtwork
+              src={album.cover_url}
+              label={album.title}
+              shape="square"
+            />
+            <strong>{album.title}</strong>
+            <span>
+              {album.artists.map(({ artist }) => artist.name).join(", ")}
+            </span>
+            <small>
+              {album.album_type.toUpperCase()} ·{" "}
+              {album.release_date.slice(0, 4)}
+            </small>
+          </Link>
+          <InteractionButton kind="album" id={album.id} label={album.title} />
+        </article>
       ))}
     </div>
   );
@@ -83,15 +89,18 @@ export function ArtistGrid({ artists }: { artists: Artist[] }) {
   return (
     <div className="artist-grid">
       {artists.map((artist) => (
-        <Link
-          className="artist-card"
-          to={`/search?artist=${artist.id}`}
-          key={artist.id}
-        >
-          <Artwork src={artist.image_url} label={artist.name} shape="round" />
-          <strong>{artist.name}</strong>
-          <span>{artist.description || "Artist on Infinitune"}</span>
-        </Link>
+        <article className="artist-card-shell" key={artist.id}>
+          <Link className="artist-card" to={`/artists/${artist.id}`}>
+            <CatalogArtwork
+              src={artist.image_url}
+              label={artist.name}
+              shape="round"
+            />
+            <strong>{artist.name}</strong>
+            <span>{artist.description || "Artist on Infinitune"}</span>
+          </Link>
+          <InteractionButton kind="artist" id={artist.id} label={artist.name} />
+        </article>
       ))}
     </div>
   );
@@ -99,9 +108,20 @@ export function ArtistGrid({ artists }: { artists: Artist[] }) {
 
 export function CatalogLoading({ label }: { label: string }) {
   return (
-    <div className="catalog-state" aria-live="polite">
-      <span className="loading-pulse" aria-hidden="true" />
-      Loading {label}…
+    <div className="catalog-loading" aria-live="polite" aria-busy="true">
+      <div className="catalog-loading-label">
+        <span className="loading-pulse" aria-hidden="true" />
+        Loading {label}…
+      </div>
+      <div className="catalog-skeleton" aria-hidden="true">
+        {[0, 1, 2].map((index) => (
+          <span className="catalog-skeleton-row" key={index}>
+            <i />
+            <b />
+            <em />
+          </span>
+        ))}
+      </div>
     </div>
   );
 }
@@ -163,7 +183,7 @@ export function CatalogPagination({
   );
 }
 
-function Artwork({
+export function CatalogArtwork({
   src,
   label,
   shape,

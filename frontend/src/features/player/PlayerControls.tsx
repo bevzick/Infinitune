@@ -1,5 +1,7 @@
 import { useState } from "react";
 
+import { Icon } from "../../shared/ui/Icon";
+import { InteractionButton } from "../interactions/InteractionButton";
 import { LyricsPanel } from "./LyricsPanel";
 import { usePlayer } from "./PlayerContext";
 
@@ -22,88 +24,102 @@ export function PlayerControls() {
               (track ? artistNames(track) : "Choose a track to begin")}
           </span>
         </div>
-        <div className="player-transport">
-          <button
-            type="button"
-            onClick={() => void player.previous()}
-            disabled={!player.hasPrevious && player.currentTime <= 3}
-            aria-label="Previous track"
-          >
-            ‹
-          </button>
-          <button
-            className="play-button"
-            type="button"
-            onClick={() => void player.toggle()}
-            disabled={disabled}
-            aria-label={player.status === "playing" ? "Pause" : "Play"}
-          >
-            {player.status === "loading"
-              ? "…"
-              : player.status === "playing"
-                ? "Ⅱ"
-                : "▶"}
-          </button>
-          <button
-            type="button"
-            onClick={() => void player.next()}
-            disabled={!player.hasNext}
-            aria-label="Next track"
-          >
-            ›
-          </button>
+        <div className="player-center">
+          <div className="player-transport">
+            <button
+              type="button"
+              onClick={() => void player.previous()}
+              disabled={!player.hasPrevious && player.currentTime <= 3}
+              aria-label="Previous track"
+            >
+              <Icon name="previous" size={18} />
+            </button>
+            <button
+              className="play-button"
+              type="button"
+              onClick={() => void player.toggle()}
+              disabled={disabled}
+              aria-label={player.status === "playing" ? "Pause" : "Play"}
+            >
+              {player.status === "loading" ? (
+                "…"
+              ) : (
+                <Icon
+                  name={player.status === "playing" ? "pause" : "play"}
+                  size={18}
+                />
+              )}
+            </button>
+            <button
+              type="button"
+              onClick={() => void player.next()}
+              disabled={!player.hasNext}
+              aria-label="Next track"
+            >
+              <Icon name="next" size={18} />
+            </button>
+          </div>
+          <label className="player-progress">
+            <span className="visually-hidden">Playback position</span>
+            <input
+              aria-label="Playback position"
+              type="range"
+              min="0"
+              max={Math.max(player.duration, 0)}
+              step="0.1"
+              value={Math.min(player.currentTime, player.duration || 0)}
+              onChange={(event) =>
+                player.seek(Number(event.currentTarget.value))
+              }
+              disabled={!track || !player.duration}
+              style={
+                {
+                  "--player-progress": `${progress(player.currentTime, player.duration)}%`,
+                } as React.CSSProperties
+              }
+            />
+          </label>
+          <span className="player-time">
+            {formatTime(player.currentTime)} / {formatTime(player.duration)}
+          </span>
         </div>
-        <label className="player-progress">
-          <span className="visually-hidden">Playback position</span>
-          <input
-            aria-label="Playback position"
-            type="range"
-            min="0"
-            max={Math.max(player.duration, 0)}
-            step="0.1"
-            value={Math.min(player.currentTime, player.duration || 0)}
-            onChange={(event) => player.seek(Number(event.currentTarget.value))}
-            disabled={!track || !player.duration}
-            style={
-              {
-                "--player-progress": `${progress(player.currentTime, player.duration)}%`,
-              } as React.CSSProperties
-            }
-          />
-        </label>
-        <span className="player-time">
-          {formatTime(player.currentTime)} / {formatTime(player.duration)}
-        </span>
-        <button
-          className="lyrics-toggle"
-          type="button"
-          disabled={!track}
-          onClick={() => setLyricsOpen((open) => !open)}
-          aria-expanded={lyricsOpen && Boolean(track)}
-          aria-controls="player-lyrics"
-        >
-          Lyrics
-        </button>
-        <label className="player-volume">
-          <span aria-hidden="true">◖</span>
-          <span className="visually-hidden">Volume</span>
-          <input
-            aria-label="Volume"
-            type="range"
-            min="0"
-            max="1"
-            step="0.05"
-            value={player.volume}
-            onChange={(event) =>
-              player.changeVolume(Number(event.currentTarget.value))
-            }
-            style={
-              {
-                "--player-progress": `${player.volume * 100}%`,
-              } as React.CSSProperties
-            }
-          />
-        </label>
+        <div className="player-tools">
+          {track ? (
+            <InteractionButton kind="track" id={track.id} label={track.title} />
+          ) : null}
+          <button
+            className="lyrics-toggle"
+            type="button"
+            disabled={!track}
+            onClick={() => setLyricsOpen((open) => !open)}
+            aria-label="Lyrics"
+            title="Lyrics"
+            aria-expanded={lyricsOpen && Boolean(track)}
+            aria-controls="player-lyrics"
+          >
+            <Icon name="lyrics" size={17} />
+          </button>
+          <label className="player-volume">
+            <Icon name="volume" size={17} />
+            <span className="visually-hidden">Volume</span>
+            <input
+              aria-label="Volume"
+              type="range"
+              min="0"
+              max="1"
+              step="0.05"
+              value={player.volume}
+              onChange={(event) =>
+                player.changeVolume(Number(event.currentTarget.value))
+              }
+              style={
+                {
+                  "--player-progress": `${player.volume * 100}%`,
+                } as React.CSSProperties
+              }
+            />
+          </label>
+        </div>
       </section>
       {lyricsOpen && track ? (
         <LyricsPanel

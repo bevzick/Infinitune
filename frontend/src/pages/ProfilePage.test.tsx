@@ -12,6 +12,7 @@ const profileApi = vi.hoisted(() => ({
   updateProfile: vi.fn(),
   updateSettings: vi.fn(),
 }));
+const theme = vi.hoisted(() => ({ setTheme: vi.fn() }));
 
 vi.mock("../features/profile/profileApi", async (importOriginal) => ({
   ...(await importOriginal()),
@@ -20,6 +21,10 @@ vi.mock("../features/profile/profileApi", async (importOriginal) => ({
 
 vi.mock("../features/session/SessionContext", () => ({
   useSession: () => ({ accessToken: "access-token" }),
+}));
+
+vi.mock("../features/theme/ThemeContext", () => ({
+  useTheme: () => theme,
 }));
 
 const profile = {
@@ -111,5 +116,17 @@ describe("ProfilePage", () => {
     expect(
       await screen.findByRole("heading", { name: "Night Listener" }),
     ).toBeInTheDocument();
+  });
+
+  it("previews the selected interface theme immediately", async () => {
+    const user = userEvent.setup();
+    render(<ProfilePage />);
+
+    await user.selectOptions(
+      await screen.findByRole("combobox", { name: "Interface theme" }),
+      "light",
+    );
+
+    expect(theme.setTheme).toHaveBeenCalledWith("light");
   });
 });

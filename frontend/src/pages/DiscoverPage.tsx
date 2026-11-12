@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import {
   AlbumGrid,
   ArtistGrid,
+  CatalogArtwork,
   CatalogEmpty,
   CatalogError,
   CatalogLoading,
@@ -31,40 +32,7 @@ export function DiscoverPage() {
 
   return (
     <section className="discover-page">
-      <div className="catalog-hero">
-        <div className="catalog-hero-copy">
-          <span className="hero-kicker">Fresh signals from the catalog</span>
-          <h1>
-            Find your next
-            <br />
-            <em>repeat.</em>
-          </h1>
-          <p>
-            Browse new releases, meet independent voices, or search every track
-            by the detail that matters.
-          </p>
-          <search>
-            <form className="hero-search" action="/search">
-              <label htmlFor="discover-search">Search the catalog</label>
-              <div>
-                <input
-                  id="discover-search"
-                  name="q"
-                  type="search"
-                  placeholder="Track title…"
-                />
-                <button type="submit">Search</button>
-              </div>
-            </form>
-          </search>
-        </div>
-        <div className="catalog-signal" aria-hidden="true">
-          <span>∞</span>
-          <i />
-          <i />
-          <i />
-        </div>
-      </div>
+      <DiscoverHero featured={albums.page?.items[0]} />
 
       <PersonalizedSection />
 
@@ -101,6 +69,61 @@ export function DiscoverPage() {
         </CatalogResult>
       </CatalogSection>
     </section>
+  );
+}
+
+function DiscoverHero({ featured }: { featured?: Album }) {
+  return (
+    <div className="catalog-hero">
+      <div className="catalog-hero-copy">
+        <span className="hero-kicker">New discoveries</span>
+        <h1>
+          Find your new
+          <br />
+          <em>sound.</em>
+        </h1>
+        <p>
+          Tracks, albums, and independent voices for every mood—ready when you
+          are.
+        </p>
+        <search>
+          <form className="hero-search" action="/search">
+            <label htmlFor="discover-search">Search the catalog</label>
+            <div>
+              <input
+                id="discover-search"
+                name="q"
+                type="search"
+                placeholder="Search tracks, artists, albums…"
+              />
+              <button type="submit">Find music</button>
+            </div>
+          </form>
+        </search>
+        <div className="catalog-hero-actions">
+          <Link className="hero-primary-link" to="/search">
+            Explore catalog
+          </Link>
+          <Link className="hero-secondary-link" to="/library">
+            My library
+          </Link>
+        </div>
+      </div>
+      <div className="catalog-feature" aria-hidden="true">
+        {featured ? (
+          <CatalogArtwork
+            src={featured.cover_url}
+            label={featured.title}
+            shape="square"
+          />
+        ) : (
+          <span className="catalog-feature-placeholder">∞</span>
+        )}
+        <i />
+        <i />
+        <i />
+      </div>
+    </div>
   );
 }
 
