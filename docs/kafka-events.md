@@ -151,6 +151,9 @@ handled consumer events, handler failures, dead-letter deliveries, dead-letter p
 and Unix timestamps of the latest successful outbox publication and consumer handling. Counter
 resets are expected when a service restarts. Production monitoring should alert on growing failure
 counters and on stale success timestamps while the corresponding service is receiving traffic.
+The local Compose stack runs Prometheus at `http://127.0.0.1:9091` by default, scrapes all six
+Kafka-enabled services every 15 seconds, retains samples for 15 days, and loads warning/critical
+rules for outbox, consumer, and dead-letter failures. Override the host port with `PROMETHEUS_PORT`.
 
 Start the full local stack with `make up`. The Makefile includes `compose.kafka.yml`; the
 `kafka-init` service creates all implemented History, Catalog, Interaction, Media, Content, and

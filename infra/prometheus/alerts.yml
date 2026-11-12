@@ -1,0 +1,64 @@
+groups:
+  - name: infinitune-kafka-delivery
+    rules:
+      - alert: KafkaOutboxPublishFailures
+        expr: increase(infinitune_kafka_outbox_publish_failures_total[5m]) > 0
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.service }} cannot publish Kafka outbox events"
+          description: "The service recorded Kafka publication failures during the last five minutes."
+
+      - alert: KafkaOutboxOperationFailures
+        expr: increase(infinitune_kafka_outbox_operation_failures_total[5m]) > 0
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.service }} cannot update its outbox"
+          description: "The service recorded outbox claim or state-transition failures during the last five minutes."
+
+      - alert: KafkaConsumerOperationFailures
+        expr: increase(infinitune_kafka_consumer_operation_failures_total[5m]) > 0
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.service }} Kafka consumer has transport failures"
+          description: "The consumer recorded Kafka fetch or offset commit failures during the last five minutes."
+
+      - alert: KafkaConsumerHandlerFailures
+        expr: increase(infinitune_kafka_consumer_handler_failures_total[5m]) > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.service }} cannot handle Kafka events"
+          description: "The consumer has continuously retried handler failures for five minutes."
+
+      - alert: KafkaDeadLetterEvents
+        expr: increase(infinitune_kafka_consumer_dead_lettered_total[10m]) > 0
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.service }} routed events to the dead-letter topic"
+          description: "Inspect and correct malformed or unsupported events before replaying them."
+
+      - alert: KafkaDeadLetterPublishFailures
+        expr: increase(infinitune_kafka_consumer_dead_letter_publish_failures_total[5m]) > 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "{{ $labels.service }} cannot publish dead-letter events"
+          description: "The source partition is blocked until the dead-letter record can be published."
+
+      - alert: KafkaOutboxDeliveryStalled
+        expr: increase(infinitune_kafka_outbox_claimed_total[10m]) > 0 and time() - infinitune_kafka_outbox_last_published_timestamp_seconds > 300
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "{{ $labels.service }} outbox delivery is stalled"
+          description: "The service has claimed events but has not completed a publication for more than five minutes."
