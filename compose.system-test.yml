@@ -1,0 +1,15 @@
+services:
+  postgres:
+    ports: !reset []
+
+  kong:
+    ports: !override
+      - "127.0.0.1:${SYSTEM_TEST_GATEWAY_PORT:-18000}:8000"
+
+  prometheus:
+    ports: !reset []
+
+  frontend:
+    ports: !override
+      - "127.0.0.1:${SYSTEM_TEST_FRONTEND_PORT:-18088}:8080"
+

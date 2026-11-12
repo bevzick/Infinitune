@@ -38,3 +38,23 @@ create fresh databases, apply migrations, exercise PostgreSQL, Redis, Kafka and
 MinIO integrations, print container logs on failure, and remove resources after
 every job. The CI Compose override keeps internal service ports off the host,
 so the suites remain isolated from an already running development stack.
+
+## Full-stack API smoke test
+
+The system smoke test exercises a real listener journey through Kong and seven
+services: registration, login, profile creation, catalog browsing, playlists,
+likes, comments, and listening history. Run it in an isolated Compose project:
+
+```bash
+COMPOSE_PROJECT_NAME=infinitune-system-smoke \
+COMPOSE_OVERRIDE='-f compose.system-test.yml' \
+make system-smoke
+
+COMPOSE_PROJECT_NAME=infinitune-system-smoke \
+COMPOSE_OVERRIDE='-f compose.system-test.yml' \
+make down-volumes
+```
+
+The same isolated journey runs in GitHub Actions when one of the participating
+services, Kong routes, or Compose definitions changes. Failed runs print only
+the relevant service logs before removing all containers and volumes.
