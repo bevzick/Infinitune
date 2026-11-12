@@ -12,6 +12,7 @@ import (
 	"github.com/bevzick/Infinitune/services/content-service/internal/moderation"
 	"github.com/bevzick/Infinitune/services/content-service/internal/release"
 	"github.com/bevzick/Infinitune/services/content-service/internal/rights"
+	"github.com/bevzick/Infinitune/services/content-service/internal/upload"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
@@ -42,6 +43,9 @@ type TrackRights interface {
 	List(context.Context, uuid.UUID, uuid.UUID) ([]rights.Right, error)
 	Delete(context.Context, uuid.UUID, uuid.UUID) error
 }
+type UploadSessions interface {
+	CreateSession(context.Context, uuid.UUID, upload.CreateInput) (upload.Session, error)
+}
 type ReleaseSubmissions interface {
 	Submit(context.Context, uuid.UUID, uuid.UUID) (release.Release, error)
 }
@@ -66,6 +70,7 @@ type Dependencies struct {
 	Creators     CreatorAccounts
 	Members      CreatorMembers
 	Rights       TrackRights
+	Uploads      UploadSessions
 	Submissions  ReleaseSubmissions
 	Moderation   ReleaseModeration
 	Publications ReleasePublications
@@ -98,6 +103,7 @@ func NewRouter(dependencies Dependencies) http.Handler {
 	content.Use(authenticate(dependencies.Tokens, dependencies.Logger))
 	content.PUT("/release-tracks/:release_track_id/rights", setTrackRights(dependencies.Rights, dependencies.Logger))
 	content.GET("/release-tracks/:release_track_id/rights", listTrackRights(dependencies.Rights, dependencies.Logger))
+	content.POST("/release-tracks/:release_track_id/uploads", createUploadSession(dependencies.Uploads, dependencies.Logger))
 	content.DELETE("/track-rights/:right_id", deleteTrackRights(dependencies.Rights, dependencies.Logger))
 	content.POST("/releases", createRelease(dependencies.Releases, dependencies.Logger))
 	content.GET("/releases", listReleases(dependencies.Releases, dependencies.Logger))
