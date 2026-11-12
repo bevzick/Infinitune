@@ -5,7 +5,9 @@ import { RouterProvider } from "react-router-dom";
 import { router } from "./app/router";
 import { PlayerProvider } from "./features/player/PlayerContext";
 import { SessionProvider } from "./features/session/SessionContext";
+import { ThemeProvider } from "./features/theme/ThemeContext";
 import "./styles/global.css";
+import "./styles/app.scss";
 
 const root = document.getElementById("root");
 
@@ -15,10 +17,12 @@ if (!root) {
 
 createRoot(root).render(
   <StrictMode>
-    <SessionProvider>
-      <PlayerProvider>
-        <RouterProvider router={router} />
-      </PlayerProvider>
-    </SessionProvider>
+    <ThemeProvider>
+      <SessionProvider>
+        <PlayerProvider>
+          <RouterProvider router={router} />
+        </PlayerProvider>
+      </SessionProvider>
+    </ThemeProvider>
   </StrictMode>,
 );

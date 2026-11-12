@@ -2,6 +2,7 @@ import { type FormEvent, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 
 import { useSession } from "../features/session/SessionContext";
+import { ThemeToggle } from "../features/theme/ThemeToggle";
 import { ApiError } from "../shared/api/client";
 
 type LoginLocationState = {
@@ -105,6 +106,9 @@ export function AuthPage({ title, subtitle, children }: AuthPageProps) {
       <Link className="auth-brand" to="/" aria-label="Infinitune home">
         <span aria-hidden="true">∞</span> Infinitune
       </Link>
+      <div className="auth-theme-toggle">
+        <ThemeToggle />
+      </div>
       <section className="auth-card">
         <span className="eyebrow">A private listening space</span>
         <h1>{title}</h1>

@@ -1,17 +1,28 @@
-import { useState } from "react";
+import { type FormEvent, useState } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 
 import { PlayerControls } from "../features/player/PlayerControls";
 import { useSession } from "../features/session/SessionContext";
+import { ThemeToggle } from "../features/theme/ThemeToggle";
+import { Icon, type IconName } from "../shared/ui/Icon";
 
-const navigation = [
-  { to: "/", label: "Discover", icon: "✦" },
-  { to: "/search", label: "Search", icon: "⌕" },
-  { to: "/artists", label: "Artists", icon: "◉" },
-  { to: "/albums", label: "Albums", icon: "▣" },
-  { to: "/library", label: "Library", icon: "◫" },
-  { to: "/profile", label: "Profile", icon: "◎" },
-] as const;
+type NavigationItem = {
+  to: string;
+  label: string;
+  icon: IconName;
+  end?: boolean;
+};
+
+const primaryNavigation: NavigationItem[] = [
+  { to: "/", label: "Discover", icon: "home", end: true },
+  { to: "/search", label: "Search", icon: "search" },
+  { to: "/library", label: "Library", icon: "library" },
+];
+
+const catalogNavigation: NavigationItem[] = [
+  { to: "/artists", label: "Artists", icon: "artist" },
+  { to: "/albums", label: "Albums", icon: "album" },
+];
 
 export function AppLayout() {
   const session = useSession();
@@ -30,59 +41,94 @@ export function AppLayout() {
     }
   }
 
+  function search(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const query = new FormData(event.currentTarget).get("q");
+    const value = typeof query === "string" ? query.trim() : "";
+    navigate(value ? `/search?q=${encodeURIComponent(value)}` : "/search");
+  }
+
   return (
     <div className="app-shell">
       <a className="skip-link" href="#main-content">
         Skip to content
       </a>
+
       <aside className="sidebar" aria-label="Primary navigation">
-        <NavLink className="brand" to="/" aria-label="Infinitune home">
-          <span className="brand-mark" aria-hidden="true">
-            ∞
-          </span>
-          <span>Infinitune</span>
-        </NavLink>
-        <nav className="nav-list">
-          {navigation.map((item) => (
-            <NavLink
-              className={({ isActive }) =>
-                `nav-link${isActive ? " nav-link-active" : ""}`
-              }
-              key={item.to}
-              to={item.to}
-              end={item.to === "/"}
-            >
-              <span className="nav-icon" aria-hidden="true">
-                {item.icon}
-              </span>
-              <span className="nav-label">{item.label}</span>
-            </NavLink>
-          ))}
-        </nav>
+        <Brand />
+        <Navigation items={primaryNavigation} />
+        <div className="sidebar-section">
+          <span className="sidebar-label">Browse music</span>
+          <Navigation items={catalogNavigation} />
+        </div>
         <div className="sidebar-note">
           <span className="status-dot" aria-hidden="true" />
-          <span>Gateway ready</span>
+          <span>Music services online</span>
         </div>
       </aside>
 
       <div className="content-column">
         <header className="topbar">
-          <div>
-            <span className="eyebrow">Your sound, uninterrupted</span>
-          </div>
-          {session.status === "authenticated" ? (
+          <NavLink className="mobile-brand" to="/" aria-label="Infinitune home">
+            <span className="brand-mark" aria-hidden="true">
+              ∞
+            </span>
+            <span>Infinitune</span>
+          </NavLink>
+          <div className="topbar-history">
             <button
-              className="sign-in-link session-button"
+              className="icon-button"
               type="button"
-              onClick={signOut}
+              aria-label="Go back"
+              onClick={() => navigate(-1)}
             >
-              Sign out
+              <Icon name="back" />
             </button>
-          ) : (
-            <NavLink className="sign-in-link" to="/login">
-              Sign in
-            </NavLink>
-          )}
+            <button
+              className="icon-button"
+              type="button"
+              aria-label="Go forward"
+              onClick={() => navigate(1)}
+            >
+              <Icon name="forward" />
+            </button>
+          </div>
+          <form className="topbar-search" onSubmit={search}>
+            <Icon name="search" size={18} />
+            <label className="visually-hidden" htmlFor="global-search">
+              Search tracks, artists, and albums
+            </label>
+            <input
+              id="global-search"
+              name="q"
+              type="search"
+              placeholder="Search tracks, artists, albums…"
+            />
+          </form>
+          <div className="topbar-actions">
+            <ThemeToggle />
+            {session.status === "authenticated" ? (
+              <>
+                <NavLink className="profile-link" to="/profile">
+                  <span className="profile-label">Profile</span>
+                  <span className="profile-avatar-small" aria-hidden="true">
+                    {session.identity?.userId.slice(0, 1) || "I"}
+                  </span>
+                </NavLink>
+                <button
+                  className="sign-in-link session-button"
+                  type="button"
+                  onClick={signOut}
+                >
+                  Sign out
+                </button>
+              </>
+            ) : (
+              <NavLink className="sign-in-link" to="/login">
+                Sign in
+              </NavLink>
+            )}
+          </div>
         </header>
         {logoutError ? (
           <p className="session-banner" role="alert">
@@ -95,6 +141,49 @@ export function AppLayout() {
       </div>
 
       <PlayerControls />
+      <nav className="mobile-nav" aria-label="Mobile navigation">
+        {primaryNavigation.map((item) => (
+          <NavigationLink item={item} key={item.to} />
+        ))}
+      </nav>
     </div>
+  );
+}
+
+function Brand() {
+  return (
+    <NavLink className="brand" to="/" aria-label="Infinitune home">
+      <span className="brand-mark" aria-hidden="true">
+        ∞
+      </span>
+      <span>Infinitune</span>
+    </NavLink>
+  );
+}
+
+function Navigation({ items }: { items: NavigationItem[] }) {
+  return (
+    <nav className="nav-list">
+      {items.map((item) => (
+        <NavigationLink item={item} key={item.to} />
+      ))}
+    </nav>
+  );
+}
+
+function NavigationLink({ item }: { item: NavigationItem }) {
+  return (
+    <NavLink
+      className={({ isActive }) =>
+        `nav-link${isActive ? " nav-link-active" : ""}`
+      }
+      to={item.to}
+      end={item.end}
+    >
+      <span className="nav-icon" aria-hidden="true">
+        <Icon name={item.icon} />
+      </span>
+      <span className="nav-label">{item.label}</span>
+    </NavLink>
   );
 }

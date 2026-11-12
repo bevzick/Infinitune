@@ -1,0 +1,48 @@
+:root,
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --app-bg: rgb(29, 29, 38);
+  --app-bg-elevated: rgb(35, 35, 47);
+  --app-sidebar: rgb(37, 37, 50);
+  --app-panel: rgb(45, 44, 59);
+  --app-panel-hover: rgb(57, 55, 74);
+  --app-input: rgb(53, 52, 71);
+  --app-text: rgb(247, 244, 255);
+  --app-muted: rgb(170, 167, 186);
+  --app-line: rgba(255, 255, 255, 0.09);
+  --app-accent: rgb(180, 108, 255);
+  --app-accent-strong: rgb(135, 61, 240);
+  --app-accent-soft: rgba(180, 108, 255, 0.17);
+  --app-danger: rgb(255, 142, 158);
+  --app-shadow: 0 1.5rem 4rem rgba(4, 3, 12, 0.3);
+  --surface: var(--app-bg-elevated);
+  --surface-soft: var(--app-panel);
+  --line: var(--app-line);
+  --muted: var(--app-muted);
+  --violet: var(--app-accent);
+  --coral: rgb(239, 119, 187);
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+  --app-bg: rgb(245, 242, 251);
+  --app-bg-elevated: rgb(255, 255, 255);
+  --app-sidebar: rgb(235, 230, 244);
+  --app-panel: rgb(255, 255, 255);
+  --app-panel-hover: rgb(240, 233, 250);
+  --app-input: rgb(240, 236, 246);
+  --app-text: rgb(33, 29, 45);
+  --app-muted: rgb(112, 106, 125);
+  --app-line: rgba(57, 38, 78, 0.12);
+  --app-accent: rgb(125, 55, 211);
+  --app-accent-strong: rgb(99, 37, 179);
+  --app-accent-soft: rgba(125, 55, 211, 0.12);
+  --app-danger: rgb(184, 44, 73);
+  --app-shadow: 0 1.5rem 4rem rgba(54, 35, 76, 0.12);
+  --surface: var(--app-bg-elevated);
+  --surface-soft: var(--app-panel);
+  --line: var(--app-line);
+  --muted: var(--app-muted);
+  --violet: var(--app-accent);
+  --coral: rgb(190, 60, 134);
+}

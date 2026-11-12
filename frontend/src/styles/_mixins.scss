@@ -1,0 +1,20 @@
+@mixin interactive-surface {
+  border: 1px solid var(--app-line);
+  background: var(--app-panel);
+  color: var(--app-text);
+  transition:
+    border-color 160ms ease,
+    background 160ms ease,
+    color 160ms ease,
+    transform 160ms ease;
+
+  &:hover {
+    border-color: color-mix(in srgb, var(--app-accent) 48%, transparent);
+    background: var(--app-panel-hover);
+  }
+}
+
+@mixin focus-ring {
+  outline: 3px solid color-mix(in srgb, var(--app-accent) 42%, transparent);
+  outline-offset: 3px;
+}
