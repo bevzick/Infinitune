@@ -23,6 +23,9 @@ func TestLoadUsesRecommendationDatabaseEnvironment(t *testing.T) {
 	t.Setenv("KAFKA_HISTORY_TOPIC", "history-events")
 	t.Setenv("KAFKA_HISTORY_CLEARED_TOPIC", "history-cleared")
 	t.Setenv("KAFKA_RECOMMENDATION_GROUP", "recommendation-test")
+	t.Setenv("KAFKA_CATALOG_PUBLISHED_TOPIC", "catalog-published")
+	t.Setenv("KAFKA_CATALOG_ARCHIVED_TOPIC", "catalog-archived")
+	t.Setenv("KAFKA_RECOMMENDATION_CATALOG_GROUP", "recommendation-catalog-test")
 
 	cfg, err := Load()
 	if err != nil {
@@ -50,7 +53,10 @@ func TestLoadUsesRecommendationDatabaseEnvironment(t *testing.T) {
 	if len(cfg.Events.Brokers) != 2 || cfg.Events.Brokers[1] != "kafka-b:9092" ||
 		cfg.Events.HistoryTopic != "history-events" ||
 		cfg.Events.HistoryClearedTopic != "history-cleared" ||
-		cfg.Events.ConsumerGroup != "recommendation-test" {
+		cfg.Events.HistoryConsumerGroup != "recommendation-test" ||
+		cfg.Events.CatalogPublishedTopic != "catalog-published" ||
+		cfg.Events.CatalogArchivedTopic != "catalog-archived" ||
+		cfg.Events.CatalogConsumerGroup != "recommendation-catalog-test" {
 		t.Fatalf("Events = %+v", cfg.Events)
 	}
 }

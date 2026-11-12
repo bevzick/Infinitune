@@ -139,7 +139,7 @@ func main() {
 	historyConsumer, err := event_kafka.NewConsumer(
 		cfg.Events.Brokers,
 		[]string{cfg.Events.HistoryTopic, cfg.Events.HistoryClearedTopic},
-		cfg.Events.ConsumerGroup,
+		cfg.Events.HistoryConsumerGroup,
 		events.NewHistoryHandler(runRepository), logger,
 	)
 	if err != nil {
@@ -148,6 +148,18 @@ func main() {
 	}
 	defer historyConsumer.Close()
 	go historyConsumer.Run(ctx)
+	catalogConsumer, err := event_kafka.NewConsumer(
+		cfg.Events.Brokers,
+		[]string{cfg.Events.CatalogPublishedTopic, cfg.Events.CatalogArchivedTopic},
+		cfg.Events.CatalogConsumerGroup,
+		events.NewCatalogHandler(runRepository), logger,
+	)
+	if err != nil {
+		logger.Error("failed to initialize Catalog Kafka consumer", "error", err)
+		os.Exit(1)
+	}
+	defer catalogConsumer.Close()
+	go catalogConsumer.Run(ctx)
 	errorsChannel := make(chan error, 2)
 	go func() {
 		logger.Info("recommendation service started", "address", cfg.HTTPAddress)

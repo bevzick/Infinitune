@@ -64,6 +64,10 @@ Content approval ---- gRPC publish ----> Catalog service
 - Catalog topics are a change feed, not a complete snapshot. A new search/index consumer must first
   bootstrap current published metadata through a dedicated Catalog contract and then apply events;
   `occurred_at` resolves late publish/archive delivery for the same release.
+- Recommendation consumes Catalog lifecycle events in a separate consumer group. Publication
+  expires every run generated before the release became visible; archive expires only older runs
+  containing one of the archived track IDs. Runs generated after the event already read the new
+  Catalog state and remain valid.
 
 ## Suitable next integrations
 

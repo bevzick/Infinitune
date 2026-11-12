@@ -153,6 +153,45 @@ func (repository *RunRepository) InvalidateBefore(
 	return result.RowsAffected(), nil
 }
 
+func (repository *RunRepository) InvalidateAllBefore(
+	ctx context.Context,
+	before time.Time,
+) (int64, error) {
+	result, err := repository.pool.Exec(ctx, `
+		UPDATE recommendation.recommendation_runs
+		SET expires_at = $1
+		WHERE generated_at < $1
+		  AND expires_at > $1
+	`, before)
+	if err != nil {
+		return 0, fmt.Errorf("invalidate all recommendation runs: %w", err)
+	}
+	return result.RowsAffected(), nil
+}
+
+func (repository *RunRepository) InvalidateTracksBefore(
+	ctx context.Context,
+	trackIDs []uuid.UUID,
+	before time.Time,
+) (int64, error) {
+	result, err := repository.pool.Exec(ctx, `
+		UPDATE recommendation.recommendation_runs AS run
+		SET expires_at = $2
+		WHERE run.generated_at < $2
+		  AND run.expires_at > $2
+		  AND EXISTS (
+			SELECT 1
+			FROM recommendation.recommendation_items AS item
+			WHERE item.run_id = run.id
+			  AND item.track_id = ANY($1::uuid[])
+		  )
+	`, trackIDs, before)
+	if err != nil {
+		return 0, fmt.Errorf("invalidate recommendation runs by tracks: %w", err)
+	}
+	return result.RowsAffected(), nil
+}
+
 func readRun(
 	ctx context.Context,
 	database runDatabase,

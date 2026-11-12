@@ -165,6 +165,59 @@ func TestInvalidateBeforeExpiresOnlyOlderRuns(t *testing.T) {
 	}
 }
 
+func TestCatalogInvalidationTargetsAffectedRuns(t *testing.T) {
+	pool := openIntegrationDatabase(t)
+	repository := NewRunRepository(pool)
+	ctx := context.Background()
+	eventTime := time.Now().UTC().Truncate(time.Microsecond)
+	archivedTrack, otherTrack := uuid.New(), uuid.New()
+	newRun := func(generatedAt time.Time, trackID uuid.UUID) recommendation.Run {
+		run, err := recommendation.NewRun(
+			uuid.New(), uuid.New(), "transparent-v1", generatedAt,
+			generatedAt.Add(2*time.Hour),
+			[]recommendation.Item{{TrackID: trackID, Score: 1, Rank: 1, Reason: "test"}},
+		)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err = repository.Save(ctx, run); err != nil {
+			t.Fatalf("Save() error = %v", err)
+		}
+		t.Cleanup(func() {
+			_, _ = pool.Exec(context.Background(),
+				`DELETE FROM recommendation.recommendation_runs WHERE id=$1`, run.ID)
+		})
+		return run
+	}
+	olderAffected := newRun(eventTime.Add(-time.Minute), archivedTrack)
+	olderUnrelated := newRun(eventTime.Add(-time.Minute), otherTrack)
+	newerAffected := newRun(eventTime.Add(time.Minute), archivedTrack)
+
+	updated, err := repository.InvalidateTracksBefore(
+		ctx, []uuid.UUID{archivedTrack}, eventTime,
+	)
+	if err != nil || updated != 1 {
+		t.Fatalf("InvalidateTracksBefore() = %d, %v", updated, err)
+	}
+	stored, err := repository.ByID(ctx, olderAffected.ID)
+	if err != nil || !stored.ExpiresAt.Equal(eventTime) {
+		t.Fatalf("older affected run = %+v, %v", stored, err)
+	}
+	stored, err = repository.ByID(ctx, newerAffected.ID)
+	if err != nil || !stored.ExpiresAt.Equal(newerAffected.ExpiresAt) {
+		t.Fatalf("newer affected run = %+v, %v", stored, err)
+	}
+
+	updated, err = repository.InvalidateAllBefore(ctx, eventTime)
+	if err != nil || updated != 1 {
+		t.Fatalf("InvalidateAllBefore() = %d, %v", updated, err)
+	}
+	stored, err = repository.ByID(ctx, olderUnrelated.ID)
+	if err != nil || !stored.ExpiresAt.Equal(eventTime) {
+		t.Fatalf("older unrelated run = %+v, %v", stored, err)
+	}
+}
+
 func TestRunRepositorySerializesConcurrentGeneration(t *testing.T) {
 	pool := openIntegrationDatabase(t)
 	repository := NewRunRepository(pool)
