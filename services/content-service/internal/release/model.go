@@ -70,6 +70,20 @@ type Draft struct {
 	Tracks  []Track
 }
 
+type PageRequest struct {
+	CreatorID *uuid.UUID
+	Status    *Status
+	Limit     int
+	Offset    int
+}
+
+type Page struct {
+	Items  []Release
+	Limit  int
+	Offset int
+	Total  int64
+}
+
 type CreateDraftInput struct {
 	CreatorID   uuid.UUID
 	Title       string

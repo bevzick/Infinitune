@@ -59,6 +59,25 @@ func TestReleaseRepositoryCreatesAndLoadsOrderedDraft(t *testing.T) {
 		loaded.Tracks[1].Title != "Closing" || loaded.Tracks[2].Title != "Second Disc" {
 		t.Fatalf("ByID() tracks = %+v", loaded.Tracks)
 	}
+	status := release.StatusDraft
+	owned, err := releaseRepository.ListForUser(ctx, ownerID, release.PageRequest{
+		CreatorID: &creatorID, Status: &status, Limit: 10,
+	})
+	if err != nil || owned.Total != 1 || len(owned.Items) != 1 || owned.Items[0].ID != releaseID {
+		t.Fatalf("ListForUser() = %+v, %v", owned, err)
+	}
+	queue, err := releaseRepository.ListForModeration(ctx, uuid.New(), release.PageRequest{
+		Status: &status, Limit: 10,
+	})
+	if err != nil || queue.Total != 1 || len(queue.Items) != 1 {
+		t.Fatalf("ListForModeration() = %+v, %v", queue, err)
+	}
+	selfQueue, err := releaseRepository.ListForModeration(ctx, ownerID, release.PageRequest{
+		Status: &status, Limit: 10,
+	})
+	if err != nil || selfQueue.Total != 0 || len(selfQueue.Items) != 0 {
+		t.Fatalf("ListForModeration(owner) = %+v, %v", selfQueue, err)
+	}
 }
 
 func TestReleaseRepositoryRollsBackInvalidTrackPositions(t *testing.T) {

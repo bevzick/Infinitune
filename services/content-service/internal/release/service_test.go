@@ -194,13 +194,67 @@ func TestServiceDoesNotArchiveContentWhenCatalogFails(t *testing.T) {
 	}
 }
 
+func TestListUsesVerifiedActorAndValidatedPagination(t *testing.T) {
+	actorID, creatorID := uuid.New(), uuid.New()
+	status := StatusDraft
+	store := &storeStub{page: Page{Items: []Release{{ID: uuid.New()}}, Total: 1}}
+	result, err := NewService(store, nil).List(context.Background(), actorID, PageRequest{
+		CreatorID: &creatorID, Status: &status, Limit: 25, Offset: 50,
+	})
+	if err != nil || result.Total != 1 || store.listActorID != actorID ||
+		store.pageRequest.Limit != 25 || store.pageRequest.Offset != 50 ||
+		store.pageRequest.CreatorID == nil || *store.pageRequest.CreatorID != creatorID {
+		t.Fatalf("List() = %+v, %v; store = %+v", result, err, store)
+	}
+	if _, err = NewService(store, nil).List(
+		context.Background(), actorID, PageRequest{Limit: 101},
+	); !errors.Is(err, ErrInvalid) {
+		t.Fatalf("List() invalid pagination error = %v", err)
+	}
+}
+
+func TestListModerationRequiresRoleAndDefaultsToPending(t *testing.T) {
+	store := &storeStub{page: Page{}}
+	service := NewService(store, nil)
+	if _, err := service.ListModeration(context.Background(), creator.Actor{
+		UserID: uuid.New(), Roles: []string{"listener"},
+	}, PageRequest{}); !errors.Is(err, creator.ErrForbidden) {
+		t.Fatalf("ListModeration() listener error = %v", err)
+	}
+	moderatorID := uuid.New()
+	_, err := service.ListModeration(context.Background(), creator.Actor{
+		UserID: moderatorID, Roles: []string{creator.GlobalRoleModerator},
+	}, PageRequest{})
+	if err != nil || store.listActorID != moderatorID || store.pageRequest.Limit != 20 ||
+		store.pageRequest.Status == nil || *store.pageRequest.Status != StatusPendingReview {
+		t.Fatalf("ListModeration() error = %v; store = %+v", err, store)
+	}
+}
+
 type storeStub struct {
 	draft         Draft
+	page          Page
+	pageRequest   PageRequest
+	listActorID   uuid.UUID
 	createCalls   int
 	readCalls     int
 	updateCalls   int
 	withdrawCalls int
 	archiveCalls  int
+}
+
+func (store *storeStub) ListForUser(
+	_ context.Context, actorID uuid.UUID, request PageRequest,
+) (Page, error) {
+	store.listActorID, store.pageRequest = actorID, request
+	return store.page, nil
+}
+
+func (store *storeStub) ListForModeration(
+	_ context.Context, actorID uuid.UUID, request PageRequest,
+) (Page, error) {
+	store.listActorID, store.pageRequest = actorID, request
+	return store.page, nil
 }
 
 func (store *storeStub) Update(_ context.Context, draft Draft) (Draft, error) {

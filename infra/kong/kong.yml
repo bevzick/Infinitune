@@ -1,6 +1,32 @@
 _format_version: "3.0"
 _transform: true
 
+plugins:
+  - name: cors
+    config:
+      origins:
+        - http://localhost:5173
+      methods:
+        - GET
+        - POST
+        - PUT
+        - PATCH
+        - DELETE
+        - OPTIONS
+      headers:
+        - Accept
+        - Authorization
+        - Content-Type
+        - X-Requested-With
+        - X-CSRF-Token
+      exposed_headers:
+        - Content-Length
+        - Content-Range
+        - Accept-Ranges
+      credentials: true
+      max_age: 3600
+      preflight_continue: false
+
 consumers:
   - username: auth-service
     jwt_secrets:
@@ -174,7 +200,7 @@ services:
     routes:
       - name: content-options
         paths:
-          - ~/v1/(?:creators|releases|release-tracks|track-rights)(?:/|$)
+          - ~/v1/(?:creators|releases|release-tracks|track-rights|moderation/releases)(?:/|$)
         methods:
           - OPTIONS
         regex_priority: 110
@@ -182,7 +208,7 @@ services:
 
       - name: content-protected
         paths:
-          - ~/v1/(?:creators|releases|release-tracks|track-rights)(?:/|$)
+          - ~/v1/(?:creators|releases|release-tracks|track-rights|moderation/releases)(?:/|$)
         methods:
           - GET
           - POST

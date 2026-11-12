@@ -3,6 +3,7 @@ package release
 import (
 	"context"
 	"fmt"
+	"slices"
 
 	"github.com/bevzick/Infinitune/services/content-service/internal/creator"
 	"github.com/google/uuid"
@@ -14,6 +15,83 @@ type Store interface {
 	Update(context.Context, Draft) (Draft, error)
 	Withdraw(context.Context, uuid.UUID) (Release, error)
 	Archive(context.Context, uuid.UUID) (Release, error)
+	ListForUser(context.Context, uuid.UUID, PageRequest) (Page, error)
+	ListForModeration(context.Context, uuid.UUID, PageRequest) (Page, error)
+}
+
+func (service *Service) List(
+	ctx context.Context,
+	actorID uuid.UUID,
+	request PageRequest,
+) (Page, error) {
+	if actorID == uuid.Nil {
+		return Page{}, creator.ErrForbidden
+	}
+	request, err := validatePageRequest(request, false)
+	if err != nil {
+		return Page{}, err
+	}
+	result, err := service.store.ListForUser(ctx, actorID, request)
+	if err != nil {
+		return Page{}, fmt.Errorf("list creator releases: %w", err)
+	}
+	return result, nil
+}
+
+func (service *Service) ListModeration(
+	ctx context.Context,
+	actor creator.Actor,
+	request PageRequest,
+) (Page, error) {
+	if actor.UserID == uuid.Nil ||
+		(!slices.Contains(actor.Roles, creator.GlobalRoleModerator) &&
+			!slices.Contains(actor.Roles, creator.GlobalRoleAdmin)) {
+		return Page{}, creator.ErrForbidden
+	}
+	request, err := validatePageRequest(request, true)
+	if err != nil {
+		return Page{}, err
+	}
+	result, err := service.store.ListForModeration(ctx, actor.UserID, request)
+	if err != nil {
+		return Page{}, fmt.Errorf("list release moderation queue: %w", err)
+	}
+	return result, nil
+}
+
+func validatePageRequest(request PageRequest, moderation bool) (PageRequest, error) {
+	if request.Limit == 0 {
+		request.Limit = 20
+	}
+	if request.Limit < 1 || request.Limit > 100 {
+		return PageRequest{}, validationError("limit", "must be between 1 and 100")
+	}
+	if request.Offset < 0 {
+		return PageRequest{}, validationError("offset", "must be non-negative")
+	}
+	if request.CreatorID != nil && *request.CreatorID == uuid.Nil {
+		return PageRequest{}, validationError("creator_id", "must be a UUID")
+	}
+	if moderation && request.Status == nil {
+		status := StatusPendingReview
+		request.Status = &status
+	}
+	if request.Status != nil && !validListStatus(*request.Status, moderation) {
+		return PageRequest{}, validationError("status", "is unsupported")
+	}
+	return request, nil
+}
+
+func validListStatus(status Status, moderation bool) bool {
+	switch status {
+	case StatusDraft, StatusUploading, StatusProcessing:
+		return !moderation
+	case StatusPendingReview, StatusApproved, StatusRejected,
+		StatusChangesRequested, StatusPublished, StatusArchived:
+		return true
+	default:
+		return false
+	}
 }
 
 type Authorizer interface {

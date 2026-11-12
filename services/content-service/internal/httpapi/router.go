@@ -52,6 +52,8 @@ type ReleasePublications interface {
 }
 type Releases interface {
 	CreateDraft(context.Context, uuid.UUID, release.CreateDraftInput) (release.Draft, error)
+	List(context.Context, uuid.UUID, release.PageRequest) (release.Page, error)
+	ListModeration(context.Context, creator.Actor, release.PageRequest) (release.Page, error)
 	ByID(context.Context, uuid.UUID, uuid.UUID) (release.Draft, error)
 	Update(context.Context, uuid.UUID, uuid.UUID, release.UpdateInput) (release.Draft, error)
 	Withdraw(context.Context, uuid.UUID, uuid.UUID) (release.Release, error)
@@ -97,6 +99,7 @@ func NewRouter(dependencies Dependencies) http.Handler {
 	content.GET("/release-tracks/:release_track_id/rights", listTrackRights(dependencies.Rights, dependencies.Logger))
 	content.DELETE("/track-rights/:right_id", deleteTrackRights(dependencies.Rights, dependencies.Logger))
 	content.POST("/releases", createRelease(dependencies.Releases, dependencies.Logger))
+	content.GET("/releases", listReleases(dependencies.Releases, dependencies.Logger))
 	content.GET("/releases/:release_id", getRelease(dependencies.Releases, dependencies.Logger))
 	content.PUT("/releases/:release_id", updateRelease(dependencies.Releases, dependencies.Logger))
 	content.POST("/releases/:release_id/withdrawals", withdrawRelease(dependencies.Releases, dependencies.Logger))
@@ -104,6 +107,7 @@ func NewRouter(dependencies Dependencies) http.Handler {
 	content.POST("/releases/:release_id/submissions", submitRelease(dependencies.Submissions, dependencies.Logger))
 	content.POST("/releases/:release_id/moderation-reviews", reviewRelease(dependencies.Moderation, dependencies.Logger))
 	content.POST("/releases/:release_id/publications", publishRelease(dependencies.Publications, dependencies.Logger))
+	content.GET("/moderation/releases", listReleaseModerationQueue(dependencies.Releases, dependencies.Logger))
 	return router
 }
 
