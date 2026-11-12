@@ -137,7 +137,9 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	historyConsumer, err := event_kafka.NewConsumer(
-		cfg.Events.Brokers, cfg.Events.HistoryTopic, cfg.Events.ConsumerGroup,
+		cfg.Events.Brokers,
+		[]string{cfg.Events.HistoryTopic, cfg.Events.HistoryClearedTopic},
+		cfg.Events.ConsumerGroup,
 		events.NewHistoryHandler(runRepository), logger,
 	)
 	if err != nil {

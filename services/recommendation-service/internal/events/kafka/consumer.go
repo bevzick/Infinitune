@@ -24,14 +24,14 @@ type Consumer struct {
 
 func NewConsumer(
 	brokers []string,
-	topic string,
+	topics []string,
 	groupID string,
 	handler Handler,
 	logger *slog.Logger,
 ) (*Consumer, error) {
 	client, err := kgo.NewClient(
 		kgo.SeedBrokers(brokers...),
-		kgo.ConsumeTopics(topic),
+		kgo.ConsumeTopics(topics...),
 		kgo.ConsumerGroup(groupID),
 		kgo.DisableAutoCommit(),
 	)

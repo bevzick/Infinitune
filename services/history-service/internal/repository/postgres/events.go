@@ -14,12 +14,19 @@ import (
 )
 
 type EventRepository struct {
-	pool  *pgxpool.Pool
-	topic string
+	pool          *pgxpool.Pool
+	recordedTopic string
+	clearedTopic  string
 }
 
-func NewEventRepository(pool *pgxpool.Pool, topic string) *EventRepository {
-	return &EventRepository{pool: pool, topic: topic}
+func NewEventRepository(
+	pool *pgxpool.Pool,
+	recordedTopic string,
+	clearedTopic string,
+) *EventRepository {
+	return &EventRepository{
+		pool: pool, recordedTopic: recordedTopic, clearedTopic: clearedTopic,
+	}
 }
 
 func (repository *EventRepository) Record(ctx context.Context, event history.Event) (history.Event, error) {
@@ -56,7 +63,7 @@ func (repository *EventRepository) Record(ctx context.Context, event history.Eve
 	if err != nil {
 		return history.Event{}, fmt.Errorf("record listening event: %w", err)
 	}
-	message, err := events.NewListeningRecorded(stored, repository.topic)
+	message, err := events.NewListeningRecorded(stored, repository.recordedTopic)
 	if err != nil {
 		return history.Event{}, fmt.Errorf("encode listening event: %w", err)
 	}
@@ -114,12 +121,45 @@ func (repository *EventRepository) List(ctx context.Context, userID uuid.UUID, f
 	return items, nil
 }
 
-func (repository *EventRepository) Delete(ctx context.Context, userID uuid.UUID, before *time.Time) (int64, error) {
-	result, err := repository.pool.Exec(ctx, `DELETE FROM history.listening_events WHERE user_id=$1 AND ($2::timestamptz IS NULL OR started_at < $2)`, userID, before)
+func (repository *EventRepository) Delete(
+	ctx context.Context,
+	userID uuid.UUID,
+	before *time.Time,
+	deletedAt time.Time,
+) (int64, error) {
+	tx, err := repository.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return 0, fmt.Errorf("begin history deletion transaction: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	result, err := tx.Exec(ctx, `
+		DELETE FROM history.listening_events
+		WHERE user_id=$1 AND ($2::timestamptz IS NULL OR started_at < $2)
+	`, userID, before)
 	if err != nil {
 		return 0, fmt.Errorf("delete listening events: %w", err)
 	}
-	return result.RowsAffected(), nil
+	deleted := result.RowsAffected()
+	if deleted > 0 {
+		message, messageErr := events.NewListeningCleared(
+			uuid.New(), userID, before, deleted, deletedAt, repository.clearedTopic,
+		)
+		if messageErr != nil {
+			return 0, fmt.Errorf("encode history deletion event: %w", messageErr)
+		}
+		if _, err = tx.Exec(ctx, `
+			INSERT INTO history.event_outbox (
+				id, event_type, topic, partition_key, payload, occurred_at
+			) VALUES ($1,$2,$3,$4,$5,$6)
+		`, message.ID, message.Type, message.Topic, message.Key,
+			message.Payload, message.OccurredAt); err != nil {
+			return 0, fmt.Errorf("enqueue history deletion event: %w", err)
+		}
+	}
+	if err = tx.Commit(ctx); err != nil {
+		return 0, fmt.Errorf("commit history deletion: %w", err)
+	}
+	return deleted, nil
 }
 
 func nullableString(value string) *string {

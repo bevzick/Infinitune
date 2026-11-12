@@ -76,7 +76,9 @@ func main() {
 	}
 	defer eventProducer.Close()
 	historyService := history.NewService(
-		postgres_repository.NewEventRepository(databasePool, cfg.Events.HistoryTopic),
+		postgres_repository.NewEventRepository(
+			databasePool, cfg.Events.HistoryTopic, cfg.Events.HistoryClearedTopic,
+		),
 		catalog.NewClient(catalogv1.NewCatalogServiceClient(catalogConnection)),
 	)
 	grpcListener, err := net.Listen("tcp", cfg.GRPCAddress)

@@ -9,7 +9,10 @@ import (
 	"github.com/google/uuid"
 )
 
-const ListeningRecordedV1 = "history.listening.recorded.v1"
+const (
+	ListeningRecordedV1 = "history.listening.recorded.v1"
+	ListeningClearedV1  = "history.listening.cleared.v1"
+)
 
 type Envelope[T any] struct {
 	ID         uuid.UUID `json:"id"`
@@ -29,6 +32,12 @@ type ListeningRecordedData struct {
 	ContextType string     `json:"context_type"`
 	ContextID   *uuid.UUID `json:"context_id,omitempty"`
 	DeviceType  string     `json:"device_type"`
+}
+
+type ListeningClearedData struct {
+	UserID       uuid.UUID  `json:"user_id"`
+	Before       *time.Time `json:"before,omitempty"`
+	DeletedCount int64      `json:"deleted_count"`
 }
 
 type Message struct {
@@ -62,6 +71,32 @@ func NewListeningRecorded(event history.Event, topic string) (Message, error) {
 	return Message{
 		ID: event.ID, Type: ListeningRecordedV1, Topic: topic,
 		Key: event.UserID.String(), Payload: payload, OccurredAt: occurredAt,
+	}, nil
+}
+
+func NewListeningCleared(
+	eventID uuid.UUID,
+	userID uuid.UUID,
+	before *time.Time,
+	deletedCount int64,
+	clearedAt time.Time,
+	topic string,
+) (Message, error) {
+	data := ListeningClearedData{UserID: userID, DeletedCount: deletedCount}
+	if before != nil {
+		value := before.UTC()
+		data.Before = &value
+	}
+	payload, err := json.Marshal(Envelope[ListeningClearedData]{
+		ID: eventID, Type: ListeningClearedV1, Source: "history-service",
+		OccurredAt: clearedAt.UTC(), Data: data,
+	})
+	if err != nil {
+		return Message{}, err
+	}
+	return Message{
+		ID: eventID, Type: ListeningClearedV1, Topic: topic,
+		Key: userID.String(), Payload: payload, OccurredAt: clearedAt.UTC(),
 	}, nil
 }
 

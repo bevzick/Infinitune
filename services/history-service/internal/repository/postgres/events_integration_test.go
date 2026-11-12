@@ -18,7 +18,9 @@ import (
 
 func TestRecordIsIdempotentAndRejectsChangedPayload(t *testing.T) {
 	pool := openDatabase(t)
-	repository := NewEventRepository(pool, events.ListeningRecordedV1)
+	repository := NewEventRepository(
+		pool, events.ListeningRecordedV1, events.ListeningClearedV1,
+	)
 	finishedAt := time.Now().UTC().Truncate(time.Microsecond)
 	event := history.Event{ID: uuid.New(), UserID: uuid.New(), TrackID: uuid.New(), StartedAt: finishedAt.Add(-time.Minute), FinishedAt: &finishedAt, ListenedMS: 60000, Completed: false, ContextType: "direct", DeviceType: "web"}
 	if _, err := repository.Record(context.Background(), event); err != nil {
@@ -55,7 +57,9 @@ func TestRecordIsIdempotentAndRejectsChangedPayload(t *testing.T) {
 
 func TestListAndDeleteRemainOwnerScoped(t *testing.T) {
 	pool := openDatabase(t)
-	repository := NewEventRepository(pool, events.ListeningRecordedV1)
+	repository := NewEventRepository(
+		pool, events.ListeningRecordedV1, events.ListeningClearedV1,
+	)
 	ctx := context.Background()
 	ownerID, foreignID, trackID := uuid.New(), uuid.New(), uuid.New()
 	base := time.Now().UTC().Truncate(time.Microsecond).Add(-time.Hour)
@@ -85,13 +89,27 @@ func TestListAndDeleteRemainOwnerScoped(t *testing.T) {
 		t.Fatalf("List(cursor)=%+v,%v", items, err)
 	}
 	cutoff := base.Add(30 * time.Second)
-	deleted, err := repository.Delete(ctx, ownerID, &cutoff)
+	clearedAt := time.Now().UTC().Truncate(time.Microsecond)
+	deleted, err := repository.Delete(ctx, ownerID, &cutoff, clearedAt)
 	if err != nil || deleted != 1 {
 		t.Fatalf("Delete()=%d,%v", deleted, err)
+	}
+	deletedAgain, err := repository.Delete(
+		ctx, ownerID, &cutoff, clearedAt.Add(time.Second),
+	)
+	if err != nil || deletedAgain != 0 {
+		t.Fatalf("idempotent Delete()=%d,%v", deletedAgain, err)
 	}
 	var foreignCount int
 	if err = pool.QueryRow(ctx, "SELECT count(*) FROM history.listening_events WHERE user_id=$1", foreignID).Scan(&foreignCount); err != nil || foreignCount != 1 {
 		t.Fatalf("foreign count=%d,%v", foreignCount, err)
+	}
+	var clearedCount int
+	if err = pool.QueryRow(ctx, `
+		SELECT count(*) FROM history.event_outbox
+		WHERE event_type=$1 AND partition_key=$2
+	`, events.ListeningClearedV1, ownerID.String()).Scan(&clearedCount); err != nil || clearedCount != 1 {
+		t.Fatalf("clear event count=%d,%v", clearedCount, err)
 	}
 }
 

@@ -35,6 +35,22 @@ func TestHistoryHandlerRejectsMalformedEvent(t *testing.T) {
 	}
 }
 
+func TestHistoryHandlerInvalidatesRunsAfterHistoryClear(t *testing.T) {
+	t.Parallel()
+
+	userID := uuid.New()
+	invalidator := &invalidatorStub{}
+	payload := []byte(`{"id":"` + uuid.NewString() + `","type":"history.listening.cleared.v1",` +
+		`"source":"history-service","occurred_at":"2026-11-12T13:00:00Z",` +
+		`"data":{"user_id":"` + userID.String() + `","deleted_count":12}}`)
+	if err := NewHistoryHandler(invalidator).Handle(context.Background(), payload); err != nil {
+		t.Fatalf("Handle() error = %v", err)
+	}
+	if invalidator.userID != userID {
+		t.Fatalf("invalidated user = %s, want %s", invalidator.userID, userID)
+	}
+}
+
 type invalidatorStub struct {
 	userID uuid.UUID
 	before time.Time

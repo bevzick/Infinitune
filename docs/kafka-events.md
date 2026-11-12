@@ -16,7 +16,9 @@ History service ---- gRPC validation ----> Catalog service
                   |
                   | retrying outbox dispatcher
                   v
-        history.listening.recorded.v1 (Kafka, key = user_id)
+        history.listening.recorded.v1  ┐
+                                       ├─ Kafka, key = user_id
+        history.listening.cleared.v1   ┘
                   |
          +--------+------------------+
          |                           |
@@ -27,8 +29,10 @@ Recommendation consumer       Future analytics consumer
 
 ## Delivery contract
 
-- The first implemented event is `history.listening.recorded.v1`.
-- The event and its outbox row are committed atomically in History PostgreSQL.
+- Implemented events are `history.listening.recorded.v1` and
+  `history.listening.cleared.v1`.
+- Recording/deleting history and creating the corresponding outbox row happen atomically in
+  History PostgreSQL.
 - Delivery is **at least once**. A crash after Kafka accepts an event but before the outbox row
   is marked published can produce a duplicate.
 - `id` is the stable idempotency key. Every consumer must deduplicate it or make handling idempotent.
@@ -36,6 +40,11 @@ Recommendation consumer       Future analytics consumer
   Consumers must still tolerate duplicates and late events because retries can change arrival order.
 - Event schemas are versioned in the event type. Breaking changes require a new version/topic.
 - Kafka being unavailable does not reject a valid listening event; the outbox dispatcher retries.
+- A clear event is emitted only when at least one row was deleted. `before` is absent for a full
+  clear and contains the exclusive deletion cutoff for a partial clear.
+- Consumers that persist listening signals must apply clear events as deletion watermarks and
+  ignore a late recorded event when it falls inside an already cleared range. Recommendation does
+  not copy raw history and only invalidates cached runs; its next calculation reads current History.
 
 ## Suitable next integrations
 
@@ -54,4 +63,4 @@ The Compose broker is a single-node development setup with plaintext traffic. Pr
 multiple brokers, replication, TLS/SASL, monitoring, quotas, and an explicit retention/privacy policy.
 
 Start the full local stack with `make up`. The Makefile includes `compose.kafka.yml`; the
-`kafka-init` service creates the first topic idempotently before History starts.
+`kafka-init` service creates both History topics idempotently before History starts.

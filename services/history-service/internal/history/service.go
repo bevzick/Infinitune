@@ -17,7 +17,7 @@ const (
 type EventStore interface {
 	Record(context.Context, Event) (Event, error)
 	List(context.Context, uuid.UUID, ListFilter, int) ([]Event, error)
-	Delete(context.Context, uuid.UUID, *time.Time) (int64, error)
+	Delete(context.Context, uuid.UUID, *time.Time, time.Time) (int64, error)
 }
 
 func (service *Service) List(ctx context.Context, userID uuid.UUID, request ListRequest) (Page, error) {
@@ -51,7 +51,7 @@ func (service *Service) Clear(ctx context.Context, userID uuid.UUID, request Cle
 	if request.Before != nil && (request.Before.IsZero() || request.Before.After(service.now().UTC().Add(allowedClockSkew))) {
 		return ClearResult{}, fmt.Errorf("%w: before is invalid", ErrInvalidArgument)
 	}
-	deleted, err := service.store.Delete(ctx, userID, request.Before)
+	deleted, err := service.store.Delete(ctx, userID, request.Before, service.now().UTC())
 	if err != nil {
 		return ClearResult{}, err
 	}

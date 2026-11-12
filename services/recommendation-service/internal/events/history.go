@@ -10,7 +10,10 @@ import (
 	"github.com/google/uuid"
 )
 
-const ListeningRecordedV1 = "history.listening.recorded.v1"
+const (
+	ListeningRecordedV1 = "history.listening.recorded.v1"
+	ListeningClearedV1  = "history.listening.cleared.v1"
+)
 
 var ErrInvalidEvent = errors.New("invalid domain event")
 
@@ -43,7 +46,7 @@ func (handler *HistoryHandler) Handle(ctx context.Context, payload []byte) error
 	if err := json.Unmarshal(payload, &event); err != nil {
 		return fmt.Errorf("%w: decode history event: %v", ErrInvalidEvent, err)
 	}
-	if event.ID == uuid.Nil || event.Type != ListeningRecordedV1 ||
+	if event.ID == uuid.Nil || !supportedHistoryEvent(event.Type) ||
 		event.Source != "history-service" || event.OccurredAt.IsZero() ||
 		event.Data.UserID == uuid.Nil {
 		return fmt.Errorf("%w: incomplete history event", ErrInvalidEvent)
@@ -52,4 +55,8 @@ func (handler *HistoryHandler) Handle(ctx context.Context, payload []byte) error
 		return fmt.Errorf("invalidate recommendation runs: %w", err)
 	}
 	return nil
+}
+
+func supportedHistoryEvent(eventType string) bool {
+	return eventType == ListeningRecordedV1 || eventType == ListeningClearedV1
 }

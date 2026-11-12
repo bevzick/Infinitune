@@ -49,6 +49,7 @@ services:
       POSTGRES_RECOMMENDATION_DB: ${POSTGRES_RECOMMENDATION_DB:-recommendation_db}
       KAFKA_BROKERS: ${KAFKA_BROKERS:-kafka:9092}
       KAFKA_HISTORY_TOPIC: ${KAFKA_HISTORY_TOPIC:-history.listening.recorded.v1}
+      KAFKA_HISTORY_CLEARED_TOPIC: ${KAFKA_HISTORY_CLEARED_TOPIC:-history.listening.cleared.v1}
       KAFKA_RECOMMENDATION_GROUP: ${KAFKA_RECOMMENDATION_GROUP:-recommendation-history-v1}
     expose:
       - "8080"

@@ -14,30 +14,32 @@ import (
 )
 
 const (
-	defaultHTTPHost     = "0.0.0.0"
-	defaultHTTPPort     = "8080"
-	defaultGRPCHost     = "0.0.0.0"
-	defaultGRPCPort     = "9090"
-	defaultCatalogHost  = "127.0.0.1"
-	defaultCatalogPort  = "9090"
-	defaultPostgresHost = "127.0.0.1"
-	defaultPostgresPort = "5432"
-	defaultJWKSURL      = "http://auth-service:8080/v1/auth/jwks"
-	defaultJWTIssuer    = "infinitune-auth"
-	defaultJWTAudience  = "infinitune-api"
-	defaultJWTKeyID     = "auth-key-1"
-	defaultJWKSRefresh  = 5 * time.Minute
-	defaultKafkaBrokers = "127.0.0.1:9092"
-	defaultHistoryTopic = "history.listening.recorded.v1"
-	defaultOutboxPoll   = time.Second
-	defaultOutboxBatch  = 100
+	defaultHTTPHost            = "0.0.0.0"
+	defaultHTTPPort            = "8080"
+	defaultGRPCHost            = "0.0.0.0"
+	defaultGRPCPort            = "9090"
+	defaultCatalogHost         = "127.0.0.1"
+	defaultCatalogPort         = "9090"
+	defaultPostgresHost        = "127.0.0.1"
+	defaultPostgresPort        = "5432"
+	defaultJWKSURL             = "http://auth-service:8080/v1/auth/jwks"
+	defaultJWTIssuer           = "infinitune-auth"
+	defaultJWTAudience         = "infinitune-api"
+	defaultJWTKeyID            = "auth-key-1"
+	defaultJWKSRefresh         = 5 * time.Minute
+	defaultKafkaBrokers        = "127.0.0.1:9092"
+	defaultHistoryTopic        = "history.listening.recorded.v1"
+	defaultHistoryClearedTopic = "history.listening.cleared.v1"
+	defaultOutboxPoll          = time.Second
+	defaultOutboxBatch         = 100
 )
 
 type EventsConfig struct {
-	Brokers        []string
-	HistoryTopic   string
-	OutboxInterval time.Duration
-	OutboxBatch    int
+	Brokers             []string
+	HistoryTopic        string
+	HistoryClearedTopic string
+	OutboxInterval      time.Duration
+	OutboxBatch         int
 }
 
 type Config struct {
@@ -100,8 +102,11 @@ func loadEventsConfig() (EventsConfig, error) {
 		brokers = append(brokers, broker)
 	}
 	topic := strings.TrimSpace(envOrDefault("KAFKA_HISTORY_TOPIC", defaultHistoryTopic))
-	if topic == "" {
-		return EventsConfig{}, fmt.Errorf("KAFKA_HISTORY_TOPIC must not be blank")
+	clearedTopic := strings.TrimSpace(envOrDefault(
+		"KAFKA_HISTORY_CLEARED_TOPIC", defaultHistoryClearedTopic,
+	))
+	if topic == "" || clearedTopic == "" {
+		return EventsConfig{}, fmt.Errorf("Kafka history topics must not be blank")
 	}
 	interval := defaultOutboxPoll
 	if raw := os.Getenv("HISTORY_OUTBOX_POLL_INTERVAL"); raw != "" {
@@ -120,7 +125,7 @@ func loadEventsConfig() (EventsConfig, error) {
 		batch = parsed
 	}
 	return EventsConfig{
-		Brokers: brokers, HistoryTopic: topic,
+		Brokers: brokers, HistoryTopic: topic, HistoryClearedTopic: clearedTopic,
 		OutboxInterval: interval, OutboxBatch: batch,
 	}, nil
 }

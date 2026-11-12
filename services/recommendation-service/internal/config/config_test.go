@@ -21,6 +21,7 @@ func TestLoadUsesRecommendationDatabaseEnvironment(t *testing.T) {
 	t.Setenv("RECOMMENDATION_ALLOWED_ORIGINS", "https://app.example.test")
 	t.Setenv("KAFKA_BROKERS", "kafka-a:9092,kafka-b:9092")
 	t.Setenv("KAFKA_HISTORY_TOPIC", "history-events")
+	t.Setenv("KAFKA_HISTORY_CLEARED_TOPIC", "history-cleared")
 	t.Setenv("KAFKA_RECOMMENDATION_GROUP", "recommendation-test")
 
 	cfg, err := Load()
@@ -47,7 +48,9 @@ func TestLoadUsesRecommendationDatabaseEnvironment(t *testing.T) {
 		t.Fatalf("identity/origins = %+v, %v", cfg.Identity, cfg.Origins)
 	}
 	if len(cfg.Events.Brokers) != 2 || cfg.Events.Brokers[1] != "kafka-b:9092" ||
-		cfg.Events.HistoryTopic != "history-events" || cfg.Events.ConsumerGroup != "recommendation-test" {
+		cfg.Events.HistoryTopic != "history-events" ||
+		cfg.Events.HistoryClearedTopic != "history-cleared" ||
+		cfg.Events.ConsumerGroup != "recommendation-test" {
 		t.Fatalf("Events = %+v", cfg.Events)
 	}
 }

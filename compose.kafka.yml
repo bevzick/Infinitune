@@ -36,6 +36,7 @@ services:
         condition: service_healthy
     environment:
       KAFKA_HISTORY_TOPIC: ${KAFKA_HISTORY_TOPIC:-history.listening.recorded.v1}
+      KAFKA_HISTORY_CLEARED_TOPIC: ${KAFKA_HISTORY_CLEARED_TOPIC:-history.listening.cleared.v1}
     entrypoint:
       - /bin/bash
       - -ec
@@ -46,6 +47,16 @@ services:
           --create \
           --if-not-exists \
           --topic "$$KAFKA_HISTORY_TOPIC" \
+          --partitions 3 \
+          --replication-factor 1 \
+          --config cleanup.policy=delete \
+          --config retention.ms=604800000
+
+        /opt/kafka/bin/kafka-topics.sh \
+          --bootstrap-server kafka:9092 \
+          --create \
+          --if-not-exists \
+          --topic "$$KAFKA_HISTORY_CLEARED_TOPIC" \
           --partitions 3 \
           --replication-factor 1 \
           --config cleanup.policy=delete \

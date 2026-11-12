@@ -14,27 +14,29 @@ import (
 )
 
 const (
-	defaultHTTPHost      = "0.0.0.0"
-	defaultHTTPPort      = "8080"
-	defaultPostgresHost  = "127.0.0.1"
-	defaultPostgresPort  = "5432"
-	defaultGRPCHost      = "127.0.0.1"
-	defaultGRPCPort      = "9090"
-	defaultRunTTL        = time.Hour
-	defaultJWKSURL       = "http://auth-service:8080/v1/auth/jwks"
-	defaultJWTIssuer     = "infinitune-auth"
-	defaultJWTAudience   = "infinitune-api"
-	defaultJWTKeyID      = "auth-key-1"
-	defaultJWKSRefresh   = 5 * time.Minute
-	defaultKafkaBrokers  = "127.0.0.1:9092"
-	defaultHistoryTopic  = "history.listening.recorded.v1"
-	defaultConsumerGroup = "recommendation-history-v1"
+	defaultHTTPHost            = "0.0.0.0"
+	defaultHTTPPort            = "8080"
+	defaultPostgresHost        = "127.0.0.1"
+	defaultPostgresPort        = "5432"
+	defaultGRPCHost            = "127.0.0.1"
+	defaultGRPCPort            = "9090"
+	defaultRunTTL              = time.Hour
+	defaultJWKSURL             = "http://auth-service:8080/v1/auth/jwks"
+	defaultJWTIssuer           = "infinitune-auth"
+	defaultJWTAudience         = "infinitune-api"
+	defaultJWTKeyID            = "auth-key-1"
+	defaultJWKSRefresh         = 5 * time.Minute
+	defaultKafkaBrokers        = "127.0.0.1:9092"
+	defaultHistoryTopic        = "history.listening.recorded.v1"
+	defaultHistoryClearedTopic = "history.listening.cleared.v1"
+	defaultConsumerGroup       = "recommendation-history-v1"
 )
 
 type EventsConfig struct {
-	Brokers       []string
-	HistoryTopic  string
-	ConsumerGroup string
+	Brokers             []string
+	HistoryTopic        string
+	HistoryClearedTopic string
+	ConsumerGroup       string
 }
 
 type Config struct {
@@ -136,11 +138,17 @@ func loadEventsConfig() (EventsConfig, error) {
 		brokers = append(brokers, broker)
 	}
 	topic := strings.TrimSpace(envOrDefault("KAFKA_HISTORY_TOPIC", defaultHistoryTopic))
+	clearedTopic := strings.TrimSpace(envOrDefault(
+		"KAFKA_HISTORY_CLEARED_TOPIC", defaultHistoryClearedTopic,
+	))
 	group := strings.TrimSpace(envOrDefault("KAFKA_RECOMMENDATION_GROUP", defaultConsumerGroup))
-	if topic == "" || group == "" {
-		return EventsConfig{}, fmt.Errorf("Kafka topic and consumer group must not be blank")
+	if topic == "" || clearedTopic == "" || group == "" {
+		return EventsConfig{}, fmt.Errorf("Kafka topics and consumer group must not be blank")
 	}
-	return EventsConfig{Brokers: brokers, HistoryTopic: topic, ConsumerGroup: group}, nil
+	return EventsConfig{
+		Brokers: brokers, HistoryTopic: topic,
+		HistoryClearedTopic: clearedTopic, ConsumerGroup: group,
+	}, nil
 }
 
 func parseAllowedOrigins(value string) ([]string, error) {

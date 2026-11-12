@@ -15,6 +15,7 @@ func TestLoadUsesHistoryDatabaseEnvironment(t *testing.T) {
 	t.Setenv("HISTORY_ALLOWED_ORIGINS", "https://app.example.test")
 	t.Setenv("KAFKA_BROKERS", "kafka-a:9092,kafka-b:9092")
 	t.Setenv("KAFKA_HISTORY_TOPIC", "history-events")
+	t.Setenv("KAFKA_HISTORY_CLEARED_TOPIC", "history-cleared")
 	t.Setenv("HISTORY_OUTBOX_POLL_INTERVAL", "250ms")
 	t.Setenv("HISTORY_OUTBOX_BATCH_SIZE", "25")
 	cfg, err := Load()
@@ -32,6 +33,7 @@ func TestLoadUsesHistoryDatabaseEnvironment(t *testing.T) {
 	}
 	if len(cfg.Events.Brokers) != 2 || cfg.Events.Brokers[1] != "kafka-b:9092" ||
 		cfg.Events.HistoryTopic != "history-events" ||
+		cfg.Events.HistoryClearedTopic != "history-cleared" ||
 		cfg.Events.OutboxInterval.String() != "250ms" || cfg.Events.OutboxBatch != 25 {
 		t.Fatalf("Events = %+v", cfg.Events)
 	}
