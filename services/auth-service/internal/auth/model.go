@@ -25,6 +25,24 @@ type User struct {
 	LastLoginAt   *time.Time
 }
 
+type AdminUser struct {
+	User  User
+	Roles []string
+}
+
+type UserPageRequest struct {
+	Status *AccountStatus
+	Limit  int
+	Offset int
+}
+
+type UserPage struct {
+	Items  []AdminUser
+	Limit  int
+	Offset int
+	Total  int64
+}
+
 type Role struct {
 	ID          int16
 	Name        string

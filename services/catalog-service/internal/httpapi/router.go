@@ -20,6 +20,7 @@ type HealthCheck interface {
 type Catalog interface {
 	Artist(context.Context, uuid.UUID) (metadata.Artist, error)
 	Artists(context.Context, metadata.PageRequest) (metadata.Page[metadata.Artist], error)
+	ArtistDiscography(context.Context, uuid.UUID, metadata.PageRequest) (metadata.Page[metadata.DiscographyItem], error)
 	Album(context.Context, uuid.UUID) (metadata.Album, error)
 	Albums(context.Context, metadata.PageRequest) (metadata.Page[metadata.Album], error)
 	Track(context.Context, uuid.UUID) (metadata.Track, error)
@@ -50,6 +51,7 @@ func NewRouter(dependencies Dependencies) http.Handler {
 
 	catalog := router.Group("/v1/catalog")
 	catalog.GET("/artists", listHandler(dependencies.Logger, dependencies.Catalog.Artists, artistResponseFrom))
+	catalog.GET("/artists/:id/discography", artistDiscographyHandler(dependencies.Logger, dependencies.Catalog.ArtistDiscography))
 	catalog.GET("/artists/:id", detailHandler(dependencies.Logger, dependencies.Catalog.Artist, artistResponseFrom))
 	catalog.GET("/albums", listHandler(dependencies.Logger, dependencies.Catalog.Albums, albumResponseFrom))
 	catalog.GET("/albums/:id", detailHandler(dependencies.Logger, dependencies.Catalog.Album, albumResponseFrom))

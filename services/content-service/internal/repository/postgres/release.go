@@ -128,6 +128,83 @@ func (repository *ReleaseRepository) ByID(
 	return release.Draft{Release: loadedRelease, Tracks: tracks}, nil
 }
 
+func (repository *ReleaseRepository) ListForUser(
+	ctx context.Context,
+	userID uuid.UUID,
+	request release.PageRequest,
+) (release.Page, error) {
+	return repository.list(ctx, userID, request, false)
+}
+
+func (repository *ReleaseRepository) ListForModeration(
+	ctx context.Context,
+	reviewerID uuid.UUID,
+	request release.PageRequest,
+) (release.Page, error) {
+	return repository.list(ctx, reviewerID, request, true)
+}
+
+func (repository *ReleaseRepository) list(
+	ctx context.Context,
+	actorID uuid.UUID,
+	request release.PageRequest,
+	moderation bool,
+) (release.Page, error) {
+	var creatorID any
+	if request.CreatorID != nil {
+		creatorID = *request.CreatorID
+	}
+	var status any
+	if request.Status != nil {
+		status = string(*request.Status)
+	}
+	visibility := `EXISTS (
+		SELECT 1 FROM content.creator_members AS member
+		WHERE member.creator_id = item.creator_id AND member.user_id = $1
+	)`
+	if moderation {
+		visibility = `NOT EXISTS (
+			SELECT 1 FROM content.creator_members AS member
+			WHERE member.creator_id = item.creator_id AND member.user_id = $1
+		)`
+	}
+	filter := visibility + `
+		AND ($2::uuid IS NULL OR item.creator_id = $2)
+		AND ($3::text IS NULL OR item.status::text = $3)`
+	var total int64
+	if err := repository.database.QueryRow(ctx, `
+		SELECT count(*) FROM content.releases AS item WHERE `+filter,
+		actorID, creatorID, status,
+	).Scan(&total); err != nil {
+		return release.Page{}, fmt.Errorf("count release list: %w", err)
+	}
+	rows, err := repository.database.Query(ctx, `
+		SELECT `+releaseColumns+`
+		FROM content.releases AS item
+		WHERE `+filter+`
+		ORDER BY item.updated_at DESC, item.id
+		LIMIT $4 OFFSET $5
+	`, actorID, creatorID, status, request.Limit, request.Offset)
+	if err != nil {
+		return release.Page{}, fmt.Errorf("query release list: %w", err)
+	}
+	defer rows.Close()
+	items := make([]release.Release, 0, request.Limit)
+	for rows.Next() {
+		item, scanErr := scanRelease(rows)
+		if scanErr != nil {
+			return release.Page{}, fmt.Errorf("scan release list: %w", scanErr)
+		}
+		items = append(items, item)
+	}
+	if err = rows.Err(); err != nil {
+		return release.Page{}, fmt.Errorf("iterate release list: %w", err)
+	}
+	return release.Page{
+		Items: items, Limit: request.Limit, Offset: request.Offset, Total: total,
+	}, nil
+}
+
 func (repository *ReleaseRepository) Update(
 	ctx context.Context,
 	draft release.Draft,

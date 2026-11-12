@@ -20,7 +20,7 @@ import (
 
 func TestIdentityUsesVerifiedTokenInsteadOfClientHeaders(t *testing.T) {
 	verifiedUserID := uuid.MustParse("11111111-1111-4111-8111-111111111111")
-	router, _, _ := newHTTPTestRouter(auth.Identity{
+	router, _, _, _ := newHTTPTestRouter(auth.Identity{
 		UserID:    verifiedUserID,
 		Roles:     []string{auth.RoleListener},
 		TokenID:   uuid.MustParse("22222222-2222-4222-8222-222222222222"),
@@ -48,7 +48,7 @@ func TestIdentityUsesVerifiedTokenInsteadOfClientHeaders(t *testing.T) {
 }
 
 func TestProtectedEndpointRejectsMissingOrInvalidToken(t *testing.T) {
-	router, tokens, _ := newHTTPTestRouter(auth.Identity{})
+	router, tokens, _, _ := newHTTPTestRouter(auth.Identity{})
 	tokens.verifyError = errors.New("invalid token")
 
 	tests := []struct {
@@ -80,7 +80,7 @@ func TestProtectedEndpointRejectsMissingOrInvalidToken(t *testing.T) {
 }
 
 func TestJWKSIsPublic(t *testing.T) {
-	router, _, _ := newHTTPTestRouter(auth.Identity{})
+	router, _, _, _ := newHTTPTestRouter(auth.Identity{})
 	request := httptest.NewRequest(http.MethodGet, "/v1/auth/jwks", nil)
 	response := httptest.NewRecorder()
 	router.ServeHTTP(response, request)
@@ -98,7 +98,7 @@ func TestRoleEndpointsMapAuthorizationErrors(t *testing.T) {
 		UserID: uuid.MustParse("11111111-1111-4111-8111-111111111111"),
 		Roles:  []string{auth.RoleListener},
 	}
-	router, _, roles := newHTTPTestRouter(identity)
+	router, _, roles, _ := newHTTPTestRouter(identity)
 	roles.err = auth.ErrForbidden
 	targetID := "22222222-2222-4222-8222-222222222222"
 
@@ -116,7 +116,7 @@ func TestRoleEndpointsMapAuthorizationErrors(t *testing.T) {
 }
 
 func TestRoleEndpointRejectsInvalidUserID(t *testing.T) {
-	router, _, roles := newHTTPTestRouter(auth.Identity{
+	router, _, roles, _ := newHTTPTestRouter(auth.Identity{
 		UserID: uuid.MustParse("11111111-1111-4111-8111-111111111111"),
 		Roles:  []string{auth.RoleAdmin},
 	})
@@ -132,7 +132,7 @@ func TestRoleEndpointRejectsInvalidUserID(t *testing.T) {
 }
 
 func TestCORSAllowsAuthorizationAndRoleMethods(t *testing.T) {
-	router, _, _ := newHTTPTestRouter(auth.Identity{})
+	router, _, _, _ := newHTTPTestRouter(auth.Identity{})
 	request := httptest.NewRequest(
 		http.MethodOptions,
 		"/v1/auth/users/22222222-2222-4222-8222-222222222222/roles/creator",
@@ -148,7 +148,8 @@ func TestCORSAllowsAuthorizationAndRoleMethods(t *testing.T) {
 		t.Fatalf("OPTIONS status = %d, body = %s", response.Code, response.Body.String())
 	}
 	if !strings.Contains(response.Header().Get("Access-Control-Allow-Methods"), http.MethodPut) ||
-		!strings.Contains(response.Header().Get("Access-Control-Allow-Methods"), http.MethodDelete) {
+		!strings.Contains(response.Header().Get("Access-Control-Allow-Methods"), http.MethodDelete) ||
+		!strings.Contains(response.Header().Get("Access-Control-Allow-Methods"), http.MethodPatch) {
 		t.Fatalf("Access-Control-Allow-Methods = %q", response.Header().Get("Access-Control-Allow-Methods"))
 	}
 	if !strings.Contains(response.Header().Get("Access-Control-Allow-Headers"), "Authorization") {
@@ -156,9 +157,54 @@ func TestCORSAllowsAuthorizationAndRoleMethods(t *testing.T) {
 	}
 }
 
-func newHTTPTestRouter(identity auth.Identity) (http.Handler, *identityTokensFake, *roleAssignmentsFake) {
+func TestUserAdministrationEndpointsUseVerifiedAdmin(t *testing.T) {
+	actorID, targetID := uuid.New(), uuid.New()
+	router, _, _, users := newHTTPTestRouter(auth.Identity{
+		UserID: actorID, Roles: []string{auth.RoleAdmin},
+	})
+	users.page = auth.UserPage{
+		Items: []auth.AdminUser{{
+			User: auth.User{
+				ID: targetID, Email: "listener@example.invalid", PasswordHash: "secret-hash",
+				Status: auth.AccountStatusBlocked,
+			},
+			Roles: []string{auth.RoleListener},
+		}},
+		Limit: 10, Offset: 20, Total: 1,
+	}
+	request := httptest.NewRequest(http.MethodGet,
+		"/v1/auth/users?status=blocked&limit=10&offset=20", nil)
+	request.Header.Set("Authorization", "Bearer valid-token")
+	response := httptest.NewRecorder()
+	router.ServeHTTP(response, request)
+	if response.Code != http.StatusOK || users.listActor.UserID != actorID ||
+		users.pageRequest.Status == nil || *users.pageRequest.Status != auth.AccountStatusBlocked ||
+		strings.Contains(response.Body.String(), "secret-hash") ||
+		!strings.Contains(response.Body.String(), `"total":1`) {
+		t.Fatalf("GET users status = %d; fake = %+v; body = %s", response.Code, users, response.Body.String())
+	}
+
+	request = httptest.NewRequest(http.MethodPatch, "/v1/auth/users/"+targetID.String()+"/status",
+		strings.NewReader(`{"status":"active"}`))
+	request.Header.Set("Authorization", "Bearer valid-token")
+	request.Header.Set("Content-Type", "application/json")
+	response = httptest.NewRecorder()
+	router.ServeHTTP(response, request)
+	if response.Code != http.StatusOK || users.updatedUserID != targetID ||
+		users.updatedStatus != auth.AccountStatusActive {
+		t.Fatalf("PATCH user status = %d; fake = %+v; body = %s", response.Code, users, response.Body.String())
+	}
+}
+
+func newHTTPTestRouter(identity auth.Identity) (
+	http.Handler,
+	*identityTokensFake,
+	*roleAssignmentsFake,
+	*userAdministrationFake,
+) {
 	tokens := &identityTokensFake{identity: identity}
 	roles := &roleAssignmentsFake{roles: []string{auth.RoleListener}}
+	users := &userAdministrationFake{}
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
 	return NewRouter(Dependencies{
@@ -169,10 +215,11 @@ func newHTTPTestRouter(identity auth.Identity) (http.Handler, *identityTokensFak
 		Sessions:     sessionsFake{},
 		Tokens:       tokens,
 		Roles:        roles,
+		Users:        users,
 		Cookies:      SessionCookieConfig{SameSite: http.SameSiteLaxMode},
 		Origins:      []string{"http://localhost:5173"},
 		Logger:       logger,
-	}), tokens, roles
+	}), tokens, roles, users
 }
 
 type healthCheckFake struct{}
@@ -229,6 +276,30 @@ type roleAssignmentsFake struct {
 	roles []string
 	err   error
 	calls int
+}
+
+type userAdministrationFake struct {
+	page          auth.UserPage
+	pageRequest   auth.UserPageRequest
+	listActor     auth.Identity
+	updatedActor  auth.Identity
+	updatedUserID uuid.UUID
+	updatedStatus auth.AccountStatus
+	err           error
+}
+
+func (fake *userAdministrationFake) ListUsers(
+	_ context.Context, actor auth.Identity, request auth.UserPageRequest,
+) (auth.UserPage, error) {
+	fake.listActor, fake.pageRequest = actor, request
+	return fake.page, fake.err
+}
+
+func (fake *userAdministrationFake) UpdateUserStatus(
+	_ context.Context, actor auth.Identity, userID uuid.UUID, status auth.AccountStatus,
+) (auth.User, error) {
+	fake.updatedActor, fake.updatedUserID, fake.updatedStatus = actor, userID, status
+	return auth.User{ID: userID, Status: status}, fake.err
 }
 
 func (f *roleAssignmentsFake) ListUserRoles(

@@ -83,13 +83,12 @@ stop:
 	@$(COMPOSE) stop
 
 down:
-	@$(COMPOSE) down
+	@$(COMPOSE) --profile tools down
 down-volumes:
 	@make down --volumes
 
 restart:
-	@make up
-	@make down
+	@$(COMPOSE) restart
 
 logs:
 	@$(COMPOSE) logs --follow

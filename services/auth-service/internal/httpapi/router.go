@@ -9,6 +9,7 @@ import (
 	"github.com/bevzick/Infinitune/services/auth-service/internal/auth"
 	"github.com/bevzick/Infinitune/services/auth-service/internal/token"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 )
 
 const healthcheckTimeout = 2 * time.Second
@@ -30,6 +31,11 @@ type Sessions interface {
 	Logout(context.Context, string) (bool, error)
 }
 
+type UserAdministration interface {
+	ListUsers(context.Context, auth.Identity, auth.UserPageRequest) (auth.UserPage, error)
+	UpdateUserStatus(context.Context, auth.Identity, uuid.UUID, auth.AccountStatus) (auth.User, error)
+}
+
 type IdentityTokens interface {
 	VerifyAccessToken(string, time.Time) (auth.Identity, error)
 	JSONWebKeySet() token.JSONWebKeySet
@@ -48,6 +54,7 @@ type Dependencies struct {
 	Sessions     Sessions
 	Tokens       IdentityTokens
 	Roles        RoleAssignments
+	Users        UserAdministration
 	Cookies      SessionCookieConfig
 	Origins      []string
 	Logger       *slog.Logger
@@ -71,6 +78,8 @@ func NewRouter(dependencies Dependencies) http.Handler {
 	protected.GET("/users/:user_id/roles", listUserRoles(dependencies.Roles, dependencies.Logger))
 	protected.PUT("/users/:user_id/roles/:role", assignUserRole(dependencies.Roles, dependencies.Logger))
 	protected.DELETE("/users/:user_id/roles/:role", removeUserRole(dependencies.Roles, dependencies.Logger))
+	protected.GET("/users", listUsers(dependencies.Users, dependencies.Logger))
+	protected.PATCH("/users/:user_id/status", updateUserStatus(dependencies.Users, dependencies.Logger))
 
 	return router
 }

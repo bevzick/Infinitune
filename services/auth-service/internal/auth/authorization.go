@@ -26,6 +26,10 @@ var (
 	ErrRoleNotAssigned          = errors.New("role is not assigned")
 	ErrCannotRemoveOwnAdminRole = errors.New("cannot remove own admin role")
 	ErrCannotRemoveLastAdmin    = errors.New("cannot remove last admin role")
+	ErrInvalidAccountStatus     = errors.New("account status is invalid")
+	ErrInvalidUserQuery         = errors.New("user query is invalid")
+	ErrCannotChangeOwnStatus    = errors.New("admin cannot change their own account status")
+	ErrCannotDisableLastAdmin   = errors.New("cannot disable the last active admin")
 )
 
 type RoleAssignmentStore interface {
@@ -33,6 +37,59 @@ type RoleAssignmentStore interface {
 	ListRoleNamesForUser(context.Context, uuid.UUID) ([]string, error)
 	AssignRoleToUser(context.Context, uuid.UUID, string, time.Time) error
 	RemoveRoleFromUser(context.Context, uuid.UUID, string) error
+	ListUsers(context.Context, UserPageRequest) (UserPage, error)
+	UpdateUserStatus(context.Context, uuid.UUID, AccountStatus, time.Time) (User, error)
+}
+
+func (s *RoleService) ListUsers(
+	ctx context.Context,
+	actor Identity,
+	request UserPageRequest,
+) (UserPage, error) {
+	if err := s.authorize(ctx, actor, PermissionReadGlobalRoles); err != nil {
+		return UserPage{}, err
+	}
+	if request.Limit == 0 {
+		request.Limit = 20
+	}
+	if request.Limit < 1 || request.Limit > 100 || request.Offset < 0 {
+		return UserPage{}, ErrInvalidUserQuery
+	}
+	if request.Status != nil && !validAccountStatus(*request.Status, true) {
+		return UserPage{}, ErrInvalidAccountStatus
+	}
+	page, err := s.store.ListUsers(ctx, request)
+	if err != nil {
+		return UserPage{}, fmt.Errorf("list users: %w", err)
+	}
+	return page, nil
+}
+
+func (s *RoleService) UpdateUserStatus(
+	ctx context.Context,
+	actor Identity,
+	userID uuid.UUID,
+	status AccountStatus,
+) (User, error) {
+	if err := s.authorize(ctx, actor, PermissionManageGlobalRoles); err != nil {
+		return User{}, err
+	}
+	if userID == uuid.Nil || !validAccountStatus(status, false) {
+		return User{}, ErrInvalidAccountStatus
+	}
+	if actor.UserID == userID {
+		return User{}, ErrCannotChangeOwnStatus
+	}
+	user, err := s.store.UpdateUserStatus(ctx, userID, status, time.Now().UTC())
+	if err != nil {
+		return User{}, fmt.Errorf("update user status: %w", err)
+	}
+	return user, nil
+}
+
+func validAccountStatus(status AccountStatus, allowDeleted bool) bool {
+	return status == AccountStatusActive || status == AccountStatusBlocked ||
+		(allowDeleted && status == AccountStatusDeleted)
 }
 
 type RoleService struct {

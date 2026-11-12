@@ -14,6 +14,7 @@ type Store interface {
 	Create(context.Context, Account, Member) (Account, error)
 	ByID(context.Context, uuid.UUID) (Account, error)
 	ListForUser(context.Context, uuid.UUID) ([]Account, error)
+	ListVerification(context.Context, uuid.UUID, VerificationPageRequest) (VerificationPage, error)
 	Member(context.Context, uuid.UUID, uuid.UUID) (Member, error)
 	Update(context.Context, Account, time.Time) (Account, error)
 	TransitionVerification(
@@ -22,6 +23,41 @@ type Store interface {
 		VerificationStatus,
 		VerificationStatus,
 	) (Account, error)
+}
+
+func (service *Service) ListVerification(
+	ctx context.Context,
+	actor Actor,
+	request VerificationPageRequest,
+) (VerificationPage, error) {
+	if actor.UserID == uuid.Nil ||
+		(!slices.Contains(actor.Roles, GlobalRoleModerator) &&
+			!slices.Contains(actor.Roles, GlobalRoleAdmin)) {
+		return VerificationPage{}, ErrForbidden
+	}
+	if request.Limit == 0 {
+		request.Limit = 20
+	}
+	if request.Limit < 1 || request.Limit > 100 {
+		return VerificationPage{}, validationError("limit", "must be between 1 and 100")
+	}
+	if request.Offset < 0 {
+		return VerificationPage{}, validationError("offset", "must be non-negative")
+	}
+	if request.Status == nil {
+		status := VerificationPending
+		request.Status = &status
+	}
+	switch *request.Status {
+	case VerificationPending, VerificationVerified, VerificationRejected:
+	default:
+		return VerificationPage{}, validationError("status", "must be pending, verified, or rejected")
+	}
+	page, err := service.store.ListVerification(ctx, actor.UserID, request)
+	if err != nil {
+		return VerificationPage{}, fmt.Errorf("list creator verification queue: %w", err)
+	}
+	return page, nil
 }
 
 type Service struct {

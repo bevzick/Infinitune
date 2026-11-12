@@ -25,6 +25,186 @@ const activeAlbumPredicate = `NOT EXISTS (
 	  AND visibility_publication.archived_at IS NOT NULL
 )`
 
+const artistDiscographySQL = `
+	WITH discography AS (
+		SELECT DISTINCT
+			'album'::text AS item_kind,
+			a.id AS item_id,
+			a.release_date,
+			lower(a.title) AS item_title
+		FROM catalog.albums AS a
+		WHERE ` + activeAlbumPredicate + `
+		  AND (
+			EXISTS (
+				SELECT 1 FROM catalog.album_artists AS aa
+				WHERE aa.album_id = a.id AND aa.artist_id = $1
+			)
+			OR EXISTS (
+				SELECT 1
+				FROM catalog.tracks AS t
+				JOIN catalog.track_artists AS ta ON ta.track_id = t.id
+				WHERE t.album_id = a.id
+				  AND ta.artist_id = $1
+				  AND ` + activeTrackPredicate + `
+			)
+		  )
+		UNION ALL
+		SELECT
+			'track'::text AS item_kind,
+			t.id AS item_id,
+			t.release_date,
+			lower(t.title) AS item_title
+		FROM catalog.tracks AS t
+		WHERE t.album_id IS NULL
+		  AND ` + activeTrackPredicate + `
+		  AND EXISTS (
+			SELECT 1 FROM catalog.track_artists AS ta
+			WHERE ta.track_id = t.id AND ta.artist_id = $1
+		  )
+	)`
+
+type discographyKey struct {
+	kind metadata.DiscographyKind
+	id   uuid.UUID
+}
+
+func (repository *MetadataRepository) ListArtistDiscography(
+	ctx context.Context,
+	artistID uuid.UUID,
+	page metadata.PageRequest,
+) (metadata.Page[metadata.DiscographyItem], error) {
+	var total int64
+	if err := repository.database.QueryRow(
+		ctx, artistDiscographySQL+` SELECT count(*) FROM discography`, artistID,
+	).Scan(&total); err != nil {
+		return metadata.Page[metadata.DiscographyItem]{}, fmt.Errorf("count artist discography: %w", err)
+	}
+	rows, err := repository.database.Query(ctx, artistDiscographySQL+`
+		SELECT item_kind, item_id
+		FROM discography
+		ORDER BY release_date DESC, item_title, item_id
+		LIMIT $2 OFFSET $3
+	`, artistID, page.Limit, page.Offset)
+	if err != nil {
+		return metadata.Page[metadata.DiscographyItem]{}, fmt.Errorf("query artist discography: %w", err)
+	}
+	keys := make([]discographyKey, 0, page.Limit)
+	albumIDs := make([]uuid.UUID, 0, page.Limit)
+	trackIDs := make([]uuid.UUID, 0, page.Limit)
+	for rows.Next() {
+		var key discographyKey
+		if err = rows.Scan(&key.kind, &key.id); err != nil {
+			rows.Close()
+			return metadata.Page[metadata.DiscographyItem]{}, fmt.Errorf("scan artist discography: %w", err)
+		}
+		keys = append(keys, key)
+		switch key.kind {
+		case metadata.DiscographyKindAlbum:
+			albumIDs = append(albumIDs, key.id)
+		case metadata.DiscographyKindTrack:
+			trackIDs = append(trackIDs, key.id)
+		default:
+			rows.Close()
+			return metadata.Page[metadata.DiscographyItem]{}, fmt.Errorf("unsupported discography kind %q", key.kind)
+		}
+	}
+	err = rows.Err()
+	rows.Close()
+	if err != nil {
+		return metadata.Page[metadata.DiscographyItem]{}, fmt.Errorf("iterate artist discography: %w", err)
+	}
+	albums, err := repository.albumsByIDs(ctx, albumIDs)
+	if err != nil {
+		return metadata.Page[metadata.DiscographyItem]{}, fmt.Errorf("query discography albums: %w", err)
+	}
+	tracks, err := repository.TracksByIDs(ctx, trackIDs)
+	if err != nil {
+		return metadata.Page[metadata.DiscographyItem]{}, fmt.Errorf("query discography tracks: %w", err)
+	}
+	albumByID := make(map[uuid.UUID]metadata.Album, len(albums))
+	for _, album := range albums {
+		albumByID[album.ID] = album
+	}
+	trackByID := make(map[uuid.UUID]metadata.Track, len(tracks))
+	for _, track := range tracks {
+		trackByID[track.ID] = track
+	}
+	items := make([]metadata.DiscographyItem, 0, len(keys))
+	for _, key := range keys {
+		switch key.kind {
+		case metadata.DiscographyKindAlbum:
+			album, exists := albumByID[key.id]
+			if !exists {
+				return metadata.Page[metadata.DiscographyItem]{}, fmt.Errorf("hydrate discography album %s: %w", key.id, metadata.ErrNotFound)
+			}
+			items = append(items, metadata.DiscographyItem{Kind: key.kind, Album: &album})
+		case metadata.DiscographyKindTrack:
+			track, exists := trackByID[key.id]
+			if !exists {
+				return metadata.Page[metadata.DiscographyItem]{}, fmt.Errorf("hydrate discography track %s: %w", key.id, metadata.ErrNotFound)
+			}
+			items = append(items, metadata.DiscographyItem{Kind: key.kind, Track: &track})
+		}
+	}
+	return metadata.Page[metadata.DiscographyItem]{
+		Items: items, Limit: page.Limit, Offset: page.Offset, Total: total,
+	}, nil
+}
+
+func (repository *MetadataRepository) albumsByIDs(
+	ctx context.Context,
+	ids []uuid.UUID,
+) ([]metadata.Album, error) {
+	if len(ids) == 0 {
+		return []metadata.Album{}, nil
+	}
+	rows, err := repository.database.Query(ctx, `
+		SELECT id, title, album_type, release_date, cover_url, created_at, updated_at
+		FROM catalog.albums
+		WHERE id = ANY($1::uuid[])
+	`, ids)
+	if err != nil {
+		return nil, err
+	}
+	byID := make(map[uuid.UUID]metadata.Album, len(ids))
+	foundIDs := make([]uuid.UUID, 0, len(ids))
+	for rows.Next() {
+		var album metadata.Album
+		if err = rows.Scan(
+			&album.ID, &album.Title, &album.Type, &album.ReleaseDate, &album.CoverURL,
+			&album.CreatedAt, &album.UpdatedAt,
+		); err != nil {
+			rows.Close()
+			return nil, err
+		}
+		byID[album.ID] = album
+		foundIDs = append(foundIDs, album.ID)
+	}
+	err = rows.Err()
+	rows.Close()
+	if err != nil {
+		return nil, err
+	}
+	artists, err := repository.albumArtistsByAlbumIDs(ctx, foundIDs)
+	if err != nil {
+		return nil, err
+	}
+	for id, album := range byID {
+		album.Artists = artists[id]
+		if album.Artists == nil {
+			album.Artists = make([]metadata.AlbumArtist, 0)
+		}
+		byID[id] = album
+	}
+	result := make([]metadata.Album, 0, len(foundIDs))
+	for _, id := range ids {
+		if album, exists := byID[id]; exists {
+			result = append(result, album)
+		}
+	}
+	return result, nil
+}
+
 func (repository *MetadataRepository) ListArtists(
 	ctx context.Context,
 	page metadata.PageRequest,

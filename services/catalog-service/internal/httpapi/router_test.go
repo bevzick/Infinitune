@@ -147,6 +147,51 @@ func TestTrackDetailReturnsPublicMetadataWithoutInternalIDs(t *testing.T) {
 	}
 }
 
+func TestArtistDiscographyReturnsAlbumsAndStandaloneTracks(t *testing.T) {
+	artistID := uuid.New()
+	albumID := uuid.New()
+	trackID := uuid.New()
+	stub := &catalogStub{discography: metadata.Page[metadata.DiscographyItem]{
+		Items: []metadata.DiscographyItem{
+			{
+				Kind:  metadata.DiscographyKindAlbum,
+				Album: &metadata.Album{ID: albumID, Title: "Album", Artists: []metadata.AlbumArtist{}},
+			},
+			{
+				Kind: metadata.DiscographyKindTrack,
+				Track: &metadata.Track{
+					ID: trackID, Title: "Standalone", MediaAssetID: uuid.New(),
+					Artists: []metadata.TrackArtist{}, Genres: []metadata.Genre{}, Moods: []metadata.TrackMood{},
+				},
+			},
+		},
+		Limit: 5, Offset: 2, Total: 7,
+	}}
+	request := httptest.NewRequest(
+		http.MethodGet,
+		"/v1/catalog/artists/"+artistID.String()+"/discography?limit=5&offset=2",
+		nil,
+	)
+	response := httptest.NewRecorder()
+
+	NewRouter(testDependencies(stub, healthCheckStub{})).ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", response.Code, response.Body.String())
+	}
+	if stub.lastArtistID != artistID || stub.lastPage != (metadata.PageRequest{Limit: 5, Offset: 2}) {
+		t.Fatalf("artist = %s, page = %+v", stub.lastArtistID, stub.lastPage)
+	}
+	body := response.Body.String()
+	if !strings.Contains(body, `"kind":"album"`) ||
+		!strings.Contains(body, `"album":{"id":"`+albumID.String()) ||
+		!strings.Contains(body, `"kind":"track"`) ||
+		!strings.Contains(body, `"track":{"id":"`+trackID.String()) ||
+		!strings.Contains(body, `"total":7`) {
+		t.Fatalf("body = %s", body)
+	}
+}
+
 func TestTrackLyricsReturnsOnlyPublicPresentationFields(t *testing.T) {
 	trackID, lyricsID := uuid.New(), uuid.New()
 	updatedAt := time.Date(2026, time.November, 11, 12, 0, 0, 0, time.UTC)
@@ -290,7 +335,9 @@ type catalogStub struct {
 	err            error
 	track          metadata.Track
 	lyrics         []metadata.TrackLyrics
+	discography    metadata.Page[metadata.DiscographyItem]
 	lastPage       metadata.PageRequest
+	lastArtistID   uuid.UUID
 	lastTrackQuery metadata.TrackQuery
 }
 
@@ -301,6 +348,16 @@ func (stub *catalogStub) Artist(context.Context, uuid.UUID) (metadata.Artist, er
 func (stub *catalogStub) Artists(_ context.Context, page metadata.PageRequest) (metadata.Page[metadata.Artist], error) {
 	stub.lastPage = page
 	return metadata.Page[metadata.Artist]{Items: []metadata.Artist{}, Limit: page.Limit, Offset: page.Offset}, stub.err
+}
+
+func (stub *catalogStub) ArtistDiscography(
+	_ context.Context,
+	artistID uuid.UUID,
+	page metadata.PageRequest,
+) (metadata.Page[metadata.DiscographyItem], error) {
+	stub.lastArtistID = artistID
+	stub.lastPage = page
+	return stub.discography, stub.err
 }
 
 func (stub *catalogStub) Album(context.Context, uuid.UUID) (metadata.Album, error) {

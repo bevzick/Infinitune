@@ -104,6 +104,57 @@ func (repository *CreatorRepository) ListForUser(
 	return accounts, nil
 }
 
+func (repository *CreatorRepository) ListVerification(
+	ctx context.Context,
+	reviewerID uuid.UUID,
+	request creator.VerificationPageRequest,
+) (creator.VerificationPage, error) {
+	status := creator.VerificationPending
+	if request.Status != nil {
+		status = *request.Status
+	}
+	filter := `account.verification_status::text = $2
+		AND NOT EXISTS (
+			SELECT 1 FROM content.creator_members AS member
+			WHERE member.creator_id = account.id AND member.user_id = $1
+		)`
+	var total int64
+	if err := repository.database.QueryRow(ctx, `
+		SELECT count(*)
+		FROM content.creator_accounts AS account
+		WHERE `+filter,
+		reviewerID, string(status),
+	).Scan(&total); err != nil {
+		return creator.VerificationPage{}, fmt.Errorf("count creator verification queue: %w", err)
+	}
+	rows, err := repository.database.Query(ctx, `
+		SELECT account.id, account.account_type, account.display_name,
+		       account.verification_status, account.created_at, account.updated_at
+		FROM content.creator_accounts AS account
+		WHERE `+filter+`
+		ORDER BY account.updated_at, account.id
+		LIMIT $3 OFFSET $4
+	`, reviewerID, string(status), request.Limit, request.Offset)
+	if err != nil {
+		return creator.VerificationPage{}, fmt.Errorf("query creator verification queue: %w", err)
+	}
+	defer rows.Close()
+	items := make([]creator.Account, 0, request.Limit)
+	for rows.Next() {
+		account, scanErr := scanAccount(rows)
+		if scanErr != nil {
+			return creator.VerificationPage{}, fmt.Errorf("scan creator verification queue: %w", scanErr)
+		}
+		items = append(items, account)
+	}
+	if err = rows.Err(); err != nil {
+		return creator.VerificationPage{}, fmt.Errorf("iterate creator verification queue: %w", err)
+	}
+	return creator.VerificationPage{
+		Items: items, Limit: request.Limit, Offset: request.Offset, Total: total,
+	}, nil
+}
+
 func (repository *CreatorRepository) Member(
 	ctx context.Context,
 	creatorID uuid.UUID,

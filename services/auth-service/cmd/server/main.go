@@ -116,6 +116,7 @@ func main() {
 			Sessions:     refreshService,
 			Tokens:       tokenIssuer,
 			Roles:        roleService,
+			Users:        roleService,
 			Cookies: httpapi.SessionCookieConfig{
 				Secure:   cfg.Cookie.Secure,
 				SameSite: cfg.Cookie.SameSite,

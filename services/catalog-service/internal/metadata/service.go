@@ -10,6 +10,7 @@ import (
 type Store interface {
 	ArtistByID(context.Context, uuid.UUID) (Artist, error)
 	ListArtists(context.Context, PageRequest) (Page[Artist], error)
+	ListArtistDiscography(context.Context, uuid.UUID, PageRequest) (Page[DiscographyItem], error)
 	ExistingArtistIDs(context.Context, []uuid.UUID) (map[uuid.UUID]struct{}, error)
 	SaveArtist(context.Context, ArtistInput) (Artist, error)
 	AlbumByID(context.Context, uuid.UUID) (Album, error)
@@ -91,6 +92,27 @@ func (service *Service) Artists(ctx context.Context, page PageRequest) (Page[Art
 	result, err := service.store.ListArtists(ctx, page)
 	if err != nil {
 		return Page[Artist]{}, fmt.Errorf("list artists: %w", err)
+	}
+	return result, nil
+}
+
+func (service *Service) ArtistDiscography(
+	ctx context.Context,
+	artistID uuid.UUID,
+	page PageRequest,
+) (Page[DiscographyItem], error) {
+	if err := validateID("artist_id", artistID); err != nil {
+		return Page[DiscographyItem]{}, err
+	}
+	if err := validatePage(page); err != nil {
+		return Page[DiscographyItem]{}, err
+	}
+	if _, err := service.store.ArtistByID(ctx, artistID); err != nil {
+		return Page[DiscographyItem]{}, fmt.Errorf("read discography artist: %w", err)
+	}
+	result, err := service.store.ListArtistDiscography(ctx, artistID, page)
+	if err != nil {
+		return Page[DiscographyItem]{}, fmt.Errorf("list artist discography: %w", err)
 	}
 	return result, nil
 }

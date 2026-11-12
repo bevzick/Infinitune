@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/bevzick/Infinitune/services/content-service/internal/creator"
 	"github.com/bevzick/Infinitune/services/content-service/internal/identity"
 	"github.com/bevzick/Infinitune/services/content-service/internal/release"
 	"github.com/google/uuid"
@@ -58,14 +59,67 @@ func TestArchiveReleaseMapsCatalogFailure(t *testing.T) {
 	}
 }
 
+func TestListReleaseQueuesUseAuthenticatedActorAndFilters(t *testing.T) {
+	actorID, creatorID, releaseID := uuid.New(), uuid.New(), uuid.New()
+	service := &releasesStub{page: release.Page{
+		Items: []release.Release{{
+			ID: releaseID, CreatorID: creatorID, Title: "Queued single",
+			Type: release.TypeSingle, Status: release.StatusPendingReview,
+		}},
+		Limit: 10, Offset: 20, Total: 1,
+	}}
+	request := httptest.NewRequest(http.MethodGet,
+		"/v1/releases?creator_id="+creatorID.String()+"&status=pending_review&limit=10&offset=20", nil)
+	request.Header.Set("Authorization", "Bearer access-token")
+	response := httptest.NewRecorder()
+	NewRouter(Dependencies{
+		Database: databaseStub{}, Tokens: tokenStub{identity: identity.Identity{UserID: actorID}},
+		Releases: service,
+	}).ServeHTTP(response, request)
+	if response.Code != http.StatusOK || service.actorID != actorID ||
+		service.pageRequest.CreatorID == nil || *service.pageRequest.CreatorID != creatorID ||
+		!strings.Contains(response.Body.String(), `"total":1`) {
+		t.Fatalf("status = %d; stub = %+v; body = %s", response.Code, service, response.Body.String())
+	}
+
+	request = httptest.NewRequest(http.MethodGet, "/v1/moderation/releases", nil)
+	request.Header.Set("Authorization", "Bearer access-token")
+	response = httptest.NewRecorder()
+	NewRouter(Dependencies{
+		Database: databaseStub{}, Tokens: tokenStub{identity: identity.Identity{
+			UserID: actorID, Roles: []string{creator.GlobalRoleModerator},
+		}}, Releases: service,
+	}).ServeHTTP(response, request)
+	if response.Code != http.StatusOK || service.actor.UserID != actorID || len(service.actor.Roles) != 1 {
+		t.Fatalf("status = %d; actor = %+v; body = %s", response.Code, service.actor, response.Body.String())
+	}
+}
+
 type releasesStub struct {
 	draft       release.Draft
+	page        release.Page
+	pageRequest release.PageRequest
+	actor       creator.Actor
 	result      release.Release
 	err         error
 	actorID     uuid.UUID
 	releaseID   uuid.UUID
 	createInput release.CreateDraftInput
 	updateInput release.UpdateInput
+}
+
+func (stub *releasesStub) List(
+	_ context.Context, actorID uuid.UUID, request release.PageRequest,
+) (release.Page, error) {
+	stub.actorID, stub.pageRequest = actorID, request
+	return stub.page, stub.err
+}
+
+func (stub *releasesStub) ListModeration(
+	_ context.Context, actor creator.Actor, request release.PageRequest,
+) (release.Page, error) {
+	stub.actor, stub.pageRequest = actor, request
+	return stub.page, stub.err
 }
 
 func (stub *releasesStub) CreateDraft(
