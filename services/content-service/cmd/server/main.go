@@ -144,6 +144,7 @@ func main() {
 		Handler: eventMetrics.Wrap(httpapi.NewRouter(httpapi.Dependencies{
 			Database: databasePool, Tokens: tokenVerifier, Creators: creatorService,
 			Members: memberService, Rights: rightsService,
+			Uploads:      uploadService,
 			Submissions:  submissionService,
 			Moderation:   moderationService,
 			Publications: publicationService,

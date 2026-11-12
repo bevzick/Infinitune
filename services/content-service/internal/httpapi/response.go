@@ -13,6 +13,7 @@ import (
 	"github.com/bevzick/Infinitune/services/content-service/internal/release"
 	"github.com/bevzick/Infinitune/services/content-service/internal/rights"
 	"github.com/bevzick/Infinitune/services/content-service/internal/submission"
+	"github.com/bevzick/Infinitune/services/content-service/internal/upload"
 	"github.com/gin-gonic/gin"
 )
 
@@ -43,6 +44,16 @@ func decodeJSON(c *gin.Context, destination any) error {
 }
 func writeDomainError(c *gin.Context, logger *slog.Logger, err error) {
 	switch {
+	case errors.Is(err, upload.ErrInvalid):
+		writeError(c, http.StatusUnprocessableEntity, "invalid_upload_session", err.Error())
+	case errors.Is(err, upload.ErrNotFound):
+		writeError(c, http.StatusNotFound, "release_track_not_found", "Release track was not found")
+	case errors.Is(err, upload.ErrIdempotencyConflict):
+		writeError(c, http.StatusConflict, "upload_idempotency_conflict", err.Error())
+	case errors.Is(err, upload.ErrReleaseLocked):
+		writeError(c, http.StatusConflict, "release_upload_locked", "Release does not accept uploads")
+	case errors.Is(err, upload.ErrConflict):
+		writeError(c, http.StatusConflict, "upload_session_conflict", "Upload session changed concurrently")
 	case errors.Is(err, release.ErrInvalid):
 		writeError(c, http.StatusUnprocessableEntity, "invalid_release", err.Error())
 	case errors.Is(err, release.ErrNotFound):
