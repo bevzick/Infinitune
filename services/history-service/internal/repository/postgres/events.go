@@ -6,18 +6,29 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/bevzick/Infinitune/services/history-service/internal/events"
 	"github.com/bevzick/Infinitune/services/history-service/internal/history"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-type EventRepository struct{ pool *pgxpool.Pool }
+type EventRepository struct {
+	pool  *pgxpool.Pool
+	topic string
+}
 
-func NewEventRepository(pool *pgxpool.Pool) *EventRepository { return &EventRepository{pool: pool} }
+func NewEventRepository(pool *pgxpool.Pool, topic string) *EventRepository {
+	return &EventRepository{pool: pool, topic: topic}
+}
 
 func (repository *EventRepository) Record(ctx context.Context, event history.Event) (history.Event, error) {
-	row := repository.pool.QueryRow(ctx, `
+	tx, err := repository.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return history.Event{}, fmt.Errorf("begin listening event transaction: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	row := tx.QueryRow(ctx, `
 		INSERT INTO history.listening_events (
 			id, user_id, track_id, started_at, finished_at, listened_ms,
 			completed, context_type, context_id, device_type
@@ -37,13 +48,28 @@ func (repository *EventRepository) Record(ctx context.Context, event history.Eve
 	`, event.ID, event.UserID, event.TrackID, event.StartedAt, event.FinishedAt, event.ListenedMS,
 		event.Completed, event.ContextType, event.ContextID, event.DeviceType)
 	var stored history.Event
-	err := row.Scan(&stored.ID, &stored.UserID, &stored.TrackID, &stored.StartedAt, &stored.FinishedAt,
+	err = row.Scan(&stored.ID, &stored.UserID, &stored.TrackID, &stored.StartedAt, &stored.FinishedAt,
 		&stored.ListenedMS, &stored.Completed, &stored.ContextType, &stored.ContextID, &stored.DeviceType)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return history.Event{}, history.ErrEventConflict
 	}
 	if err != nil {
 		return history.Event{}, fmt.Errorf("record listening event: %w", err)
+	}
+	message, err := events.NewListeningRecorded(stored, repository.topic)
+	if err != nil {
+		return history.Event{}, fmt.Errorf("encode listening event: %w", err)
+	}
+	if _, err = tx.Exec(ctx, `
+		INSERT INTO history.event_outbox (
+			id, event_type, topic, partition_key, payload, occurred_at
+		) VALUES ($1,$2,$3,$4,$5,$6)
+		ON CONFLICT (id) DO NOTHING
+	`, message.ID, message.Type, message.Topic, message.Key, message.Payload, message.OccurredAt); err != nil {
+		return history.Event{}, fmt.Errorf("enqueue listening event: %w", err)
+	}
+	if err = tx.Commit(ctx); err != nil {
+		return history.Event{}, fmt.Errorf("commit listening event: %w", err)
 	}
 	return stored, nil
 }

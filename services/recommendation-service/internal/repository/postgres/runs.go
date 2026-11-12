@@ -135,6 +135,24 @@ func (repository *RunRepository) LatestValid(
 	`, userID, algorithmVersion, at)
 }
 
+func (repository *RunRepository) InvalidateBefore(
+	ctx context.Context,
+	userID uuid.UUID,
+	before time.Time,
+) (int64, error) {
+	result, err := repository.pool.Exec(ctx, `
+		UPDATE recommendation.recommendation_runs
+		SET expires_at = $2
+		WHERE user_id = $1
+		  AND generated_at < $2
+		  AND expires_at > $2
+	`, userID, before)
+	if err != nil {
+		return 0, fmt.Errorf("invalidate recommendation runs: %w", err)
+	}
+	return result.RowsAffected(), nil
+}
+
 func readRun(
 	ctx context.Context,
 	database runDatabase,

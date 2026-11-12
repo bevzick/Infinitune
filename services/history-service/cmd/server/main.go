@@ -18,6 +18,8 @@ import (
 	"github.com/bevzick/Infinitune/services/history-service/internal/catalog"
 	"github.com/bevzick/Infinitune/services/history-service/internal/config"
 	"github.com/bevzick/Infinitune/services/history-service/internal/database"
+	"github.com/bevzick/Infinitune/services/history-service/internal/events"
+	event_kafka "github.com/bevzick/Infinitune/services/history-service/internal/events/kafka"
 	"github.com/bevzick/Infinitune/services/history-service/internal/grpcapi"
 	"github.com/bevzick/Infinitune/services/history-service/internal/history"
 	"github.com/bevzick/Infinitune/services/history-service/internal/httpapi"
@@ -67,7 +69,16 @@ func main() {
 		os.Exit(1)
 	}
 	defer catalogConnection.Close()
-	historyService := history.NewService(postgres_repository.NewEventRepository(databasePool), catalog.NewClient(catalogv1.NewCatalogServiceClient(catalogConnection)))
+	eventProducer, err := event_kafka.NewProducer(cfg.Events.Brokers)
+	if err != nil {
+		logger.Error("failed to initialize Kafka producer", "error", err)
+		os.Exit(1)
+	}
+	defer eventProducer.Close()
+	historyService := history.NewService(
+		postgres_repository.NewEventRepository(databasePool, cfg.Events.HistoryTopic),
+		catalog.NewClient(catalogv1.NewCatalogServiceClient(catalogConnection)),
+	)
 	grpcListener, err := net.Listen("tcp", cfg.GRPCAddress)
 	if err != nil {
 		logger.Error("failed to listen for gRPC", "error", err)
@@ -80,6 +91,11 @@ func main() {
 	}), ReadHeaderTimeout: readHeaderTimeout}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+	outboxDispatcher := events.NewDispatcher(
+		postgres_repository.NewOutboxRepository(databasePool), eventProducer, logger,
+		cfg.Events.OutboxInterval, cfg.Events.OutboxBatch,
+	)
+	go outboxDispatcher.Run(ctx)
 	errorsChannel := make(chan error, 2)
 	go func() {
 		logger.Info("history service started", "address", cfg.HTTPAddress)

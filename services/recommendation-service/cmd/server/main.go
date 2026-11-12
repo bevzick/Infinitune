@@ -21,6 +21,8 @@ import (
 	userv1 "github.com/bevzick/Infinitune/services/recommendation-service/api/user/v1"
 	"github.com/bevzick/Infinitune/services/recommendation-service/internal/config"
 	"github.com/bevzick/Infinitune/services/recommendation-service/internal/database"
+	"github.com/bevzick/Infinitune/services/recommendation-service/internal/events"
+	event_kafka "github.com/bevzick/Infinitune/services/recommendation-service/internal/events/kafka"
 	"github.com/bevzick/Infinitune/services/recommendation-service/internal/grpcapi"
 	"github.com/bevzick/Infinitune/services/recommendation-service/internal/httpapi"
 	"github.com/bevzick/Infinitune/services/recommendation-service/internal/identity"
@@ -107,9 +109,10 @@ func main() {
 		ranking.NewCatalogSource(catalogv1.NewCatalogServiceClient(catalogConnection)),
 		ranking.NewContentClient(contentv1.NewContentServiceClient(contentConnection)),
 	)
+	runRepository := postgres_repository.NewRunRepository(databasePool)
 	runService, err := recommendation.NewService(
 		rankingService,
-		postgres_repository.NewRunRepository(databasePool),
+		runRepository,
 		ranking.AlgorithmVersion,
 		cfg.RunTTL,
 	)
@@ -133,6 +136,16 @@ func main() {
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+	historyConsumer, err := event_kafka.NewConsumer(
+		cfg.Events.Brokers, cfg.Events.HistoryTopic, cfg.Events.ConsumerGroup,
+		events.NewHistoryHandler(runRepository), logger,
+	)
+	if err != nil {
+		logger.Error("failed to initialize Kafka consumer", "error", err)
+		os.Exit(1)
+	}
+	defer historyConsumer.Close()
+	go historyConsumer.Run(ctx)
 	errorsChannel := make(chan error, 2)
 	go func() {
 		logger.Info("recommendation service started", "address", cfg.HTTPAddress)

@@ -14,19 +14,28 @@ import (
 )
 
 const (
-	defaultHTTPHost     = "0.0.0.0"
-	defaultHTTPPort     = "8080"
-	defaultPostgresHost = "127.0.0.1"
-	defaultPostgresPort = "5432"
-	defaultGRPCHost     = "127.0.0.1"
-	defaultGRPCPort     = "9090"
-	defaultRunTTL       = time.Hour
-	defaultJWKSURL      = "http://auth-service:8080/v1/auth/jwks"
-	defaultJWTIssuer    = "infinitune-auth"
-	defaultJWTAudience  = "infinitune-api"
-	defaultJWTKeyID     = "auth-key-1"
-	defaultJWKSRefresh  = 5 * time.Minute
+	defaultHTTPHost      = "0.0.0.0"
+	defaultHTTPPort      = "8080"
+	defaultPostgresHost  = "127.0.0.1"
+	defaultPostgresPort  = "5432"
+	defaultGRPCHost      = "127.0.0.1"
+	defaultGRPCPort      = "9090"
+	defaultRunTTL        = time.Hour
+	defaultJWKSURL       = "http://auth-service:8080/v1/auth/jwks"
+	defaultJWTIssuer     = "infinitune-auth"
+	defaultJWTAudience   = "infinitune-api"
+	defaultJWTKeyID      = "auth-key-1"
+	defaultJWKSRefresh   = 5 * time.Minute
+	defaultKafkaBrokers  = "127.0.0.1:9092"
+	defaultHistoryTopic  = "history.listening.recorded.v1"
+	defaultConsumerGroup = "recommendation-history-v1"
 )
+
+type EventsConfig struct {
+	Brokers       []string
+	HistoryTopic  string
+	ConsumerGroup string
+}
 
 type Config struct {
 	HTTPAddress        string
@@ -40,6 +49,7 @@ type Config struct {
 	Database           database.Config
 	Identity           identity.Config
 	Origins            []string
+	Events             EventsConfig
 }
 
 func Load() (Config, error) {
@@ -83,6 +93,10 @@ func Load() (Config, error) {
 	if err != nil {
 		return Config{}, err
 	}
+	eventsConfig, err := loadEventsConfig()
+	if err != nil {
+		return Config{}, err
+	}
 	return Config{
 		HTTPAddress: net.JoinHostPort(
 			envOrDefault("RECOMMENDATION_HTTP_HOST", defaultHTTPHost),
@@ -104,7 +118,29 @@ func Load() (Config, error) {
 			RefreshInterval: defaultJWKSRefresh,
 		},
 		Origins: origins,
+		Events:  eventsConfig,
 	}, nil
+}
+
+func loadEventsConfig() (EventsConfig, error) {
+	rawBrokers := strings.Split(envOrDefault("KAFKA_BROKERS", defaultKafkaBrokers), ",")
+	brokers := make([]string, 0, len(rawBrokers))
+	for _, raw := range rawBrokers {
+		broker := strings.TrimSpace(raw)
+		if broker == "" {
+			return EventsConfig{}, fmt.Errorf("KAFKA_BROKERS contains an empty broker")
+		}
+		if _, _, err := net.SplitHostPort(broker); err != nil {
+			return EventsConfig{}, fmt.Errorf("invalid KAFKA_BROKERS entry %q", broker)
+		}
+		brokers = append(brokers, broker)
+	}
+	topic := strings.TrimSpace(envOrDefault("KAFKA_HISTORY_TOPIC", defaultHistoryTopic))
+	group := strings.TrimSpace(envOrDefault("KAFKA_RECOMMENDATION_GROUP", defaultConsumerGroup))
+	if topic == "" || group == "" {
+		return EventsConfig{}, fmt.Errorf("Kafka topic and consumer group must not be blank")
+	}
+	return EventsConfig{Brokers: brokers, HistoryTopic: topic, ConsumerGroup: group}, nil
 }
 
 func parseAllowedOrigins(value string) ([]string, error) {
