@@ -137,6 +137,8 @@ services:
         condition: service_healthy
       interaction-service:
         condition: service_healthy
+      comment-service:
+        condition: service_healthy
     environment:
       INFINITUNE_INTEGRATION_TESTS: "1"
       POSTGRES_HOST: ${POSTGRES_HOST:-postgres}

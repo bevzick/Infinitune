@@ -210,8 +210,8 @@ content-migrate-version:
 interaction-test:
 	@cd services/interaction-service && go test ./...
 
-interaction-test-integration: interaction-migrate-up
-	@$(COMPOSE) up --detach --wait --no-deps --build interaction-service
+interaction-test-integration: interaction-migrate-up comment-migrate-up
+	@$(COMPOSE) up --detach --wait --no-deps --build comment-service interaction-service
 	@$(COMPOSE) --profile tools run --rm --no-deps --build interaction-integration-test
 
 interaction-migrate-up:
