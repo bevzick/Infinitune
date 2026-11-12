@@ -1,4 +1,5 @@
 import { cleanup, render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -9,6 +10,7 @@ const playlistApi = vi.hoisted(() => ({
   resolveDynamicTracks: vi.fn(),
   getCatalogTrack: vi.fn(),
 }));
+const player = vi.hoisted(() => ({ playQueue: vi.fn() }));
 
 vi.mock("../features/playlists/playlistApi", async (importOriginal) => ({
   ...(await importOriginal()),
@@ -20,6 +22,10 @@ vi.mock("../features/session/SessionContext", () => ({
     accessToken: "access-token",
     identity: { userId: "listener-id" },
   }),
+}));
+
+vi.mock("../features/player/PlayerContext", () => ({
+  usePlayer: () => player,
 }));
 
 vi.mock("../features/catalog/CatalogViews", () => ({
@@ -91,6 +97,22 @@ describe("PlaylistPage personalization", () => {
     expect(
       screen.getByText(/Personalization is off or there are not enough/),
     ).toBeInTheDocument();
+  });
+
+  it("starts playback with the resolved playlist order", async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(await screen.findByRole("button", { name: "Play" }));
+
+    expect(player.playQueue).toHaveBeenCalledWith(
+      [
+        expect.objectContaining({ id: "preferred-track" }),
+        expect.objectContaining({ id: "other-track" }),
+      ],
+      0,
+      { type: "playlist", id: "playlist-id" },
+    );
   });
 });
 

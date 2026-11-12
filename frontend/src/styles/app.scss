@@ -2,6 +2,7 @@
 @use "mixins" as *;
 @use "details";
 @use "discovery";
+@use "library";
 
 html {
   background: var(--app-bg);

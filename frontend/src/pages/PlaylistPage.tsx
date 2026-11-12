@@ -11,6 +11,7 @@ import {
   type Track,
   trackPagePath,
 } from "../features/catalog/catalogApi";
+import { usePlayer } from "../features/player/PlayerContext";
 import { RuleEditor } from "../features/playlists/DynamicRuleForm";
 import { PlaylistForm } from "../features/playlists/PlaylistForm";
 import {
@@ -32,12 +33,14 @@ import {
 } from "../features/playlists/playlistApi";
 import { useSession } from "../features/session/SessionContext";
 import { ApiError } from "../shared/api/client";
+import { Icon } from "../shared/ui/Icon";
 import { errorMessage, LibraryError, LibraryLoading } from "./LibraryPage";
 
 export function PlaylistPage() {
   const { playlistId = "" } = useParams();
   const navigate = useNavigate();
   const { accessToken, identity } = useSession();
+  const player = usePlayer();
   const [playlist, setPlaylist] = useState<Playlist | null>(null);
   const [entries, setEntries] = useState<PlaylistTrack[]>([]);
   const [tracks, setTracks] = useState<Track[]>([]);
@@ -239,15 +242,30 @@ export function PlaylistPage() {
           <p>{playlist.description || "No description yet."}</p>
           <small>{totalTracks} tracks</small>
         </div>
-        {isOwner ? (
+        <div className="playlist-heading-actions">
           <button
             type="button"
-            className="secondary-button"
-            onClick={() => setEditing(true)}
+            className="detail-primary"
+            disabled={!tracks.length}
+            onClick={() =>
+              void player.playQueue(tracks, 0, {
+                type: "playlist",
+                id: playlist.id,
+              })
+            }
           >
-            Edit details
+            <Icon name="play" size={18} /> Play
           </button>
-        ) : null}
+          {isOwner ? (
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={() => setEditing(true)}
+            >
+              Edit details
+            </button>
+          ) : null}
+        </div>
       </header>
 
       {mutationError ? (

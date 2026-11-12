@@ -16,6 +16,7 @@ import {
 } from "../features/playlists/playlistApi";
 import { useSession } from "../features/session/SessionContext";
 import { ApiError } from "../shared/api/client";
+import { Icon } from "../shared/ui/Icon";
 
 const pageSize = 12;
 type LibraryView = "playlists" | "tracks" | "albums" | "artists";
@@ -147,7 +148,8 @@ export function LibraryPage() {
             updateParameters({ view: "playlists" });
           }}
         >
-          + New playlist
+          <Icon name="library" size={17} />
+          <span>+ New playlist</span>
         </button>
       </header>
 
@@ -166,8 +168,9 @@ export function LibraryPage() {
       </nav>
 
       <div className="library-toolbar">
-        <label>
+        <label className="library-search">
           <span className="visually-hidden">Search this collection</span>
+          <Icon name="search" size={18} />
           <input
             type="search"
             value={query}
@@ -373,6 +376,9 @@ function LibraryResults({ entries }: { entries: LibraryEntry[] }) {
             <small>
               {playlist.type} · {playlist.visibility}
             </small>
+            <span className="playlist-card-chevron">
+              <Icon name="forward" size={19} />
+            </span>
           </Link>
         ))}
     </div>
