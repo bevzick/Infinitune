@@ -185,6 +185,10 @@ by Kafka. Delivery is therefore at least once: a process failure after publicati
 offset commit can replay the same record again. Reusing the same consumer group resumes after the
 last committed record; use a new group only when intentionally replaying the retained batch again.
 
+Run `make kafka-events-test-integration` to verify both invalid-event routing into the dead-letter
+topic and restoration into the original topic against the Compose Kafka broker. The tests use
+unique temporary topics, delete them afterward, and are excluded from ordinary unit-test runs.
+
 Start the full local stack with `make up`. The Makefile includes `compose.kafka.yml`; the
 `kafka-init` service creates all implemented History, Catalog, Interaction, Media, Content, and
 dead-letter topics idempotently before producers start.

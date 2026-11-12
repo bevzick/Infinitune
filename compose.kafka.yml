@@ -146,5 +146,49 @@ services:
     networks:
       - backend
 
+  kafka-replay-integration-test:
+    build:
+      context: ./tools/kafka-replay
+      dockerfile: Dockerfile
+      target: source
+    profiles: ["tools"]
+    depends_on:
+      kafka:
+        condition: service_healthy
+    environment:
+      INFINITUNE_INTEGRATION_TESTS: "1"
+      KAFKA_BROKERS: ${KAFKA_BROKERS:-kafka:9092}
+    entrypoint:
+      - go
+      - test
+      - -tags=integration
+      - -count=1
+      - -run=TestReplayPublishesAndCommitsDeadLetterRecord
+      - ./...
+    networks:
+      - backend
+
+  kafka-consumer-integration-test:
+    build:
+      context: ./services/content-service
+      dockerfile: Dockerfile
+      target: source
+    profiles: ["tools"]
+    depends_on:
+      kafka:
+        condition: service_healthy
+    environment:
+      INFINITUNE_INTEGRATION_TESTS: "1"
+      KAFKA_BROKERS: ${KAFKA_BROKERS:-kafka:9092}
+    entrypoint:
+      - go
+      - test
+      - -tags=integration
+      - -count=1
+      - -run=TestConsumerRoutesInvalidEventToDeadLetterTopic
+      - ./internal/events/kafka
+    networks:
+      - backend
+
 volumes:
   kafka_data:

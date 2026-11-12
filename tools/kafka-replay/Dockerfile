@@ -1,9 +1,11 @@
-FROM golang:1.25-alpine AS build
+FROM golang:1.25-alpine AS source
 
 WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
+
+FROM source AS build
 RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /out/kafka-replay .
 
 FROM scratch
