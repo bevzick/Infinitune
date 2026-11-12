@@ -88,6 +88,10 @@ export type TrackLyricsResponse = {
   items: TrackLyrics[];
 };
 
+export type DiscographyItem =
+  | { kind: "album"; album: Album; track?: never }
+  | { kind: "track"; track: Track; album?: never };
+
 export type TrackSort = "newest" | "oldest" | "title_asc" | "title_desc";
 
 export type TrackFilters = {
@@ -146,6 +150,14 @@ export function fetchCatalogItem<T>(
   signal?: AbortSignal,
 ) {
   return apiRequest<T>(catalogDetailPath(resource, id), { signal });
+}
+
+export function artistDiscographyPath(id: string, limit = 100, offset = 0) {
+  const parameters = new URLSearchParams({
+    limit: String(limit),
+    offset: String(offset),
+  });
+  return `/v1/catalog/artists/${encodeURIComponent(id)}/discography?${parameters}`;
 }
 
 export function trackLyricsPath(trackId: string) {

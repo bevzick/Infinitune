@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  artistDiscographyPath,
   catalogDetailPath,
   catalogPagePath,
   trackLyricsPath,
@@ -42,6 +43,12 @@ describe("catalog paths", () => {
   it("escapes catalog detail identifiers", () => {
     expect(catalogDetailPath("tracks", "track/id")).toBe(
       "/v1/catalog/tracks/track%2Fid",
+    );
+  });
+
+  it("builds an escaped artist discography path", () => {
+    expect(artistDiscographyPath("artist/id", 25, 50)).toBe(
+      "/v1/catalog/artists/artist%2Fid/discography?limit=25&offset=50",
     );
   });
 });

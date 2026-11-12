@@ -35,7 +35,7 @@ export function TrackList({
             {track.title.slice(0, 1).toUpperCase()}
           </button>
           <div className="track-main">
-            <strong>{track.title}</strong>
+            <Link to={`/tracks/${track.id}`}>{track.title}</Link>
             <span>{primaryArtists(track)}</span>
           </div>
           <div className="track-tags">
@@ -60,12 +60,12 @@ export function AlbumGrid({ albums }: { albums: Album[] }) {
   return (
     <div className="album-grid">
       {albums.map((album) => (
-        <Link
-          className="album-card"
-          to={`/search?album=${album.id}`}
-          key={album.id}
-        >
-          <Artwork src={album.cover_url} label={album.title} shape="square" />
+        <Link className="album-card" to={`/albums/${album.id}`} key={album.id}>
+          <CatalogArtwork
+            src={album.cover_url}
+            label={album.title}
+            shape="square"
+          />
           <strong>{album.title}</strong>
           <span>
             {album.artists.map(({ artist }) => artist.name).join(", ")}
@@ -85,10 +85,14 @@ export function ArtistGrid({ artists }: { artists: Artist[] }) {
       {artists.map((artist) => (
         <Link
           className="artist-card"
-          to={`/search?artist=${artist.id}`}
+          to={`/artists/${artist.id}`}
           key={artist.id}
         >
-          <Artwork src={artist.image_url} label={artist.name} shape="round" />
+          <CatalogArtwork
+            src={artist.image_url}
+            label={artist.name}
+            shape="round"
+          />
           <strong>{artist.name}</strong>
           <span>{artist.description || "Artist on Infinitune"}</span>
         </Link>
@@ -163,7 +167,7 @@ export function CatalogPagination({
   );
 }
 
-function Artwork({
+export function CatalogArtwork({
   src,
   label,
   shape,

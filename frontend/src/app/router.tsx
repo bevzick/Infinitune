@@ -1,6 +1,7 @@
 import { createBrowserRouter } from "react-router-dom";
 import { GuestRoute, ProtectedRoute } from "../features/session/routeGuards";
 import { AlbumsPage, ArtistsPage } from "../pages/CatalogCollectionPage";
+import { AlbumPage, ArtistPage, TrackPage } from "../pages/CatalogDetailPage";
 import { DiscoverPage } from "../pages/DiscoverPage";
 import { LibraryPage } from "../pages/LibraryPage";
 import { LoginPage } from "../pages/LoginPage";
@@ -28,7 +29,10 @@ export const router = createBrowserRouter([
       { index: true, element: <DiscoverPage /> },
       { path: "search", element: <SearchPage /> },
       { path: "artists", element: <ArtistsPage /> },
+      { path: "artists/:artistId", element: <ArtistPage /> },
       { path: "albums", element: <AlbumsPage /> },
+      { path: "albums/:albumId", element: <AlbumPage /> },
+      { path: "tracks/:trackId", element: <TrackPage /> },
       {
         element: <ProtectedRoute />,
         children: [
