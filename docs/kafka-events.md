@@ -63,7 +63,8 @@ Audio processing -----> Media service
                               Kafka, key = media_asset_id
                                            |
                                            v
-                              Future Content consumer
+                              Content consumer
+                              (updates local readiness projection)
 ```
 
 ## Delivery contract
@@ -103,12 +104,15 @@ Audio processing -----> Media service
 - Media publishes readiness only after variant metadata and the asset's `ready` status have been
   committed with the outbox row. The payload identifies the source upload, Content/Catalog track,
   duration, and generated audio profiles without exposing storage object keys.
+- Content consumes retained readiness events from the beginning for a new consumer group and keeps
+  an idempotent projection ordered by `occurred_at`. Submission and publication read the local
+  projection first; Media gRPC remains a compatibility fallback for assets created before the
+  event flow was deployed or older than Kafka retention.
 
 ## Suitable next integrations
 
 | Producer | Event | Consumers | Purpose |
 |---|---|---|---|
-| Media readiness consumer | `media.asset.ready.v1` | Content | Maintain readiness projection without polling |
 | Content | `content.release.approved.v1` | Catalog, Media | Start controlled publication workflow |
 
 Commands and permission checks remain synchronous. Kafka should not replace Catalog validation,
