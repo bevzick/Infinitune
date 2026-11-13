@@ -20,6 +20,7 @@ const (
 type Store interface {
 	ListModerationCases(context.Context, PageRequest) (Page, error)
 	ApplyModerationAction(context.Context, Decision) (Decision, error)
+	ListModerationActions(context.Context, ActionPageRequest) (ActionPage, error)
 }
 
 type Service struct{ store Store }
@@ -63,6 +64,27 @@ func (service *Service) Apply(ctx context.Context, actor Actor, input Input) (De
 	})
 	if err != nil {
 		return Decision{}, fmt.Errorf("apply comment moderation action: %w", err)
+	}
+	return result, nil
+}
+
+func (service *Service) ListActions(
+	ctx context.Context,
+	actor Actor,
+	page ActionPageRequest,
+) (ActionPage, error) {
+	if !authorized(actor) {
+		return ActionPage{}, ErrForbidden
+	}
+	if page.Limit == 0 {
+		page.Limit = defaultPageLimit
+	}
+	if page.Limit < 1 || page.Limit > maximumPageLimit || page.Offset < 0 {
+		return ActionPage{}, fmt.Errorf("%w: invalid pagination", ErrInvalid)
+	}
+	result, err := service.store.ListModerationActions(ctx, page)
+	if err != nil {
+		return ActionPage{}, fmt.Errorf("list comment moderation actions: %w", err)
 	}
 	return result, nil
 }

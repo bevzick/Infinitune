@@ -102,7 +102,9 @@ export async function mockGateway(
     if (
       url.pathname === "/v1/moderation/creators" ||
       url.pathname === "/v1/moderation/releases" ||
-      url.pathname === "/v1/moderation/comment-reports"
+      url.pathname === "/v1/moderation/comment-reports" ||
+      url.pathname === "/v1/moderation/release-reviews" ||
+      url.pathname === "/v1/moderation/comment-actions"
     ) {
       return json(route, {
         items: [],

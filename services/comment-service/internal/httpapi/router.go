@@ -33,6 +33,7 @@ type Comments interface {
 type CommentModeration interface {
 	List(context.Context, moderation.Actor, moderation.PageRequest) (moderation.Page, error)
 	Apply(context.Context, moderation.Actor, moderation.Input) (moderation.Decision, error)
+	ListActions(context.Context, moderation.Actor, moderation.ActionPageRequest) (moderation.ActionPage, error)
 }
 type Dependencies struct {
 	Database   DatabaseCheck
@@ -62,10 +63,11 @@ func NewRouter(dependencies Dependencies) http.Handler {
 		protected.POST("/:comment_id/reports", reportComment(dependencies.Comments, dependencies.Logger))
 	}
 	if dependencies.Moderation != nil {
-		protected := router.Group("/v1/moderation/comment-reports")
+		protected := router.Group("/v1/moderation")
 		protected.Use(authenticate(dependencies.Tokens, dependencies.Logger))
-		protected.GET("", listModerationCases(dependencies.Moderation, dependencies.Logger))
-		protected.POST("/:report_id/actions", applyModerationAction(dependencies.Moderation, dependencies.Logger))
+		protected.GET("/comment-reports", listModerationCases(dependencies.Moderation, dependencies.Logger))
+		protected.POST("/comment-reports/:report_id/actions", applyModerationAction(dependencies.Moderation, dependencies.Logger))
+		protected.GET("/comment-actions", listModerationActions(dependencies.Moderation, dependencies.Logger))
 	}
 	return router
 }

@@ -51,6 +51,40 @@ type moderationCommentResponse struct {
 	Status   comment.Status `json:"status"`
 }
 
+func listModerationActions(service CommentModeration, logger *slog.Logger) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		actor, ok := moderationActor(c)
+		if !ok {
+			writeUnauthorized(c)
+			return
+		}
+		limit, ok := queryInteger(c, "limit")
+		if !ok {
+			return
+		}
+		offset, ok := queryInteger(c, "offset")
+		if !ok {
+			return
+		}
+		result, err := service.ListActions(c.Request.Context(), actor,
+			moderation.ActionPageRequest{Limit: limit, Offset: offset})
+		if err != nil {
+			writeDomainError(c, logger, err)
+			return
+		}
+		items := make([]moderationDecisionResponse, 0, len(result.Items))
+		for _, item := range result.Items {
+			items = append(items, presentModerationDecision(item))
+		}
+		c.JSON(http.StatusOK, gin.H{
+			"items": items,
+			"page": pageResponse{
+				Limit: result.Limit, Offset: result.Offset, Total: result.Total,
+			},
+		})
+	}
+}
+
 func listModerationCases(service CommentModeration, logger *slog.Logger) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		actor, ok := moderationActor(c)
@@ -112,15 +146,19 @@ func applyModerationAction(service CommentModeration, logger *slog.Logger) gin.H
 			writeDomainError(c, logger, err)
 			return
 		}
-		c.JSON(http.StatusOK, moderationDecisionResponse{
-			ID: result.ID, ReportID: result.ReportID, ModeratorUserID: result.ModeratorUserID,
-			Action: result.Action, Note: result.Note,
-			PreviousReportStatus:   result.PreviousReportStatus,
-			ResultingReportStatus:  result.ResultingReportStatus,
-			PreviousCommentStatus:  result.PreviousCommentStatus,
-			ResultingCommentStatus: result.ResultingCommentStatus,
-			CreatedAt:              result.CreatedAt,
-		})
+		c.JSON(http.StatusOK, presentModerationDecision(result))
+	}
+}
+
+func presentModerationDecision(result moderation.Decision) moderationDecisionResponse {
+	return moderationDecisionResponse{
+		ID: result.ID, ReportID: result.ReportID, ModeratorUserID: result.ModeratorUserID,
+		Action: result.Action, Note: result.Note,
+		PreviousReportStatus:   result.PreviousReportStatus,
+		ResultingReportStatus:  result.ResultingReportStatus,
+		PreviousCommentStatus:  result.PreviousCommentStatus,
+		ResultingCommentStatus: result.ResultingCommentStatus,
+		CreatedAt:              result.CreatedAt,
 	}
 }
 

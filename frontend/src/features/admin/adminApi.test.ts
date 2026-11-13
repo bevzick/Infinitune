@@ -1,6 +1,12 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { assignUserRole, listUsers, updateUserStatus } from "./adminApi";
+import {
+  assignUserRole,
+  listCommentAudit,
+  listReleaseAudit,
+  listUsers,
+  updateUserStatus,
+} from "./adminApi";
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -52,6 +58,28 @@ describe("adminApi", () => {
     expect(fetchMock.mock.calls[1][1].method).toBe("PATCH");
     expect(fetchMock.mock.calls[1][1].body).toBe(
       JSON.stringify({ status: "blocked" }),
+    );
+  });
+
+  it("loads paginated moderation audit streams", async () => {
+    const fetchMock = vi.fn().mockImplementation(() =>
+      Promise.resolve(
+        jsonResponse({
+          items: [],
+          page: { limit: 10, offset: 20, total: 0 },
+        }),
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await listReleaseAudit("admin-token", { limit: 10, offset: 20 });
+    await listCommentAudit("admin-token", { limit: 10, offset: 20 });
+
+    expect(fetchMock.mock.calls[0][0]).toBe(
+      "http://localhost:8000/v1/moderation/release-reviews?limit=10&offset=20",
+    );
+    expect(fetchMock.mock.calls[1][0]).toBe(
+      "http://localhost:8000/v1/moderation/comment-actions?limit=10&offset=20",
     );
   });
 });

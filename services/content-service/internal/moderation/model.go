@@ -41,6 +41,18 @@ type Input struct {
 	Comment   string
 }
 
+type PageRequest struct {
+	Limit  int
+	Offset int
+}
+
+type Page struct {
+	Items  []Review
+	Limit  int
+	Offset int
+	Total  int64
+}
+
 type ValidationError struct {
 	Field  string
 	Reason string

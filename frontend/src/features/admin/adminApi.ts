@@ -63,6 +63,30 @@ export type CommentReport = {
   };
 };
 
+export type ReleaseAuditEvent = {
+  id: string;
+  release_id: string;
+  reviewer_user_id: string;
+  decision: "approved" | "rejected" | "changes_requested";
+  comment?: string;
+  reviewed_submission_at: string;
+  release_status: string;
+  created_at: string;
+};
+
+export type CommentAuditEvent = {
+  id: string;
+  report_id: string;
+  moderator_user_id: string;
+  action: string;
+  note: string;
+  previous_report_status: string;
+  resulting_report_status: string;
+  previous_comment_status: string;
+  resulting_comment_status: string;
+  created_at: string;
+};
+
 export type Page<T> = { items: T[]; page: PageMetadata };
 
 export type PageRequest = {
@@ -204,4 +228,26 @@ export function moderateCommentReport(
     accessToken,
     body: JSON.stringify({ action, note }),
   });
+}
+
+export function listReleaseAudit(
+  accessToken: string,
+  request: PageRequest,
+  signal?: AbortSignal,
+) {
+  return apiRequest<Page<ReleaseAuditEvent>>(
+    `/v1/moderation/release-reviews?${pageQuery(request)}`,
+    { accessToken, signal },
+  );
+}
+
+export function listCommentAudit(
+  accessToken: string,
+  request: PageRequest,
+  signal?: AbortSignal,
+) {
+  return apiRequest<Page<CommentAuditEvent>>(
+    `/v1/moderation/comment-actions?${pageQuery(request)}`,
+    { accessToken, signal },
+  );
 }

@@ -3,15 +3,19 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   type AdminUser,
   assignUserRole,
+  type CommentAuditEvent,
   type CommentReport,
   type CreatorReviewItem,
+  listCommentAudit,
   listCommentReports,
   listCreatorsForModeration,
+  listReleaseAudit,
   listReleasesForModeration,
   listUsers,
   moderateCommentReport,
   type Page,
   type PageMetadata,
+  type ReleaseAuditEvent,
   type ReleaseReviewItem,
   removeUserRole,
   reviewCreator,
@@ -21,7 +25,7 @@ import {
 import { useSession } from "../features/session/SessionContext";
 import { ApiError } from "../shared/api/client";
 
-type Section = "users" | "content" | "reports";
+type Section = "users" | "content" | "reports" | "activity";
 type LoadState = "loading" | "ready" | "error";
 type UserStatus = AdminUser["status"] | "all";
 type CreatorStatus = CreatorReviewItem["verification_status"];
@@ -42,6 +46,10 @@ export function AdminPage() {
   const [creators, setCreators] = useState<Page<CreatorReviewItem>>(emptyPage);
   const [releases, setReleases] = useState<Page<ReleaseReviewItem>>(emptyPage);
   const [reports, setReports] = useState<Page<CommentReport>>(emptyPage);
+  const [releaseAudit, setReleaseAudit] =
+    useState<Page<ReleaseAuditEvent>>(emptyPage);
+  const [commentAudit, setCommentAudit] =
+    useState<Page<CommentAuditEvent>>(emptyPage);
   const [userStatus, setUserStatus] = useState<UserStatus>("all");
   const [userOffset, setUserOffset] = useState(0);
   const [creatorStatus, setCreatorStatus] = useState<CreatorStatus>("pending");
@@ -51,6 +59,8 @@ export function AdminPage() {
   const [releaseOffset, setReleaseOffset] = useState(0);
   const [reportStatus, setReportStatus] = useState<ReportStatus>("pending");
   const [reportOffset, setReportOffset] = useState(0);
+  const [releaseAuditOffset, setReleaseAuditOffset] = useState(0);
+  const [commentAuditOffset, setCommentAuditOffset] = useState(0);
   const [state, setState] = useState<LoadState>("loading");
   const [error, setError] = useState("");
   const [busyId, setBusyId] = useState("");
@@ -61,45 +71,63 @@ export function AdminPage() {
       setState("loading");
       setError("");
       try {
-        const [userPage, creatorPage, releasePage, reportPage] =
-          await Promise.all([
-            listUsers(
-              accessToken,
-              { status: userStatus, limit: pageSize, offset: userOffset },
-              signal,
-            ),
-            listCreatorsForModeration(
-              accessToken,
-              {
-                status: creatorStatus,
-                limit: pageSize,
-                offset: creatorOffset,
-              },
-              signal,
-            ),
-            listReleasesForModeration(
-              accessToken,
-              {
-                status: releaseStatus,
-                limit: pageSize,
-                offset: releaseOffset,
-              },
-              signal,
-            ),
-            listCommentReports(
-              accessToken,
-              {
-                status: reportStatus,
-                limit: pageSize,
-                offset: reportOffset,
-              },
-              signal,
-            ),
-          ]);
+        const [
+          userPage,
+          creatorPage,
+          releasePage,
+          reportPage,
+          releaseAuditPage,
+          commentAuditPage,
+        ] = await Promise.all([
+          listUsers(
+            accessToken,
+            { status: userStatus, limit: pageSize, offset: userOffset },
+            signal,
+          ),
+          listCreatorsForModeration(
+            accessToken,
+            {
+              status: creatorStatus,
+              limit: pageSize,
+              offset: creatorOffset,
+            },
+            signal,
+          ),
+          listReleasesForModeration(
+            accessToken,
+            {
+              status: releaseStatus,
+              limit: pageSize,
+              offset: releaseOffset,
+            },
+            signal,
+          ),
+          listCommentReports(
+            accessToken,
+            {
+              status: reportStatus,
+              limit: pageSize,
+              offset: reportOffset,
+            },
+            signal,
+          ),
+          listReleaseAudit(
+            accessToken,
+            { limit: pageSize, offset: releaseAuditOffset },
+            signal,
+          ),
+          listCommentAudit(
+            accessToken,
+            { limit: pageSize, offset: commentAuditOffset },
+            signal,
+          ),
+        ]);
         setUsers(userPage);
         setCreators(creatorPage);
         setReleases(releasePage);
         setReports(reportPage);
+        setReleaseAudit(releaseAuditPage);
+        setCommentAudit(commentAuditPage);
         setState("ready");
       } catch (reason) {
         if (signal?.aborted) return;
@@ -111,8 +139,10 @@ export function AdminPage() {
       accessToken,
       creatorOffset,
       creatorStatus,
+      commentAuditOffset,
       releaseOffset,
       releaseStatus,
+      releaseAuditOffset,
       reportOffset,
       reportStatus,
       userOffset,
@@ -144,8 +174,9 @@ export function AdminPage() {
       users: users.page.total,
       content: creators.page.total + releases.page.total,
       reports: reports.page.total,
+      activity: releaseAudit.page.total + commentAudit.page.total,
     }),
-    [users, creators, releases, reports],
+    [users, creators, releases, reports, releaseAudit, commentAudit],
   );
 
   return (
@@ -189,6 +220,12 @@ export function AdminPage() {
           label="Comment reports"
           count={counts.reports}
           onClick={() => setSection("reports")}
+        />
+        <AdminTab
+          active={section === "activity"}
+          label="Activity log"
+          count={counts.activity}
+          onClick={() => setSection("activity")}
         />
       </nav>
 
@@ -255,6 +292,14 @@ export function AdminPage() {
               busyId={busyId}
               mutate={mutate}
               accessToken={accessToken || ""}
+            />
+          ) : null}
+          {section === "activity" ? (
+            <ActivitySection
+              releaseEvents={releaseAudit}
+              commentEvents={commentAudit}
+              onReleasePageChange={setReleaseAuditOffset}
+              onCommentPageChange={setCommentAuditOffset}
             />
           ) : null}
         </div>
@@ -859,6 +904,110 @@ function ReportsSection({
   );
 }
 
+function ActivitySection({
+  releaseEvents,
+  commentEvents,
+  onReleasePageChange,
+  onCommentPageChange,
+}: {
+  releaseEvents: Page<ReleaseAuditEvent>;
+  commentEvents: Page<CommentAuditEvent>;
+  onReleasePageChange(offset: number): void;
+  onCommentPageChange(offset: number): void;
+}) {
+  return (
+    <section aria-labelledby="admin-activity-title">
+      <div className="admin-section-heading">
+        <div>
+          <span className="eyebrow">Accountability</span>
+          <h2 id="admin-activity-title">Moderation activity log</h2>
+        </div>
+      </div>
+      <div className="admin-audit-columns">
+        <section
+          className="admin-review-panel"
+          aria-labelledby="release-audit-title"
+        >
+          <header>
+            <h3 id="release-audit-title">Release decisions</h3>
+            <small>{releaseEvents.page.total} events</small>
+          </header>
+          {releaseEvents.items.length ? (
+            <div className="admin-audit-list">
+              {releaseEvents.items.map((event) => (
+                <article className="admin-audit-item" key={event.id}>
+                  <div className="admin-audit-heading">
+                    <StatusBadge value={event.decision} />
+                    <time dateTime={event.created_at}>
+                      {formatDateTime(event.created_at)}
+                    </time>
+                  </div>
+                  <strong>Release {shortID(event.release_id)}</strong>
+                  <small>Moderator: {event.reviewer_user_id}</small>
+                  {event.comment ? (
+                    <p>{event.comment}</p>
+                  ) : (
+                    <p>No review note.</p>
+                  )}
+                </article>
+              ))}
+            </div>
+          ) : (
+            <AdminEmpty message="No release decisions have been recorded." />
+          )}
+          <Pagination
+            page={releaseEvents.page}
+            label="release activity"
+            onPageChange={onReleasePageChange}
+          />
+        </section>
+
+        <section
+          className="admin-review-panel"
+          aria-labelledby="comment-audit-title"
+        >
+          <header>
+            <h3 id="comment-audit-title">Comment moderation</h3>
+            <small>{commentEvents.page.total} events</small>
+          </header>
+          {commentEvents.items.length ? (
+            <div className="admin-audit-list">
+              {commentEvents.items.map((event) => (
+                <article className="admin-audit-item" key={event.id}>
+                  <div className="admin-audit-heading">
+                    <StatusBadge value={event.action} />
+                    <time dateTime={event.created_at}>
+                      {formatDateTime(event.created_at)}
+                    </time>
+                  </div>
+                  <strong>Report {shortID(event.report_id)}</strong>
+                  <small>Moderator: {event.moderator_user_id}</small>
+                  <p>{event.note}</p>
+                  <small>
+                    Report: {humanize(event.previous_report_status)} →{" "}
+                    {humanize(event.resulting_report_status)}
+                    {event.previous_comment_status !==
+                    event.resulting_comment_status
+                      ? ` · Comment: ${humanize(event.previous_comment_status)} → ${humanize(event.resulting_comment_status)}`
+                      : ""}
+                  </small>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <AdminEmpty message="No comment moderation actions have been recorded." />
+          )}
+          <Pagination
+            page={commentEvents.page}
+            label="comment activity"
+            onPageChange={onCommentPageChange}
+          />
+        </section>
+      </div>
+    </section>
+  );
+}
+
 function AdminLoading() {
   return (
     <div className="admin-loading" aria-live="polite">
@@ -931,6 +1080,20 @@ function formatDate(value: string) {
     month: "short",
     day: "numeric",
   }).format(new Date(value));
+}
+
+function formatDateTime(value: string) {
+  return new Intl.DateTimeFormat(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(value));
+}
+
+function shortID(value: string) {
+  return value.length > 12 ? `${value.slice(0, 8)}…` : value;
 }
 
 function emptyPage<T>(): Page<T> {

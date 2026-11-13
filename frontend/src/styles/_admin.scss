@@ -332,6 +332,47 @@
   gap: 1rem;
 }
 
+.admin-audit-columns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.admin-audit-list {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.admin-audit-item {
+  display: grid;
+  gap: 0.48rem;
+  padding: 0.9rem;
+  border-top: 1px solid var(--app-line);
+
+  p {
+    margin: 0;
+    padding: 0.65rem;
+    border-radius: 0.55rem;
+    color: var(--app-muted);
+    background: var(--app-input);
+    font-size: 0.78rem;
+    line-height: 1.45;
+  }
+
+  small,
+  time {
+    color: var(--app-muted);
+    font-size: 0.7rem;
+  }
+}
+
+.admin-audit-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.7rem;
+}
+
 .admin-review-panel {
   min-width: 0;
   padding: 0.9rem;
@@ -503,6 +544,7 @@
   }
 
   .admin-review-columns,
+  .admin-audit-columns,
   .admin-report-list {
     grid-template-columns: minmax(0, 1fr);
   }
