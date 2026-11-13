@@ -32,6 +32,27 @@ export function GuestRoute() {
   return <Outlet />;
 }
 
+export function AdminRoute() {
+  const session = useSession();
+  const location = useLocation();
+  if (session.status === "loading") return <SessionLoading />;
+  if (session.status === "error")
+    return <SessionUnavailable onRetry={session.retry} />;
+  if (session.status === "anonymous") {
+    return (
+      <Navigate
+        to="/login"
+        replace
+        state={{ from: location.pathname + location.search }}
+      />
+    );
+  }
+  if (!session.identity?.roles.includes("admin")) {
+    return <Navigate to="/" replace />;
+  }
+  return <Outlet />;
+}
+
 function guestDestination(state: unknown) {
   if (!state || typeof state !== "object" || !("from" in state)) return "/";
   const from = state.from;

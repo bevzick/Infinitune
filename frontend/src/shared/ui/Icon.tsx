@@ -1,5 +1,6 @@
 export type IconName =
   | "album"
+  | "admin"
   | "artist"
   | "back"
   | "forward"
@@ -39,6 +40,12 @@ export function Icon({ name, size = 20 }: { name: IconName; size?: number }) {
 }
 
 const paths: Record<IconName, React.ReactNode> = {
+  admin: (
+    <>
+      <path d="M12 3 4.5 6v5.2c0 4.6 3.1 8.2 7.5 9.8 4.4-1.6 7.5-5.2 7.5-9.8V6Z" />
+      <path d="M9.5 12 11 13.5l3.7-4" />
+    </>
+  ),
   home: (
     <>
       <path d="m3 11 9-8 9 8" />

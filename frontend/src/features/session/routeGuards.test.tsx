@@ -2,9 +2,12 @@ import { render, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { GuestRoute, ProtectedRoute } from "./routeGuards";
+import { AdminRoute, GuestRoute, ProtectedRoute } from "./routeGuards";
 
-const session = vi.hoisted(() => ({ status: "anonymous" }));
+const session = vi.hoisted(() => ({
+  status: "anonymous",
+  identity: null as { roles: string[] } | null,
+}));
 
 vi.mock("./SessionContext", () => ({
   useSession: () => session,
@@ -13,6 +16,7 @@ vi.mock("./SessionContext", () => ({
 describe("ProtectedRoute", () => {
   beforeEach(() => {
     session.status = "anonymous";
+    session.identity = null;
   });
 
   it("redirects an anonymous visitor and preserves the requested route", () => {
@@ -50,6 +54,44 @@ describe("ProtectedRoute", () => {
 
     expect(screen.getByText("/library|")).toBeInTheDocument();
     expect(screen.queryByText("Login form")).not.toBeInTheDocument();
+  });
+});
+
+describe("AdminRoute", () => {
+  beforeEach(() => {
+    session.status = "authenticated";
+    session.identity = { roles: ["listener"] };
+  });
+
+  it("redirects an authenticated non-admin user to the application", () => {
+    render(
+      <MemoryRouter initialEntries={["/admin"]}>
+        <Routes>
+          <Route path="/" element={<LocationProbe />} />
+          <Route element={<AdminRoute />}>
+            <Route path="/admin" element={<div>Administration</div>} />
+          </Route>
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText("/|")).toBeInTheDocument();
+    expect(screen.queryByText("Administration")).not.toBeInTheDocument();
+  });
+
+  it("renders the protected workspace for an admin", () => {
+    session.identity = { roles: ["listener", "admin"] };
+    render(
+      <MemoryRouter initialEntries={["/admin"]}>
+        <Routes>
+          <Route element={<AdminRoute />}>
+            <Route path="/admin" element={<div>Administration</div>} />
+          </Route>
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText("Administration")).toBeInTheDocument();
   });
 });
 
