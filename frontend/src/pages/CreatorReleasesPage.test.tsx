@@ -9,6 +9,9 @@ const creatorApi = vi.hoisted(() => ({
   listDraftReleases: vi.fn(),
   createRelease: vi.fn(),
   updateRelease: vi.fn(),
+  listTrackRights: vi.fn(),
+  setTrackRight: vi.fn(),
+  deleteTrackRight: vi.fn(),
 }));
 
 vi.mock("../features/creator/creatorReleaseApi", () => creatorApi);
@@ -61,6 +64,19 @@ describe("CreatorReleasesPage", () => {
         title: input.title,
       }),
     );
+    creatorApi.listTrackRights.mockResolvedValue([]);
+    creatorApi.setTrackRight.mockImplementation(
+      async (
+        _token: string,
+        trackId: string,
+        input: Record<string, unknown>,
+      ) => ({
+        id: `right-${String(input.rights_type)}`,
+        release_track_id: trackId,
+        ...input,
+      }),
+    );
+    creatorApi.deleteTrackRight.mockResolvedValue(undefined);
   });
 
   afterEach(() => {
@@ -118,6 +134,51 @@ describe("CreatorReleasesPage", () => {
     );
     expect(await screen.findByRole("status")).toHaveTextContent(
       "Draft “Signals Remastered” was updated.",
+    );
+  });
+
+  it("manages required worldwide track rights", async () => {
+    const user = userEvent.setup();
+    creatorApi.listTrackRights.mockResolvedValue([
+      {
+        id: "right-streaming",
+        release_track_id: "track-1",
+        territory_code: "001",
+        rights_type: "streaming",
+        valid_from: "2026-11-13",
+        valid_until: null,
+      },
+    ]);
+    render(<CreatorReleasesPage />);
+
+    await user.click(
+      await screen.findByRole("button", { name: "Manage rights" }),
+    );
+    const streaming = await screen.findByRole("checkbox", {
+      name: "Streaming",
+    });
+    const distribution = screen.getByRole("checkbox", {
+      name: "Distribution",
+    });
+    expect(streaming).toBeChecked();
+    expect(distribution).not.toBeChecked();
+
+    await user.click(distribution);
+    expect(creatorApi.setTrackRight).toHaveBeenCalledWith(
+      "access-token",
+      "track-1",
+      {
+        territory_code: "001",
+        rights_type: "distribution",
+        valid_from: "2026-11-13",
+        valid_until: null,
+      },
+    );
+
+    await user.click(streaming);
+    expect(creatorApi.deleteTrackRight).toHaveBeenCalledWith(
+      "access-token",
+      "right-streaming",
     );
   });
 });

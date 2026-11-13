@@ -6,9 +6,14 @@ import {
   type CreatorRelease,
   type CreatorReleaseTrack,
   createRelease,
+  deleteTrackRight,
   listCreatorAccounts,
   listDraftReleases,
+  listTrackRights,
   type ReleaseType,
+  setTrackRight,
+  type TrackRight,
+  type TrackRightType,
   updateRelease,
 } from "../features/creator/creatorReleaseApi";
 import { useSession } from "../features/session/SessionContext";
@@ -36,6 +41,7 @@ export function CreatorReleasesPage() {
   const [error, setError] = useState("");
   const [showCreate, setShowCreate] = useState(false);
   const [editingId, setEditingId] = useState("");
+  const [rightsReleaseId, setRightsReleaseId] = useState("");
   const [notice, setNotice] = useState("");
 
   const load = useCallback(
@@ -97,6 +103,7 @@ export function CreatorReleasesPage() {
           onClick={() => {
             setShowCreate(true);
             setEditingId("");
+            setRightsReleaseId("");
             setNotice("");
           }}
         >
@@ -160,10 +167,27 @@ export function CreatorReleasesPage() {
                       current === release.id ? "" : release.id,
                     );
                     setShowCreate(false);
+                    setRightsReleaseId("");
                     setNotice("");
                   }}
                 >
                   {editingId === release.id ? "Close" : "Edit draft"}
+                </button>
+                <button
+                  className="creator-release-secondary-action"
+                  type="button"
+                  onClick={() => {
+                    setRightsReleaseId((current) =>
+                      current === release.id ? "" : release.id,
+                    );
+                    setEditingId("");
+                    setShowCreate(false);
+                    setNotice("");
+                  }}
+                >
+                  {rightsReleaseId === release.id
+                    ? "Close rights"
+                    : "Manage rights"}
                 </button>
               </div>
               <ol className="creator-release-track-summary">
@@ -207,6 +231,12 @@ export function CreatorReleasesPage() {
                   }}
                 />
               ) : null}
+              {rightsReleaseId === release.id && accessToken ? (
+                <TrackRightsManager
+                  accessToken={accessToken}
+                  release={release}
+                />
+              ) : null}
             </article>
           ))
         ) : (
@@ -216,6 +246,168 @@ export function CreatorReleasesPage() {
         )}
       </section>
     </section>
+  );
+}
+
+const managedRights: Array<{ type: TrackRightType; label: string }> = [
+  { type: "streaming", label: "Streaming" },
+  { type: "distribution", label: "Distribution" },
+];
+
+function TrackRightsManager({
+  accessToken,
+  release,
+}: {
+  accessToken: string;
+  release: CreatorRelease;
+}) {
+  const [rights, setRights] = useState<Record<string, TrackRight[]>>({});
+  const [status, setStatus] = useState<"loading" | "ready" | "error">(
+    "loading",
+  );
+  const [pending, setPending] = useState("");
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    const controller = new AbortController();
+    setStatus("loading");
+    Promise.all(
+      release.tracks.map(
+        async (track) =>
+          [
+            track.id,
+            await listTrackRights(accessToken, track.id, controller.signal),
+          ] as const,
+      ),
+    )
+      .then((entries) => {
+        setRights(Object.fromEntries(entries));
+        setStatus("ready");
+      })
+      .catch((reason) => {
+        if (controller.signal.aborted) return;
+        setError(errorMessage(reason, "Could not load track rights"));
+        setStatus("error");
+      });
+    return () => controller.abort();
+  }, [accessToken, release.tracks]);
+
+  async function toggle(
+    track: CreatorReleaseTrack,
+    type: TrackRightType,
+    enabled: boolean,
+  ) {
+    const operation = `${track.id}:${type}`;
+    setPending(operation);
+    setError("");
+    try {
+      if (enabled) {
+        const stored = await setTrackRight(accessToken, track.id, {
+          territory_code: "001",
+          rights_type: type,
+          valid_from: release.release_date,
+          valid_until: null,
+        });
+        setRights((current) => ({
+          ...current,
+          [track.id]: [
+            ...(current[track.id] || []).filter(
+              (right) =>
+                right.territory_code !== "001" || right.rights_type !== type,
+            ),
+            stored,
+          ],
+        }));
+      } else {
+        const existing = worldwideRight(
+          rights[track.id],
+          type,
+          release.release_date,
+        );
+        if (!existing) return;
+        await deleteTrackRight(accessToken, existing.id);
+        setRights((current) => ({
+          ...current,
+          [track.id]: (current[track.id] || []).filter(
+            (right) => right.id !== existing.id,
+          ),
+        }));
+      }
+    } catch (reason) {
+      setError(errorMessage(reason, "Could not update track rights"));
+    } finally {
+      setPending("");
+    }
+  }
+
+  return (
+    <section className="creator-track-rights" aria-label="Track rights">
+      <header>
+        <div>
+          <span className="eyebrow">Worldwide · territory 001</span>
+          <h3>Streaming and distribution rights</h3>
+        </div>
+        <p>Rights begin on {release.release_date} and remain open-ended.</p>
+      </header>
+      {status === "loading" ? <p role="status">Loading track rights…</p> : null}
+      {status === "error" ? (
+        <p className="creator-release-error" role="alert">
+          {error}
+        </p>
+      ) : null}
+      {status === "ready" ? (
+        <div className="creator-track-rights-list">
+          {release.tracks.map((track) => (
+            <div className="creator-track-rights-row" key={track.id}>
+              <div>
+                <strong>{track.title}</strong>
+                <span>
+                  Disc {track.disc_number} · Track {track.track_number}
+                </span>
+              </div>
+              {managedRights.map(({ type, label }) => {
+                const checked = Boolean(
+                  worldwideRight(rights[track.id], type, release.release_date),
+                );
+                const operation = `${track.id}:${type}`;
+                return (
+                  <label key={type}>
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      disabled={Boolean(pending)}
+                      onChange={(event) =>
+                        void toggle(track, type, event.currentTarget.checked)
+                      }
+                    />
+                    {pending === operation ? "Saving…" : label}
+                  </label>
+                );
+              })}
+            </div>
+          ))}
+        </div>
+      ) : null}
+      {status === "ready" && error ? (
+        <p className="creator-release-error" role="alert">
+          {error}
+        </p>
+      ) : null}
+    </section>
+  );
+}
+
+function worldwideRight(
+  rights: TrackRight[] | undefined,
+  type: TrackRightType,
+  releaseDate: string,
+) {
+  return rights?.find(
+    (right) =>
+      right.territory_code === "001" &&
+      right.rights_type === type &&
+      right.valid_from <= releaseDate &&
+      (!right.valid_until || right.valid_until >= releaseDate),
   );
 }
 

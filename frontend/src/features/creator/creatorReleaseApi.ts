@@ -46,6 +46,25 @@ export type CreatorRelease = {
   updated_at: string;
 };
 
+export type TrackRightType = "streaming" | "download" | "distribution";
+
+export type TrackRight = {
+  id: string;
+  release_track_id: string;
+  territory_code: string;
+  rights_type: TrackRightType;
+  valid_from: string;
+  valid_until: string | null;
+  granted_by_user_id: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type SetTrackRightInput = Pick<
+  TrackRight,
+  "territory_code" | "rights_type" | "valid_from" | "valid_until"
+>;
+
 export type CreateReleaseInput = {
   creator_id: string;
   title: string;
@@ -135,5 +154,35 @@ export function updateRelease(
     method: "PUT",
     accessToken,
     body: JSON.stringify(input),
+  });
+}
+
+export function listTrackRights(
+  accessToken: string,
+  releaseTrackId: string,
+  signal?: AbortSignal,
+) {
+  return apiRequest<TrackRight[]>(
+    `/v1/release-tracks/${releaseTrackId}/rights`,
+    { accessToken, signal },
+  );
+}
+
+export function setTrackRight(
+  accessToken: string,
+  releaseTrackId: string,
+  input: SetTrackRightInput,
+) {
+  return apiRequest<TrackRight>(`/v1/release-tracks/${releaseTrackId}/rights`, {
+    method: "PUT",
+    accessToken,
+    body: JSON.stringify(input),
+  });
+}
+
+export function deleteTrackRight(accessToken: string, rightId: string) {
+  return apiRequest<void>(`/v1/track-rights/${rightId}`, {
+    method: "DELETE",
+    accessToken,
   });
 }
