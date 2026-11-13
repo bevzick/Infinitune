@@ -17,6 +17,7 @@ import (
 	signalv1 "github.com/bevzick/Infinitune/services/history-service/api/signal/v1"
 	"github.com/bevzick/Infinitune/services/history-service/internal/catalog"
 	"github.com/bevzick/Infinitune/services/history-service/internal/config"
+	"github.com/bevzick/Infinitune/services/history-service/internal/correlation"
 	"github.com/bevzick/Infinitune/services/history-service/internal/database"
 	"github.com/bevzick/Infinitune/services/history-service/internal/events"
 	event_kafka "github.com/bevzick/Infinitune/services/history-service/internal/events/kafka"
@@ -63,7 +64,11 @@ func main() {
 		logger.Error("failed to initialize identity verifier", "error", err)
 		os.Exit(1)
 	}
-	catalogConnection, err := grpc.NewClient(cfg.CatalogAddress, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	catalogConnection, err := grpc.NewClient(
+		cfg.CatalogAddress,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithUnaryInterceptor(correlation.UnaryClientInterceptor()),
+	)
 	if err != nil {
 		logger.Error("failed to configure Catalog gRPC client", "error", err)
 		os.Exit(1)
@@ -86,7 +91,7 @@ func main() {
 		logger.Error("failed to listen for gRPC", "error", err)
 		os.Exit(1)
 	}
-	grpcServer := grpc.NewServer()
+	grpcServer := grpc.NewServer(grpc.UnaryInterceptor(correlation.UnaryServerInterceptor(logger)))
 	signalv1.RegisterSignalServiceServer(grpcServer, grpcapi.NewSignalServer(historyService))
 	eventMetrics := events.NewMetrics("history")
 	server := &http.Server{Addr: cfg.HTTPAddress, Handler: eventMetrics.Wrap(httpapi.NewRouter(httpapi.Dependencies{

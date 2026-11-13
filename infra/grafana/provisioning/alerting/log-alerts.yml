@@ -1,0 +1,223 @@
+apiVersion: 1
+
+groups:
+  - orgId: 1
+    name: Infinitune log alerts
+    folder: Infinitune
+    interval: 1m
+    rules:
+      - uid: infinitune-http-5xx-burst
+        title: Infinitune HTTP 5xx burst
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: infinitune-loki
+            model:
+              datasource:
+                type: loki
+                uid: infinitune-loki
+              editorMode: code
+              expr: 'sum by (service) (count_over_time({service=~".+"} | json | event="http_request" | status >= 500 [5m]))'
+              instant: true
+              intervalMs: 1000
+              maxDataPoints: 43200
+              queryType: instant
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 0
+              to: 0
+            datasourceUid: __expr__
+            model:
+              conditions: []
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              reducer: last
+              refId: B
+              type: reduce
+          - refId: C
+            relativeTimeRange:
+              from: 0
+              to: 0
+            datasourceUid: __expr__
+            model:
+              conditions:
+                - evaluator:
+                    params:
+                      - 5
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params:
+                      - C
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: B
+              refId: C
+              type: threshold
+        dashboardUid: infinitune-service-logs
+        panelId: 3
+        noDataState: OK
+        execErrState: Error
+        for: 2m
+        annotations:
+          summary: '{{ $labels.service }} is returning HTTP 5xx responses'
+          description: 'More than five HTTP 5xx responses were logged during a five-minute window.'
+        labels:
+          severity: warning
+        isPaused: false
+
+      - uid: infinitune-service-panic
+        title: Infinitune service panic detected
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: infinitune-loki
+            model:
+              datasource:
+                type: loki
+                uid: infinitune-loki
+              editorMode: code
+              expr: 'sum by (service) (count_over_time({service=~".+"} | json | event="http_panic" [5m]))'
+              instant: true
+              intervalMs: 1000
+              maxDataPoints: 43200
+              queryType: instant
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 0
+              to: 0
+            datasourceUid: __expr__
+            model:
+              conditions: []
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              reducer: last
+              refId: B
+              type: reduce
+          - refId: C
+            relativeTimeRange:
+              from: 0
+              to: 0
+            datasourceUid: __expr__
+            model:
+              conditions:
+                - evaluator:
+                    params:
+                      - 0
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params:
+                      - C
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: B
+              refId: C
+              type: threshold
+        dashboardUid: infinitune-service-logs
+        panelId: 5
+        noDataState: OK
+        execErrState: Error
+        for: 0s
+        annotations:
+          summary: '{{ $labels.service }} recovered from an HTTP panic'
+          description: 'Inspect the correlated request and stack trace in the Infinitune Service Logs dashboard.'
+        labels:
+          severity: critical
+        isPaused: false
+
+      - uid: infinitune-grpc-failure-burst
+        title: Infinitune gRPC failure burst
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: infinitune-loki
+            model:
+              datasource:
+                type: loki
+                uid: infinitune-loki
+              editorMode: code
+              expr: 'sum by (service) (count_over_time({service=~".+"} | json | event="grpc_request" | status=~"Internal|Unavailable|Unknown" [5m]))'
+              instant: true
+              intervalMs: 1000
+              maxDataPoints: 43200
+              queryType: instant
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 0
+              to: 0
+            datasourceUid: __expr__
+            model:
+              conditions: []
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              reducer: last
+              refId: B
+              type: reduce
+          - refId: C
+            relativeTimeRange:
+              from: 0
+              to: 0
+            datasourceUid: __expr__
+            model:
+              conditions:
+                - evaluator:
+                    params:
+                      - 5
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params:
+                      - C
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: B
+              refId: C
+              type: threshold
+        dashboardUid: infinitune-service-logs
+        panelId: 4
+        noDataState: OK
+        execErrState: Error
+        for: 2m
+        annotations:
+          summary: '{{ $labels.service }} has repeated gRPC failures'
+          description: 'More than five Internal, Unavailable, or Unknown gRPC statuses were logged in five minutes.'
+        labels:
+          severity: warning
+        isPaused: false

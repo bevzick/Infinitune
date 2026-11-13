@@ -19,6 +19,7 @@ import (
 	"github.com/bevzick/Infinitune/services/interaction-service/internal/catalog"
 	"github.com/bevzick/Infinitune/services/interaction-service/internal/commentlookup"
 	"github.com/bevzick/Infinitune/services/interaction-service/internal/config"
+	"github.com/bevzick/Infinitune/services/interaction-service/internal/correlation"
 	"github.com/bevzick/Infinitune/services/interaction-service/internal/database"
 	"github.com/bevzick/Infinitune/services/interaction-service/internal/events"
 	event_kafka "github.com/bevzick/Infinitune/services/interaction-service/internal/events/kafka"
@@ -69,6 +70,7 @@ func main() {
 	catalogConnection, err := grpc.NewClient(
 		cfg.CatalogAddress,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithUnaryInterceptor(correlation.UnaryClientInterceptor()),
 	)
 	if err != nil {
 		logger.Error("failed to configure Catalog gRPC client", "error", err)
@@ -78,6 +80,7 @@ func main() {
 	commentConnection, err := grpc.NewClient(
 		cfg.CommentAddress,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithUnaryInterceptor(correlation.UnaryClientInterceptor()),
 	)
 	if err != nil {
 		logger.Error("failed to configure Comment gRPC client", "error", err)
@@ -112,7 +115,7 @@ func main() {
 		logger.Error("failed to listen for gRPC", "error", err)
 		os.Exit(1)
 	}
-	grpcServer := grpc.NewServer()
+	grpcServer := grpc.NewServer(grpc.UnaryInterceptor(correlation.UnaryServerInterceptor(logger)))
 	signalv1.RegisterSignalServiceServer(grpcServer, grpcapi.NewSignalServer(likes))
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()

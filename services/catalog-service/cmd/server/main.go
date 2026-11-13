@@ -15,6 +15,7 @@ import (
 
 	catalogv1 "github.com/bevzick/Infinitune/services/catalog-service/api/catalog/v1"
 	"github.com/bevzick/Infinitune/services/catalog-service/internal/config"
+	"github.com/bevzick/Infinitune/services/catalog-service/internal/correlation"
 	"github.com/bevzick/Infinitune/services/catalog-service/internal/database"
 	"github.com/bevzick/Infinitune/services/catalog-service/internal/events"
 	event_kafka "github.com/bevzick/Infinitune/services/catalog-service/internal/events/kafka"
@@ -73,7 +74,7 @@ func main() {
 		logger.Error("failed to listen for gRPC", "error", err)
 		os.Exit(1)
 	}
-	grpcServer := grpc.NewServer()
+	grpcServer := grpc.NewServer(grpc.UnaryInterceptor(correlation.UnaryServerInterceptor(logger)))
 	catalogv1.RegisterCatalogServiceServer(grpcServer, grpcapi.NewCatalogServer(metadataService))
 
 	eventMetrics := events.NewMetrics("catalog")

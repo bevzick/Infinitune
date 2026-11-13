@@ -34,7 +34,7 @@ func writeDomainError(c *gin.Context, logger *slog.Logger, err error) {
 	case errors.Is(err, history.ErrCatalogUnavailable):
 		writeError(c, http.StatusServiceUnavailable, "catalog_unavailable", "Catalog service is temporarily unavailable")
 	default:
-		logger.Error("history request failed", "error", err)
+		loggerWithRequest(c, logger).Error("history request failed", "error", err)
 		writeError(c, http.StatusInternalServerError, "internal_error", "Request could not be completed")
 	}
 }

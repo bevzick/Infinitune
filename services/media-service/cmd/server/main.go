@@ -17,6 +17,7 @@ import (
 	mediav1 "github.com/bevzick/Infinitune/services/media-service/api/media/v1"
 	"github.com/bevzick/Infinitune/services/media-service/internal/config"
 	content_client "github.com/bevzick/Infinitune/services/media-service/internal/content"
+	"github.com/bevzick/Infinitune/services/media-service/internal/correlation"
 	"github.com/bevzick/Infinitune/services/media-service/internal/database"
 	"github.com/bevzick/Infinitune/services/media-service/internal/events"
 	event_kafka "github.com/bevzick/Infinitune/services/media-service/internal/events/kafka"
@@ -83,6 +84,7 @@ func main() {
 	}
 	contentConnection, err := grpc.NewClient(
 		cfg.ContentAddress, grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithUnaryInterceptor(correlation.UnaryClientInterceptor()),
 	)
 	if err != nil {
 		logger.Error("failed to initialize content service client", "error", err)
@@ -120,7 +122,7 @@ func main() {
 		logger.Error("failed to listen for gRPC", "error", err)
 		os.Exit(1)
 	}
-	grpcServer := grpc.NewServer()
+	grpcServer := grpc.NewServer(grpc.UnaryInterceptor(correlation.UnaryServerInterceptor(logger)))
 	mediav1.RegisterMediaServiceServer(grpcServer, grpcapi.NewMediaServer(metadataService))
 
 	eventMetrics := events.NewMetrics("media")

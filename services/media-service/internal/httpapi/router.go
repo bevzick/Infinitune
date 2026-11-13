@@ -56,8 +56,9 @@ func NewRouter(dependencies Dependencies) http.Handler {
 	if dependencies.Logger == nil {
 		dependencies.Logger = slog.New(slog.NewTextHandler(io.Discard, nil))
 	}
+	dependencies.Logger = normalizeLogger(dependencies.Logger)
 	router := gin.New()
-	router.Use(gin.Logger(), gin.Recovery(), cors(dependencies.Origins))
+	router.Use(observeRequests(dependencies.Logger), recoverPanics(dependencies.Logger), cors(dependencies.Origins))
 	router.GET("/health", health(dependencies))
 	protected := router.Group("/v1/media")
 	protected.Use(authenticate(dependencies.Tokens, dependencies.Logger))

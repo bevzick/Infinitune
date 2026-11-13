@@ -45,7 +45,7 @@ func writeDomainError(c *gin.Context, logger *slog.Logger, err error) {
 		writeError(c, http.StatusServiceUnavailable,
 			"comment_unavailable", "Comment service is temporarily unavailable")
 	default:
-		logger.Error("interaction request failed", "error", err)
+		loggerWithRequest(c, logger).Error("interaction request failed", "error", err)
 		writeError(c, http.StatusInternalServerError, "internal_error", "Request could not be completed")
 	}
 }

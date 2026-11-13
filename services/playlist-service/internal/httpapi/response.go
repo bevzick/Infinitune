@@ -56,7 +56,7 @@ func writeDomainError(c *gin.Context, logger *slog.Logger, err error) {
 	case errors.Is(err, playlist.ErrPersonalizationDisabled):
 		writeError(c, http.StatusConflict, "personalization_disabled", "Personalized recommendations are disabled")
 	default:
-		logger.Error("playlist request failed", "error", err)
+		loggerWithRequest(c, logger).Error("playlist request failed", "error", err)
 		writeError(c, http.StatusInternalServerError, "internal_error", "Request could not be completed")
 	}
 }

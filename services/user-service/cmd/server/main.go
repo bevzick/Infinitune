@@ -15,6 +15,7 @@ import (
 
 	userv1 "github.com/bevzick/Infinitune/services/user-service/api/user/v1"
 	"github.com/bevzick/Infinitune/services/user-service/internal/config"
+	"github.com/bevzick/Infinitune/services/user-service/internal/correlation"
 	"github.com/bevzick/Infinitune/services/user-service/internal/database"
 	"github.com/bevzick/Infinitune/services/user-service/internal/grpcapi"
 	"github.com/bevzick/Infinitune/services/user-service/internal/httpapi"
@@ -80,7 +81,7 @@ func main() {
 		logger.Error("failed to listen for gRPC", "error", err)
 		os.Exit(1)
 	}
-	grpcServer := grpc.NewServer()
+	grpcServer := grpc.NewServer(grpc.UnaryInterceptor(correlation.UnaryServerInterceptor(logger)))
 	userv1.RegisterUserServiceServer(grpcServer, grpcapi.NewUserServer(profileService, profileRepository))
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)

@@ -20,6 +20,7 @@ import (
 	rankingv1 "github.com/bevzick/Infinitune/services/recommendation-service/api/ranking/v1"
 	userv1 "github.com/bevzick/Infinitune/services/recommendation-service/api/user/v1"
 	"github.com/bevzick/Infinitune/services/recommendation-service/internal/config"
+	"github.com/bevzick/Infinitune/services/recommendation-service/internal/correlation"
 	"github.com/bevzick/Infinitune/services/recommendation-service/internal/database"
 	"github.com/bevzick/Infinitune/services/recommendation-service/internal/events"
 	event_kafka "github.com/bevzick/Infinitune/services/recommendation-service/internal/events/kafka"
@@ -68,31 +69,51 @@ func main() {
 		logger.Error("failed to initialize identity verifier", "error", err)
 		os.Exit(1)
 	}
-	userConnection, err := grpc.NewClient(cfg.UserAddress, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	userConnection, err := grpc.NewClient(
+		cfg.UserAddress,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithUnaryInterceptor(correlation.UnaryClientInterceptor()),
+	)
 	if err != nil {
 		logger.Error("failed to configure User gRPC client", "error", err)
 		os.Exit(1)
 	}
 	defer userConnection.Close()
-	interactionConnection, err := grpc.NewClient(cfg.InteractionAddress, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	interactionConnection, err := grpc.NewClient(
+		cfg.InteractionAddress,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithUnaryInterceptor(correlation.UnaryClientInterceptor()),
+	)
 	if err != nil {
 		logger.Error("failed to configure Interaction gRPC client", "error", err)
 		os.Exit(1)
 	}
 	defer interactionConnection.Close()
-	historyConnection, err := grpc.NewClient(cfg.HistoryAddress, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	historyConnection, err := grpc.NewClient(
+		cfg.HistoryAddress,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithUnaryInterceptor(correlation.UnaryClientInterceptor()),
+	)
 	if err != nil {
 		logger.Error("failed to configure History gRPC client", "error", err)
 		os.Exit(1)
 	}
 	defer historyConnection.Close()
-	catalogConnection, err := grpc.NewClient(cfg.CatalogAddress, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	catalogConnection, err := grpc.NewClient(
+		cfg.CatalogAddress,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithUnaryInterceptor(correlation.UnaryClientInterceptor()),
+	)
 	if err != nil {
 		logger.Error("failed to configure Catalog gRPC client", "error", err)
 		os.Exit(1)
 	}
 	defer catalogConnection.Close()
-	contentConnection, err := grpc.NewClient(cfg.ContentAddress, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	contentConnection, err := grpc.NewClient(
+		cfg.ContentAddress,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithUnaryInterceptor(correlation.UnaryClientInterceptor()),
+	)
 	if err != nil {
 		logger.Error("failed to configure Content gRPC client", "error", err)
 		os.Exit(1)
@@ -125,7 +146,7 @@ func main() {
 		logger.Error("failed to listen for gRPC", "error", err)
 		os.Exit(1)
 	}
-	grpcServer := grpc.NewServer()
+	grpcServer := grpc.NewServer(grpc.UnaryInterceptor(correlation.UnaryServerInterceptor(logger)))
 	rankingv1.RegisterRankingServiceServer(grpcServer, grpcapi.NewRankingServer(rankingService))
 	eventMetrics := events.NewMetrics("recommendation")
 	server := &http.Server{
