@@ -120,11 +120,13 @@ func assetResponse(asset media.Asset) *mediav1.MediaAsset {
 	}
 	response := &mediav1.MediaAsset{
 		Id:                asset.ID.String(),
-		SourceUploadId:    asset.SourceUploadID.String(),
 		OriginalObjectKey: asset.OriginalObjectKey,
 		OriginalFilename:  asset.OriginalFilename,
 		Status:            assetStatus(asset.Status), Variants: variants,
 		CreatedAt: timestamppb.New(asset.CreatedAt), UpdatedAt: timestamppb.New(asset.UpdatedAt),
+	}
+	if asset.SourceUploadID != uuid.Nil {
+		response.SourceUploadId = asset.SourceUploadID.String()
 	}
 	if asset.TrackID != uuid.Nil {
 		response.TrackId = asset.TrackID.String()

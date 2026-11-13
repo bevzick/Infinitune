@@ -7,6 +7,7 @@
 @use "interactions";
 @use "feedback";
 @use "accessibility";
+@use "imports";
 @use "admin";
 
 html {
@@ -457,7 +458,8 @@ textarea:focus-visible {
     bottom: 0;
     height: 4.7rem;
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-auto-columns: 1fr;
+    grid-auto-flow: column;
     border-top: 1px solid var(--app-line);
     background: color-mix(in srgb, var(--app-bg-elevated) 96%, transparent);
     backdrop-filter: blur(18px);

@@ -42,6 +42,16 @@ func TestClientMapsForbiddenUpload(t *testing.T) {
 	}
 }
 
+func TestClientChecksTrackImportAccess(t *testing.T) {
+	userID, trackID := uuid.New(), uuid.New()
+	stub := &grpcClientStub{importResponse: &contentv1.CheckTrackImportResponse{Allowed: true}}
+	err := NewClient(stub).CanImport(context.Background(), userID, trackID)
+	if err != nil || stub.importRequest.GetUserId() != userID.String() ||
+		stub.importRequest.GetReleaseTrackId() != trackID.String() {
+		t.Fatalf("CanImport() error = %v; request = %+v", err, stub.importRequest)
+	}
+}
+
 func TestClientChecksTrackPlaybackAccess(t *testing.T) {
 	trackID := uuid.New()
 	stub := &grpcClientStub{playbackResponse: &contentv1.CheckTrackPlaybackResponse{
@@ -76,9 +86,20 @@ func TestClientRejectsMalformedContentResponse(t *testing.T) {
 type grpcClientStub struct {
 	response          *contentv1.UploadSession
 	playbackResponse  *contentv1.CheckTrackPlaybackResponse
+	importResponse    *contentv1.CheckTrackImportResponse
 	err               error
 	transitionRequest *contentv1.TransitionUploadRequest
 	playbackRequest   *contentv1.CheckTrackPlaybackRequest
+	importRequest     *contentv1.CheckTrackImportRequest
+}
+
+func (stub *grpcClientStub) CheckTrackImport(
+	_ context.Context,
+	request *contentv1.CheckTrackImportRequest,
+	_ ...grpc.CallOption,
+) (*contentv1.CheckTrackImportResponse, error) {
+	stub.importRequest = request
+	return stub.importResponse, stub.err
 }
 
 func (stub *grpcClientStub) GetUploadSession(

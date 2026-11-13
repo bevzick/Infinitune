@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/bevzick/Infinitune/services/content-service/internal/creator"
+	"github.com/bevzick/Infinitune/services/content-service/internal/events"
 	"github.com/bevzick/Infinitune/services/content-service/internal/moderation"
 	"github.com/bevzick/Infinitune/services/content-service/internal/release"
 	"github.com/bevzick/Infinitune/services/content-service/internal/rights"
@@ -136,6 +137,65 @@ func TestSubmissionRepositoryLoadsReadinessAndTransitionsIdempotently(t *testing
 	}
 	if _, err = repository.SubmitRelease(ctx, releaseID); !errors.Is(err, submission.ErrConflict) {
 		t.Fatalf("SubmitRelease(approved) error = %v", err)
+	}
+}
+
+func TestSubmissionRepositoryAcceptsReadyExternalMedia(t *testing.T) {
+	pool := openIntegrationDatabase(t)
+	ctx := context.Background()
+	creatorID, ownerID, releaseID, trackID, assetID :=
+		uuid.New(), uuid.New(), uuid.New(), uuid.New(), uuid.New()
+	t.Cleanup(func() {
+		_, _ = pool.Exec(context.Background(),
+			`DELETE FROM content.media_asset_readiness WHERE media_asset_id=$1`, assetID)
+		cleanupReleaseAggregate(t, pool, creatorID, releaseID)
+	})
+	if _, err := NewCreatorRepository(pool).Create(ctx, creator.Account{
+		ID: creatorID, Type: creator.TypeArtist, DisplayName: "External Artist",
+		VerificationStatus: creator.VerificationVerified,
+	}, creator.Member{
+		CreatorID: creatorID, UserID: ownerID, Role: creator.RoleOwner,
+	}); err != nil {
+		t.Fatalf("create creator: %v", err)
+	}
+	cover := "creator-content/" + releaseID.String() + "/cover.jpg"
+	releaseDate := time.Date(2027, time.July, 1, 0, 0, 0, 0, time.UTC)
+	if _, err := NewReleaseRepository(pool).Create(ctx, release.Draft{
+		Release: release.Release{
+			ID: releaseID, CreatorID: creatorID, Title: "Imported Release",
+			Type: release.TypeSingle, ReleaseDate: releaseDate,
+			Status: release.StatusDraft, CoverObjectKey: &cover,
+		},
+		Tracks: []release.Track{{
+			ID: trackID, ReleaseID: releaseID, Title: "Imported Track",
+			DiscNumber: 1, TrackNumber: 1,
+		}},
+	}); err != nil {
+		t.Fatalf("create release: %v", err)
+	}
+	for _, rightType := range []rights.Type{rights.TypeStreaming, rights.TypeDistribution} {
+		if _, err := NewRightsRepository(pool).UpsertRight(ctx, rights.Right{
+			ID: uuid.New(), ReleaseTrackID: trackID, TerritoryCode: rights.TerritoryWorld,
+			Type: rightType, ValidFrom: releaseDate.AddDate(0, 0, -1),
+			GrantedByUserID: ownerID,
+		}); err != nil {
+			t.Fatalf("create %s rights: %v", rightType, err)
+		}
+	}
+	if err := NewMediaReadinessRepository(pool).UpsertReady(ctx, events.ReadyAsset{
+		MediaAssetID: assetID, ContentTrackID: trackID, DurationMS: 180000,
+		EventID: uuid.New(), OccurredAt: time.Now().UTC(),
+	}); err != nil {
+		t.Fatalf("store external media readiness: %v", err)
+	}
+	repository := NewSubmissionRepository(pool)
+	candidate, err := repository.SubmissionCandidate(ctx, releaseID)
+	if err != nil || candidate.Tracks[0].CompletedUploadID != nil {
+		t.Fatalf("SubmissionCandidate() = %+v, %v", candidate, err)
+	}
+	submitted, err := repository.SubmitRelease(ctx, releaseID)
+	if err != nil || submitted.Status != release.StatusPendingReview {
+		t.Fatalf("SubmitRelease() = %+v, %v", submitted, err)
 	}
 }
 

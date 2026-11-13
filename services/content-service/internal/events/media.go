@@ -32,7 +32,7 @@ type audioVariant struct {
 
 type assetReadyData struct {
 	MediaAssetID   uuid.UUID      `json:"media_asset_id"`
-	SourceUploadID uuid.UUID      `json:"source_upload_id"`
+	SourceUploadID *uuid.UUID     `json:"source_upload_id"`
 	ContentTrackID *uuid.UUID     `json:"content_track_id"`
 	CatalogTrackID *uuid.UUID     `json:"catalog_track_id"`
 	DurationMS     int            `json:"duration_ms"`
@@ -63,7 +63,7 @@ func (handler *MediaHandler) Handle(ctx context.Context, payload []byte) error {
 	}
 	if event.ID == uuid.Nil || event.Type != AssetReadyV1 || event.Source != "media-service" ||
 		event.OccurredAt.IsZero() || event.Data.MediaAssetID == uuid.Nil ||
-		event.Data.SourceUploadID == uuid.Nil || event.Data.DurationMS <= 0 ||
+		event.Data.DurationMS <= 0 ||
 		!validTrackReference(event.Data.ContentTrackID, event.Data.CatalogTrackID) ||
 		!validVariants(event.Data.Variants) {
 		return fmt.Errorf("%w: incomplete media asset ready event", ErrInvalidEvent)
@@ -73,9 +73,12 @@ func (handler *MediaHandler) Handle(ctx context.Context, payload []byte) error {
 		return nil
 	}
 	asset := ReadyAsset{
-		MediaAssetID: event.Data.MediaAssetID, SourceUploadID: event.Data.SourceUploadID,
+		MediaAssetID:   event.Data.MediaAssetID,
 		ContentTrackID: *event.Data.ContentTrackID, DurationMS: event.Data.DurationMS,
 		EventID: event.ID, OccurredAt: event.OccurredAt.UTC(),
+	}
+	if event.Data.SourceUploadID != nil {
+		asset.SourceUploadID = *event.Data.SourceUploadID
 	}
 	if err := handler.store.UpsertReady(ctx, asset); err != nil {
 		return fmt.Errorf("project media asset readiness: %w", err)

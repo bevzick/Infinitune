@@ -30,6 +30,7 @@ type AccessChecker interface {
 
 type MediaAssets interface {
 	AssetByUpload(context.Context, uuid.UUID) (contentmedia.Asset, error)
+	AssetByTrack(context.Context, uuid.UUID) (contentmedia.Asset, error)
 }
 
 type Catalog interface {
@@ -122,12 +123,13 @@ func (service *Service) publicationTrack(
 	ctx context.Context,
 	track Track,
 ) (contentcatalog.TrackInput, error) {
-	if track.CompletedUploadID == nil || *track.CompletedUploadID == uuid.Nil {
-		return contentcatalog.TrackInput{}, &ReadinessError{
-			TrackID: track.ID, Reason: "completed audio upload is required",
-		}
+	var asset contentmedia.Asset
+	var err error
+	if track.CompletedUploadID != nil && *track.CompletedUploadID != uuid.Nil {
+		asset, err = service.media.AssetByUpload(ctx, *track.CompletedUploadID)
+	} else {
+		asset, err = service.media.AssetByTrack(ctx, track.ID)
 	}
-	asset, err := service.media.AssetByUpload(ctx, *track.CompletedUploadID)
 	if errors.Is(err, contentmedia.ErrNotFound) {
 		return contentcatalog.TrackInput{}, &ReadinessError{
 			TrackID: track.ID, Reason: "processed media asset is required",
@@ -148,7 +150,9 @@ func (service *Service) publicationTrack(
 			TrackID: track.ID, Reason: "track and disc numbers must fit the catalog range",
 		}
 	}
-	if asset.ContentTrackID != track.ID || asset.SourceUploadID != *track.CompletedUploadID {
+	if asset.ContentTrackID != track.ID ||
+		(track.CompletedUploadID != nil && asset.SourceUploadID != *track.CompletedUploadID) ||
+		(track.CompletedUploadID == nil && asset.SourceUploadID != uuid.Nil) {
 		return contentcatalog.TrackInput{}, ErrInconsistentMedia
 	}
 	if asset.Status != contentmedia.StatusReady || asset.DurationMS <= 0 {

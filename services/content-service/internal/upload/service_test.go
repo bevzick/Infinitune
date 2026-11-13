@@ -87,6 +87,31 @@ func TestServiceAcceptsCorrectedReleaseUpload(t *testing.T) {
 	}
 }
 
+func TestServiceAuthorizesExternalImportForEditableTrack(t *testing.T) {
+	actorID, creatorID, trackID := uuid.New(), uuid.New(), uuid.New()
+	store := &storeStub{target: TrackTarget{
+		TrackID: trackID, ReleaseID: uuid.New(), CreatorID: creatorID,
+		ReleaseStatus: release.StatusDraft,
+	}}
+	authorizer := &authorizerStub{}
+	err := NewService(store, authorizer).AuthorizeImport(context.Background(), actorID, trackID)
+	if err != nil || authorizer.actorID != actorID || authorizer.creatorID != creatorID ||
+		authorizer.permission != creator.PermissionContentUpload {
+		t.Fatalf("AuthorizeImport() error = %v; authorization = %+v", err, authorizer)
+	}
+}
+
+func TestServiceRejectsImportIntoLockedRelease(t *testing.T) {
+	trackID := uuid.New()
+	err := NewService(&storeStub{target: TrackTarget{
+		TrackID: trackID, ReleaseID: uuid.New(), CreatorID: uuid.New(),
+		ReleaseStatus: release.StatusPendingReview,
+	}}, &authorizerStub{}).AuthorizeImport(context.Background(), uuid.New(), trackID)
+	if !errors.Is(err, ErrReleaseLocked) {
+		t.Fatalf("AuthorizeImport() error = %v", err)
+	}
+}
+
 func TestServiceRejectsInvalidUploadBeforeLookup(t *testing.T) {
 	trackID := uuid.New()
 	tests := []struct {

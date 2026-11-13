@@ -79,6 +79,32 @@ func TestServicePublishesSingleWithoutAlbum(t *testing.T) {
 	}
 }
 
+func TestServicePublishesTrackWithExternalMedia(t *testing.T) {
+	releaseID, trackID, assetID := uuid.New(), uuid.New(), uuid.New()
+	store := &storeStub{candidate: Candidate{
+		Release: release.Release{
+			ID: releaseID, CreatorID: uuid.New(), Title: "Imported Single",
+			Type: release.TypeSingle, ReleaseDate: time.Now(), Status: release.StatusApproved,
+		}, CreatorName: "Artist",
+		Tracks: []Track{{Track: release.Track{
+			ID: trackID, ReleaseID: releaseID, Title: "Imported Track",
+			TrackNumber: 1, DiscNumber: 1,
+		}}},
+	}, result: release.Release{ID: releaseID, Status: release.StatusPublished}}
+	mediaAssets := &mediaStub{assets: map[uuid.UUID]contentmedia.Asset{trackID: {
+		ID: assetID, ContentTrackID: trackID, DurationMS: 125000,
+		Status: contentmedia.StatusReady,
+	}}}
+	catalog := &catalogStub{publishedAt: time.Now().UTC()}
+	_, err := NewService(store,
+		&accessStub{decision: creator.AccessDecision{Allowed: true}}, mediaAssets, catalog,
+	).Publish(context.Background(), uuid.New(), releaseID)
+	if err != nil || len(catalog.input.Tracks) != 1 ||
+		catalog.input.Tracks[0].MediaAssetID != assetID {
+		t.Fatalf("Publish() error = %v; catalog = %+v", err, catalog.input)
+	}
+}
+
 func TestServiceReturnsPublishedReleaseIdempotently(t *testing.T) {
 	releaseID := uuid.New()
 	store := &storeStub{candidate: Candidate{Release: release.Release{
@@ -195,6 +221,10 @@ type mediaStub struct {
 }
 
 func (stub *mediaStub) AssetByUpload(_ context.Context, id uuid.UUID) (contentmedia.Asset, error) {
+	return stub.assets[id], stub.err
+}
+
+func (stub *mediaStub) AssetByTrack(_ context.Context, id uuid.UUID) (contentmedia.Asset, error) {
 	return stub.assets[id], stub.err
 }
 

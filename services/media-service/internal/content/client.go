@@ -49,11 +49,34 @@ type grpcClient interface {
 	GetUploadSession(context.Context, *contentv1.GetUploadSessionRequest, ...grpc.CallOption) (*contentv1.UploadSession, error)
 	TransitionUpload(context.Context, *contentv1.TransitionUploadRequest, ...grpc.CallOption) (*contentv1.UploadSession, error)
 	CheckTrackPlayback(context.Context, *contentv1.CheckTrackPlaybackRequest, ...grpc.CallOption) (*contentv1.CheckTrackPlaybackResponse, error)
+	CheckTrackImport(context.Context, *contentv1.CheckTrackImportRequest, ...grpc.CallOption) (*contentv1.CheckTrackImportResponse, error)
 }
 
 type Client struct{ client grpcClient }
 
 func NewClient(client grpcClient) *Client { return &Client{client: client} }
+
+func (client *Client) CanImport(
+	ctx context.Context,
+	userID uuid.UUID,
+	trackID uuid.UUID,
+) error {
+	if userID == uuid.Nil || trackID == uuid.Nil {
+		return ErrInvalid
+	}
+	callCtx, cancel := context.WithTimeout(ctx, requestTimeout)
+	defer cancel()
+	response, err := client.client.CheckTrackImport(callCtx, &contentv1.CheckTrackImportRequest{
+		UserId: userID.String(), ReleaseTrackId: trackID.String(),
+	})
+	if err != nil {
+		return mapError(ctx, err)
+	}
+	if response == nil || !response.GetAllowed() {
+		return ErrForbidden
+	}
+	return nil
+}
 
 func (client *Client) CanStream(
 	ctx context.Context,

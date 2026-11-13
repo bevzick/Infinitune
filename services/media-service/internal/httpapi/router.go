@@ -9,6 +9,7 @@ import (
 
 	"github.com/bevzick/Infinitune/services/media-service/internal/identity"
 	"github.com/bevzick/Infinitune/services/media-service/internal/media"
+	"github.com/bevzick/Infinitune/services/media-service/internal/source"
 	"github.com/bevzick/Infinitune/services/media-service/internal/storage"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -40,12 +41,24 @@ type UploadIngest interface {
 	Ingest(context.Context, uuid.UUID, uuid.UUID, string, int64, io.Reader) (media.Asset, bool, error)
 }
 
+type ExternalImport interface {
+	Import(context.Context, uuid.UUID, uuid.UUID, source.ProviderName, string) (media.Asset, bool, error)
+}
+
+type SourceDiscovery interface {
+	Providers() []source.ProviderName
+	Discover(context.Context, source.ProviderName, source.DiscoveryQuery) (source.DiscoveryPage, error)
+	Resolve(context.Context, source.ProviderName, string) (source.Track, error)
+}
+
 type Dependencies struct {
 	Database DatabaseCheck
 	Storage  StorageCheck
 	Objects  ObjectStorage
 	Media    Playback
 	Ingest   UploadIngest
+	Imports  ExternalImport
+	Sources  SourceDiscovery
 	Tokens   IdentityVerifier
 	Origins  []string
 	Logger   *slog.Logger
@@ -64,6 +77,10 @@ func NewRouter(dependencies Dependencies) http.Handler {
 	protected.Use(authenticate(dependencies.Tokens, dependencies.Logger))
 	protected.GET("/assets/:media_asset_id/playback", playback(dependencies))
 	protected.PUT("/uploads/:upload_id", ingestUpload(dependencies.Ingest, dependencies.Logger))
+	protected.POST("/imports", importExternal(dependencies.Imports, dependencies.Logger))
+	protected.GET("/sources/providers", listSourceProviders(dependencies.Sources))
+	protected.GET("/sources/:provider/tracks", discoverSourceTracks(dependencies.Sources, dependencies.Logger))
+	protected.GET("/sources/:provider/track", resolveSourceTrack(dependencies.Sources, dependencies.Logger))
 	return router
 }
 

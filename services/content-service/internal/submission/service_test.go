@@ -38,9 +38,9 @@ func TestServiceSubmitsCompleteRelease(t *testing.T) {
 		context.Background(), actorID, releaseID,
 	)
 	if err != nil || result.Status != release.StatusPendingReview ||
-		store.submitCalls != 1 || mediaAssets.calls != 1 {
+		store.submitCalls != 1 || mediaAssets.uploadCalls != 1 {
 		t.Fatalf("Submit() = %+v, %v; submit calls %d, media calls %d",
-			result, err, store.submitCalls, mediaAssets.calls)
+			result, err, store.submitCalls, mediaAssets.uploadCalls)
 	}
 	if access.permission != creator.PermissionContentPublish ||
 		access.actorID != actorID || access.creatorID != creatorID {
@@ -57,6 +57,31 @@ func TestServiceReturnsPendingReviewIdempotently(t *testing.T) {
 	result, err := service.Submit(context.Background(), uuid.New(), releaseID)
 	if err != nil || result.Status != release.StatusPendingReview || store.submitCalls != 0 {
 		t.Fatalf("Submit() = %+v, %v; calls %d", result, err, store.submitCalls)
+	}
+}
+
+func TestServiceSubmitsReleaseWithExternalMedia(t *testing.T) {
+	trackID := uuid.New()
+	cover := "creator-content/cover.jpg"
+	store := &storeStub{candidate: Candidate{
+		Release: release.Release{
+			ID: uuid.New(), CreatorID: uuid.New(), Status: release.StatusDraft,
+			CoverObjectKey: &cover,
+		},
+		Tracks: []Track{{
+			ID: trackID, HasWorldwideStreaming: true, HasWorldwideDistribution: true,
+		}},
+	}}
+	mediaAssets := &mediaStub{trackAsset: contentmedia.Asset{
+		ID: uuid.New(), ContentTrackID: trackID, Status: contentmedia.StatusReady,
+	}}
+	result, err := NewService(store,
+		&accessStub{decision: creator.AccessDecision{Allowed: true}}, mediaAssets,
+	).Submit(context.Background(), uuid.New(), store.candidate.Release.ID)
+	if err != nil || result.Status != release.StatusPendingReview ||
+		mediaAssets.trackCalls != 1 || mediaAssets.uploadCalls != 0 {
+		t.Fatalf("Submit() = %+v, %v; track calls %d, upload calls %d",
+			result, err, mediaAssets.trackCalls, mediaAssets.uploadCalls)
 	}
 }
 
@@ -106,7 +131,7 @@ func TestServiceRejectsIncompleteRelease(t *testing.T) {
 		wantError error
 	}{
 		{name: "missing cover", mutate: func(value *Candidate) { value.Release.CoverObjectKey = nil }, wantError: ErrNotReady},
-		{name: "missing upload", mutate: func(value *Candidate) { value.Tracks[0].CompletedUploadID = nil }, wantError: ErrNotReady},
+		{name: "missing audio source", mutate: func(value *Candidate) { value.Tracks[0].CompletedUploadID = nil }, mediaErr: contentmedia.ErrNotFound, wantError: ErrNotReady},
 		{name: "missing streaming rights", mutate: func(value *Candidate) { value.Tracks[0].HasWorldwideStreaming = false }, wantError: ErrNotReady},
 		{name: "missing distribution rights", mutate: func(value *Candidate) { value.Tracks[0].HasWorldwideDistribution = false }, wantError: ErrNotReady},
 		{name: "media processing", media: contentmedia.Asset{ID: uuid.New(), SourceUploadID: uploadID, ContentTrackID: trackID, Status: contentmedia.StatusProcessing}, wantError: ErrNotReady},
@@ -194,13 +219,23 @@ func (stub *accessStub) Check(
 }
 
 type mediaStub struct {
-	asset contentmedia.Asset
-	err   error
-	calls int
+	asset       contentmedia.Asset
+	trackAsset  contentmedia.Asset
+	err         error
+	uploadCalls int
+	trackCalls  int
 }
 
 func (stub *mediaStub) AssetByUpload(context.Context, uuid.UUID) (contentmedia.Asset, error) {
-	stub.calls++
+	stub.uploadCalls++
+	return stub.asset, stub.err
+}
+
+func (stub *mediaStub) AssetByTrack(context.Context, uuid.UUID) (contentmedia.Asset, error) {
+	stub.trackCalls++
+	if stub.trackAsset.ID != uuid.Nil {
+		return stub.trackAsset, stub.err
+	}
 	return stub.asset, stub.err
 }
 

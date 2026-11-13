@@ -1,0 +1,1 @@
+DROP INDEX IF EXISTS content.media_asset_readiness_external_track_key;

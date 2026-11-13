@@ -8,11 +8,13 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/bevzick/Infinitune/services/media-service/internal/identity"
 	"github.com/bevzick/Infinitune/services/media-service/internal/media"
+	"github.com/bevzick/Infinitune/services/media-service/internal/source"
 	"github.com/bevzick/Infinitune/services/media-service/internal/storage"
 	"github.com/google/uuid"
 )
@@ -77,6 +79,60 @@ type ingestStub struct {
 	contentType string
 	sizeBytes   int64
 	body        string
+}
+
+type externalImportStub struct {
+	asset          media.Asset
+	created        bool
+	err            error
+	actorID        uuid.UUID
+	contentTrackID uuid.UUID
+	provider       source.ProviderName
+	externalID     string
+}
+
+type sourceDiscoveryStub struct {
+	providers  []source.ProviderName
+	page       source.DiscoveryPage
+	track      source.Track
+	err        error
+	provider   source.ProviderName
+	query      source.DiscoveryQuery
+	externalID string
+}
+
+func (stub *sourceDiscoveryStub) Providers() []source.ProviderName { return stub.providers }
+
+func (stub *sourceDiscoveryStub) Discover(
+	_ context.Context,
+	provider source.ProviderName,
+	query source.DiscoveryQuery,
+) (source.DiscoveryPage, error) {
+	stub.provider, stub.query = provider, query
+	return stub.page, stub.err
+}
+
+func (stub *sourceDiscoveryStub) Resolve(
+	_ context.Context,
+	provider source.ProviderName,
+	externalID string,
+) (source.Track, error) {
+	stub.provider, stub.externalID = provider, externalID
+	return stub.track, stub.err
+}
+
+func (stub *externalImportStub) Import(
+	_ context.Context,
+	actorID uuid.UUID,
+	contentTrackID uuid.UUID,
+	provider source.ProviderName,
+	externalID string,
+) (media.Asset, bool, error) {
+	stub.actorID = actorID
+	stub.contentTrackID = contentTrackID
+	stub.provider = provider
+	stub.externalID = externalID
+	return stub.asset, stub.created, stub.err
 }
 
 func (stub *ingestStub) Ingest(
@@ -179,6 +235,99 @@ func TestCreatorUploadRequiresContentLength(t *testing.T) {
 	NewRouter(dependencies).ServeHTTP(response, request)
 	if response.Code != http.StatusLengthRequired {
 		t.Fatalf("status = %d, body = %s", response.Code, response.Body.String())
+	}
+}
+
+func TestAuthenticatedUserImportsExternalTrack(t *testing.T) {
+	actorID, trackID, assetID := uuid.New(), uuid.New(), uuid.New()
+	service := &externalImportStub{created: true, asset: media.Asset{
+		ID: assetID, ContentTrackID: trackID, Status: media.StatusUploaded,
+	}}
+	dependencies := playbackDependencies()
+	dependencies.Tokens = identityVerifierStub{identity: identity.Identity{UserID: actorID}}
+	dependencies.Imports = service
+	request := httptest.NewRequest(http.MethodPost, "/v1/media/imports", strings.NewReader(`{
+		"content_track_id":"`+trackID.String()+`",
+		"provider":"jamendo",
+		"external_id":"42"
+	}`))
+	request.Header.Set("Authorization", "Bearer valid")
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	NewRouter(dependencies).ServeHTTP(response, request)
+	if response.Code != http.StatusCreated || service.actorID != actorID ||
+		service.contentTrackID != trackID || service.provider != source.ProviderJamendo ||
+		service.externalID != "42" {
+		t.Fatalf("status = %d, import = %+v, body = %s", response.Code, service, response.Body.String())
+	}
+}
+
+func TestExternalImportRejectsUnknownProvider(t *testing.T) {
+	dependencies := playbackDependencies()
+	dependencies.Imports = &externalImportStub{}
+	request := httptest.NewRequest(http.MethodPost, "/v1/media/imports", strings.NewReader(`{
+		"content_track_id":"`+uuid.NewString()+`",
+		"provider":"unknown",
+		"external_id":"42"
+	}`))
+	request.Header.Set("Authorization", "Bearer valid")
+	response := httptest.NewRecorder()
+	NewRouter(dependencies).ServeHTTP(response, request)
+	if response.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("status = %d, body = %s", response.Code, response.Body.String())
+	}
+}
+
+func TestListsConfiguredSourceProviders(t *testing.T) {
+	dependencies := playbackDependencies()
+	dependencies.Sources = &sourceDiscoveryStub{providers: []source.ProviderName{
+		source.ProviderInternetArchive, source.ProviderJamendo,
+	}}
+	request := httptest.NewRequest(http.MethodGet, "/v1/media/sources/providers", nil)
+	request.Header.Set("Authorization", "Bearer valid")
+	response := httptest.NewRecorder()
+	NewRouter(dependencies).ServeHTTP(response, request)
+	if response.Code != http.StatusOK || !strings.Contains(response.Body.String(), `"id":"jamendo"`) {
+		t.Fatalf("status = %d, body = %s", response.Code, response.Body.String())
+	}
+}
+
+func TestDiscoversLicensedSourceTracks(t *testing.T) {
+	service := &sourceDiscoveryStub{page: source.DiscoveryPage{
+		Tracks: []source.Track{{
+			ExternalID: "42", Title: "Focus", Artist: "Artist",
+			PageURL: "https://example.com/tracks/42",
+			License: source.License{Name: "CC BY", URL: "https://example.com/license",
+				AllowsStreaming: true, AllowsRedistribution: true},
+		}}, Limit: 5, Offset: 10, Total: 12,
+	}}
+	dependencies := playbackDependencies()
+	dependencies.Sources = service
+	request := httptest.NewRequest(http.MethodGet,
+		"/v1/media/sources/jamendo/tracks?query=focus&limit=5&offset=10", nil)
+	request.Header.Set("Authorization", "Bearer valid")
+	response := httptest.NewRecorder()
+	NewRouter(dependencies).ServeHTTP(response, request)
+	if response.Code != http.StatusOK || service.provider != source.ProviderJamendo ||
+		service.query.Query != "focus" || service.query.Limit != 5 || service.query.Offset != 10 ||
+		!strings.Contains(response.Body.String(), `"allows_redistribution":true`) {
+		t.Fatalf("status = %d, query = %+v, body = %s", response.Code, service.query, response.Body.String())
+	}
+}
+
+func TestResolvesSourceTrackWithSlashInExternalID(t *testing.T) {
+	service := &sourceDiscoveryStub{track: source.Track{ExternalID: "concert/audio/01.flac"}}
+	dependencies := playbackDependencies()
+	dependencies.Sources = service
+	request := httptest.NewRequest(http.MethodGet,
+		"/v1/media/sources/internet_archive/track?external_id=concert%2Faudio%2F01.flac", nil)
+	request.Header.Set("Authorization", "Bearer valid")
+	response := httptest.NewRecorder()
+	NewRouter(dependencies).ServeHTTP(response, request)
+	if response.Code != http.StatusOK || service.provider != source.ProviderInternetArchive ||
+		service.externalID != "concert/audio/01.flac" {
+		t.Fatalf("status = %d, external ID = %q, body = %s",
+			response.Code, service.externalID, response.Body.String())
 	}
 }
 
