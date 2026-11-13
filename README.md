@@ -67,6 +67,13 @@ publication, and authenticated byte-range playback. See the
 [content publishing guide](docs/content-publishing.md) for API examples,
 state transitions, retry behavior, and the isolated end-to-end test command.
 
+External music import supports licensed audio from Internet Archive and,
+when configured, Jamendo. Creators can select a draft release track and use
+**Creator studio → Import music** in the frontend. See the
+[music source guide](docs/media-sources.md) for provider configuration,
+discovery API examples, license constraints, processing behavior, and
+troubleshooting.
+
 ## Local operations
 
 See the [local operations runbook](docs/local-operations.md) for first-time

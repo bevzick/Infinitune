@@ -31,6 +31,30 @@ Their public APIs do not grant Infinitune permission to download, copy, and
 redistribute full audio. Linking accounts or controlling playback in those
 platforms would be a separate integration.
 
+## Configuration summary
+
+| Provider | Enabled when | Required value | Default endpoints |
+| --- | --- | --- | --- |
+| Internet Archive | Always | No API key | `archive.org/metadata` and `archive.org/download` |
+| Jamendo | `MEDIA_JAMENDO_CLIENT_ID` is non-empty | Jamendo application client ID | `api.jamendo.com/v3.0` |
+
+Copy `.env.example` to `.env` before starting the stack. Internet Archive is
+available with the checked-in defaults. To add Jamendo, create an application
+at <https://developer.jamendo.com>, set its client ID, and recreate Media:
+
+```dotenv
+MEDIA_JAMENDO_CLIENT_ID=<client-id>
+```
+
+```bash
+make up
+```
+
+The API endpoint override variables are intended for controlled development,
+testing, or an approved compatible endpoint. Provider URLs must use HTTPS
+without embedded credentials, query strings, or fragments. Provider request
+timeouts must be positive durations no greater than one minute.
+
 ### Jamendo configuration
 
 Jamendo import is disabled unless `MEDIA_JAMENDO_CLIENT_ID` is set. Register an
@@ -137,3 +161,88 @@ GET /v1/media/sources/internet_archive/track?external_id=item-identifier%2Faudio
 Discovery responses contain the provider, external identifier, title, artist,
 stable public page, normalized license permissions, attribution, and bounded
 metadata. They never expose provider credentials or temporary download URLs.
+
+## Creator frontend workflow
+
+The React frontend exposes external import at `/creator/import` and as
+**Creator studio → Import music** in authenticated navigation. A user must be
+signed in and must already have permission to upload media for at least one
+track in a draft release. The page deliberately does not accept an arbitrary
+track UUID.
+
+The browser performs this sequence:
+
+1. load the configured provider list from Media;
+2. load the user's draft releases from Content and resolve their track lists;
+3. let the creator select one destination release track;
+4. search Jamendo by track name or inspect an Internet Archive item by its
+   exact identifier;
+5. show the provider page, normalized license, and attribution before import;
+6. submit the selected provider and `external_id` to Media.
+
+The import response means that Media accepted or reused the source asset. It
+does not mean the track is immediately playable. Media stores the original in
+private object storage and processes controlled playback variants
+asynchronously. Content receives the ready projection after processing.
+
+The import operation is idempotent for the same destination track and source.
+Repeating it returns the existing media asset. Attempting to replace that
+track with a different external source returns a conflict instead of silently
+changing provenance.
+
+### Prerequisites for later publication
+
+Importing audio does not bypass the publishing workflow. Before submitting a
+release, the creator still needs:
+
+- a verified creator account and access to the draft release;
+- completed media processing for every track;
+- current worldwide streaming and distribution rights;
+- the remaining required release metadata described in the
+  [content publishing guide](content-publishing.md).
+
+Provider metadata is evidence associated with the source, not a replacement
+for the creator's responsibility to verify that the selected license and
+their use of the recording are compatible.
+
+## Failure diagnosis
+
+| Symptom | Likely cause | Action |
+| --- | --- | --- |
+| Jamendo is absent from the provider selector | `MEDIA_JAMENDO_CLIENT_ID` is empty, or Media was not recreated after it changed | Set the client ID and recreate `media-service` |
+| Internet Archive returns no tracks | The query is not an exact item identifier, the item is not public audio, or it has no eligible original files | Open the item on Archive.org and use the identifier from its URL |
+| A provider result is omitted | Download permission, supported license metadata, format, or declared size did not pass validation | Select a different provider track or original file |
+| Discovery returns `503 discovery_unavailable` | Provider request timed out or the external service is unavailable | Retry later; do not repeatedly submit imports while discovery is failing |
+| Import returns `403 forbidden` | The user cannot upload media for the selected draft track | Check creator membership and release ownership |
+| Import returns `409 import_conflict` | The destination track already has different immutable provenance | Use the existing source or create a new draft track |
+| Import succeeds but playback is unavailable | FFmpeg processing has not produced ready variants yet | Wait for media processing and inspect Media worker logs if it does not complete |
+
+Media and provider failures are written to the centralized container log
+pipeline. In the local stack, inspect them in Grafana/Loki or use the commands
+from the [local operations runbook](local-operations.md). Credentials and
+temporary provider download URLs are not included in persisted provenance.
+
+## Verification
+
+Media provider, registry, and HTTP tests run with the Media module:
+
+```bash
+cd services/media-service
+go test ./...
+```
+
+Frontend unit tests cover API serialization and the import component. The
+Playwright smoke suite covers authentication, draft-track selection, provider
+discovery, and the final import request without contacting real providers:
+
+```bash
+cd frontend
+npm test
+npm run test:e2e
+```
+
+If Playwright browsers are not installed but Chromium is available locally:
+
+```bash
+PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium npm run test:e2e
+```
