@@ -93,6 +93,62 @@ test("creator discovers and imports licensed provider audio", async ({
   });
 });
 
+test("creator builds a release draft with its initial tracks", async ({
+  page,
+}) => {
+  const requests = await mockGateway(page);
+  await page.goto("/creator/releases");
+
+  await page.getByLabel("Email").fill("creator@example.com");
+  await page.getByLabel("Password").fill("correct-horse-battery-staple");
+  await page.getByRole("button", { name: "Sign in" }).click();
+
+  await expect(page).toHaveURL(/\/creator\/releases$/);
+  await expect(
+    page.getByRole("heading", { name: "Release drafts" }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "+ New release" }).click();
+  await page.getByLabel("Release title").fill("After Midnight");
+  await page.getByLabel("Release type").selectOption("album");
+  await page.getByLabel("Release date").fill("2026-12-01");
+  await page.getByLabel("Title", { exact: true }).fill("First Light");
+  await page.getByRole("button", { name: "+ Add track" }).click();
+  await page.getByLabel("Title", { exact: true }).nth(1).fill("Last Train");
+  await page.getByRole("button", { name: "Create draft" }).click();
+
+  await expect(page.getByRole("status")).toContainText(
+    "Draft “After Midnight” was created.",
+  );
+  const createRequest = requests.find(
+    (request) =>
+      new URL(request.url()).pathname === "/v1/releases" &&
+      request.method() === "POST",
+  );
+  expect(createRequest?.headers().authorization).toBe(
+    "Bearer e2e-access-token",
+  );
+  expect(createRequest?.postDataJSON()).toEqual({
+    creator_id: "00000000-0000-4000-8000-000000000503",
+    title: "After Midnight",
+    release_type: "album",
+    release_date: "2026-12-01",
+    tracks: [
+      {
+        title: "First Light",
+        track_number: 1,
+        disc_number: 1,
+        explicit: false,
+      },
+      {
+        title: "Last Train",
+        track_number: 2,
+        disc_number: 1,
+        explicit: false,
+      },
+    ],
+  });
+});
+
 test("administrator can open the protected administration workspace", async ({
   page,
 }) => {

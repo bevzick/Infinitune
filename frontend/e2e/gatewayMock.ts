@@ -53,6 +53,7 @@ export async function mockGateway(
   options: { roles?: string[] } = {},
 ) {
   const requests: Request[] = [];
+  let createdDraft: ReturnType<typeof draftRelease> | null = null;
   await page.route("http://localhost:8000/v1/**", async (route) => {
     const request = route.request();
     const url = new URL(request.url());
@@ -85,15 +86,56 @@ export async function mockGateway(
         updated_at: "2026-11-12T00:00:00Z",
       });
     }
+    if (url.pathname === "/v1/creators") {
+      return json(route, [
+        {
+          id: "00000000-0000-4000-8000-000000000503",
+          type: "artist",
+          display_name: "Luna Veil",
+          verification_status: "verified",
+          created_at: "2026-11-13T00:00:00Z",
+          updated_at: "2026-11-13T00:00:00Z",
+        },
+      ]);
+    }
     if (url.pathname === "/v1/media/sources/providers") {
       return json(route, {
         items: [{ id: "jamendo" }, { id: "internet_archive" }],
       });
     }
+    if (url.pathname === "/v1/releases" && request.method() === "POST") {
+      const input = request.postDataJSON() as {
+        creator_id: string;
+        title: string;
+        release_type: "single" | "ep" | "album" | "compilation";
+        release_date: string;
+        tracks: Array<{
+          title: string;
+          track_number: number;
+          disc_number: number;
+          explicit: boolean;
+        }>;
+      };
+      createdDraft = {
+        ...draftRelease(false),
+        id: "00000000-0000-4000-8000-000000000511",
+        creator_id: input.creator_id,
+        title: input.title,
+        release_type: input.release_type,
+        release_date: input.release_date,
+        tracks: input.tracks.map((item, index) => ({
+          id: `00000000-0000-4000-8000-${String(512 + index).padStart(12, "0")}`,
+          ...item,
+        })),
+      };
+      return json(route, createdDraft, 201);
+    }
     if (url.pathname === "/v1/releases") {
+      const items = [draftRelease(false)];
+      if (createdDraft) items.unshift({ ...createdDraft, tracks: [] });
       return json(route, {
-        items: [draftRelease(false)],
-        page: { limit: 50, offset: 0, total: 1 },
+        items,
+        page: { limit: 100, offset: 0, total: items.length },
       });
     }
     if (url.pathname === `/v1/releases/${releaseId}`) {
