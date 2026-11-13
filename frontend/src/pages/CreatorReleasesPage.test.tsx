@@ -1,0 +1,123 @@
+import { cleanup, render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+import { CreatorReleasesPage } from "./CreatorReleasesPage";
+
+const creatorApi = vi.hoisted(() => ({
+  listCreatorAccounts: vi.fn(),
+  listDraftReleases: vi.fn(),
+  createRelease: vi.fn(),
+  updateRelease: vi.fn(),
+}));
+
+vi.mock("../features/creator/creatorReleaseApi", () => creatorApi);
+vi.mock("../features/session/SessionContext", () => ({
+  useSession: () => ({ accessToken: "access-token" }),
+}));
+
+const release = {
+  id: "release-1",
+  creator_id: "creator-1",
+  title: "Signals",
+  release_type: "single",
+  release_date: "2026-11-13",
+  status: "draft",
+  cover_object_key: null,
+  tracks: [
+    {
+      id: "track-1",
+      title: "Night Signal",
+      track_number: 1,
+      disc_number: 1,
+      explicit: false,
+    },
+  ],
+  created_at: "2026-11-13T00:00:00Z",
+  updated_at: "2026-11-13T00:00:00Z",
+};
+
+describe("CreatorReleasesPage", () => {
+  beforeEach(() => {
+    creatorApi.listCreatorAccounts.mockResolvedValue([
+      {
+        id: "creator-1",
+        type: "artist",
+        display_name: "Luna Veil",
+        verification_status: "verified",
+      },
+    ]);
+    creatorApi.listDraftReleases.mockResolvedValue([release]);
+    creatorApi.createRelease.mockImplementation(
+      async (_token: string, input: Record<string, unknown>) => ({
+        ...release,
+        id: "release-2",
+        title: input.title,
+      }),
+    );
+    creatorApi.updateRelease.mockImplementation(
+      async (_token: string, _id: string, input: Record<string, unknown>) => ({
+        ...release,
+        title: input.title,
+      }),
+    );
+  });
+
+  afterEach(() => {
+    cleanup();
+    vi.clearAllMocks();
+  });
+
+  it("creates a release with its initial track", async () => {
+    const user = userEvent.setup();
+    render(<CreatorReleasesPage />);
+
+    await user.click(
+      await screen.findByRole("button", { name: "+ New release" }),
+    );
+    await user.type(screen.getByLabelText("Release title"), "New Signal");
+    await user.type(screen.getByLabelText("Title"), "Opening Track");
+    await user.click(screen.getByRole("button", { name: "Create draft" }));
+
+    expect(creatorApi.createRelease).toHaveBeenCalledWith("access-token", {
+      creator_id: "creator-1",
+      title: "New Signal",
+      release_type: "single",
+      release_date: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
+      tracks: [
+        {
+          title: "Opening Track",
+          track_number: 1,
+          disc_number: 1,
+          explicit: false,
+        },
+      ],
+    });
+    expect(await screen.findByRole("status")).toHaveTextContent(
+      "Draft “New Signal” was created.",
+    );
+  });
+
+  it("updates metadata while preserving track IDs", async () => {
+    const user = userEvent.setup();
+    render(<CreatorReleasesPage />);
+
+    await user.click(await screen.findByRole("button", { name: "Edit draft" }));
+    const title = screen.getByLabelText("Release title");
+    await user.clear(title);
+    await user.type(title, "Signals Remastered");
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+
+    expect(creatorApi.updateRelease).toHaveBeenCalledWith(
+      "access-token",
+      "release-1",
+      expect.objectContaining({
+        title: "Signals Remastered",
+        tracks: [expect.objectContaining({ id: "track-1" })],
+      }),
+    );
+    expect(await screen.findByRole("status")).toHaveTextContent(
+      "Draft “Signals Remastered” was updated.",
+    );
+  });
+});

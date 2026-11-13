@@ -1,0 +1,319 @@
+@use "mixins" as *;
+
+.creator-releases-page {
+  display: grid;
+  gap: 1.4rem;
+}
+
+.creator-releases-heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 1.5rem;
+
+  h1 {
+    margin: 0.25rem 0 0.4rem;
+    font-size: clamp(2rem, 4vw, 3.25rem);
+  }
+
+  p {
+    max-width: 42rem;
+    margin: 0;
+    color: var(--app-muted);
+  }
+
+  button {
+    min-height: 2.85rem;
+    padding: 0 1.15rem;
+    border: 0;
+    border-radius: 0.75rem;
+    color: white;
+    background: linear-gradient(135deg, #c66eff, var(--app-accent-strong));
+    cursor: pointer;
+    font-weight: 800;
+  }
+}
+
+.creator-release-list {
+  display: grid;
+  gap: 1rem;
+}
+
+.creator-release-card,
+.creator-release-editor,
+.creator-release-notice,
+.creator-release-state {
+  border: 1px solid var(--app-line);
+  border-radius: 1rem;
+  background: var(--app-panel);
+}
+
+.creator-release-card {
+  padding: 1rem;
+}
+
+.creator-release-card-heading {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 1rem;
+
+  h2 {
+    margin: 0.15rem 0;
+  }
+
+  p {
+    margin: 0;
+    color: var(--app-muted);
+  }
+
+  > button {
+    @include interactive-surface;
+    padding: 0.7rem 1rem;
+    border-radius: 0.7rem;
+    cursor: pointer;
+  }
+}
+
+.creator-release-cover {
+  width: 4.8rem;
+  height: 4.8rem;
+  display: grid;
+  place-items: center;
+  border-radius: 0.85rem;
+  color: rgba(255, 255, 255, 0.8);
+  background:
+    repeating-radial-gradient(
+      circle at 35% 65%,
+      transparent 0 0.6rem,
+      rgba(255, 255, 255, 0.28) 0.64rem 0.7rem
+    ),
+    linear-gradient(135deg, #315e9b, #8438df 70%, #d16ba6);
+  font-size: 1.8rem;
+}
+
+.creator-release-track-summary {
+  display: grid;
+  gap: 0.35rem;
+  margin: 1rem 0 0;
+  padding: 0;
+  list-style: none;
+
+  li {
+    display: grid;
+    grid-template-columns: 2.5rem minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 0.7rem;
+    padding: 0.55rem 0.7rem;
+    border-top: 1px solid var(--app-line);
+  }
+
+  span,
+  small {
+    color: var(--app-muted);
+  }
+}
+
+.creator-release-editor {
+  display: grid;
+  gap: 1.2rem;
+  margin-top: 1rem;
+  padding: clamp(1rem, 3vw, 1.6rem);
+
+  > header,
+  > footer,
+  .creator-track-editor-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+  }
+
+  h2,
+  h3,
+  p {
+    margin: 0;
+  }
+
+  .creator-release-secondary-action {
+    @include interactive-surface;
+    padding: 0.6rem 0.85rem;
+    border-radius: 0.65rem;
+    cursor: pointer;
+  }
+
+  > footer {
+    justify-content: flex-end;
+  }
+}
+
+.creator-release-primary-action {
+  min-height: 2.8rem;
+  padding: 0 1.2rem;
+  border: 0;
+  border-radius: 0.7rem;
+  color: white;
+  background: var(--app-accent-strong);
+  cursor: pointer;
+  font-weight: 800;
+}
+
+.creator-release-fields {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.8rem;
+}
+
+.creator-release-fields label,
+.creator-track-editor-row label {
+  display: grid;
+  gap: 0.4rem;
+  color: var(--app-muted);
+  font-size: 0.75rem;
+  font-weight: 750;
+
+  :where(input, select) {
+    min-width: 0;
+    min-height: 2.75rem;
+    padding: 0 0.75rem;
+    border: 1px solid var(--app-line);
+    border-radius: 0.65rem;
+    outline: none;
+    color: var(--app-text);
+    background: var(--app-input);
+  }
+}
+
+.creator-release-cover-field {
+  grid-column: span 2;
+}
+
+.creator-track-editor-heading p {
+  margin-top: 0.2rem;
+  color: var(--app-muted);
+  font-size: 0.8rem;
+}
+
+.creator-track-editor-list {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.creator-track-editor-row {
+  display: grid;
+  grid-template-columns: 2rem minmax(10rem, 1fr) 5rem 6rem auto auto;
+  align-items: end;
+  gap: 0.65rem;
+  padding: 0.75rem;
+  border: 1px solid var(--app-line);
+  border-radius: 0.75rem;
+  background: var(--app-bg-elevated);
+
+  > span {
+    align-self: center;
+    color: var(--app-muted);
+    text-align: center;
+  }
+
+  .creator-track-remove {
+    min-height: 2.75rem;
+    padding: 0 0.7rem;
+    border: 1px solid color-mix(in srgb, var(--app-danger) 32%, transparent);
+    border-radius: 0.65rem;
+    color: var(--app-danger);
+    background: transparent;
+    cursor: pointer;
+  }
+}
+
+.creator-track-explicit {
+  min-height: 2.75rem;
+  display: flex;
+  grid-auto-flow: column;
+  align-items: center;
+  gap: 0.45rem;
+
+  input {
+    min-height: auto;
+  }
+}
+
+.creator-release-error,
+.creator-release-success {
+  margin: 0;
+  padding: 0.85rem 1rem;
+  border-radius: 0.75rem;
+}
+
+.creator-release-error {
+  color: var(--app-danger);
+  background: color-mix(in srgb, var(--app-danger) 9%, transparent);
+}
+
+.creator-release-success {
+  background: color-mix(in srgb, #54d7a1 13%, var(--app-panel));
+}
+
+.creator-release-notice,
+.creator-release-state {
+  padding: 1.35rem;
+
+  p {
+    margin: 0.35rem 0 0;
+    color: var(--app-muted);
+  }
+}
+
+.creator-release-state {
+  min-height: 14rem;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 1rem;
+  text-align: center;
+}
+
+@media (max-width: 900px) {
+  .creator-release-fields {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .creator-track-editor-row {
+    grid-template-columns: 2rem minmax(0, 1fr) 5rem 6rem;
+
+    .creator-track-explicit,
+    .creator-track-remove {
+      grid-column: span 2;
+    }
+  }
+}
+
+@media (max-width: 600px) {
+  .creator-releases-heading,
+  .creator-release-card-heading {
+    align-items: stretch;
+  }
+
+  .creator-releases-heading {
+    flex-direction: column;
+  }
+
+  .creator-release-card-heading {
+    grid-template-columns: auto minmax(0, 1fr);
+
+    > button {
+      grid-column: 1 / -1;
+    }
+  }
+
+  .creator-release-fields,
+  .creator-track-editor-row {
+    grid-template-columns: 1fr;
+  }
+
+  .creator-release-cover-field,
+  .creator-track-editor-row .creator-track-explicit,
+  .creator-track-editor-row .creator-track-remove {
+    grid-column: auto;
+  }
+}

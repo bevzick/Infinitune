@@ -26,6 +26,7 @@ const catalogNavigation: NavigationItem[] = [
 ];
 
 const creatorNavigation: NavigationItem[] = [
+  { to: "/creator/releases", label: "Releases", icon: "album" },
   { to: "/creator/import", label: "Import music", icon: "album" },
 ];
 
@@ -191,6 +192,7 @@ export function pageTitle(pathname: string) {
   if (pathname.startsWith("/library/")) return "Playlist";
   if (pathname === "/profile") return "Profile";
   if (pathname === "/creator/import") return "Import music";
+  if (pathname === "/creator/releases") return "Release drafts";
   if (pathname === "/admin") return "Administration";
   return "Infinitune";
 }
