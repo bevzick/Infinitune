@@ -3,6 +3,10 @@
 The smoke suite starts Vite automatically and intercepts gateway requests in
 the browser, so a running backend is not required.
 
+The suite covers anonymous catalog browsing, authentication with protected
+navigation, library loading, and the creator workflow for discovering licensed
+provider audio and starting an external import for a draft release track.
+
 Install the Playwright browser once and run the suite:
 
 ```bash

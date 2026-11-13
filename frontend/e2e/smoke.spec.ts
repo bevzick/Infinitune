@@ -47,3 +47,48 @@ test("protected library redirects to login and resumes after authentication", as
     ),
   ).toBe(true);
 });
+
+test("creator discovers and imports licensed provider audio", async ({
+  page,
+}) => {
+  const requests = await mockGateway(page);
+  await page.goto("/creator/import");
+
+  await expect(
+    page.getByRole("heading", { name: "Welcome back" }),
+  ).toBeVisible();
+  await page.getByLabel("Email").fill("creator@example.com");
+  await page.getByLabel("Password").fill("correct-horse-battery-staple");
+  await page.getByRole("button", { name: "Sign in" }).click();
+
+  await expect(page).toHaveURL(/\/creator\/import$/);
+  await expect(
+    page.getByRole("heading", {
+      name: "Import music from a licensed source.",
+    }),
+  ).toBeVisible();
+  await expect(page.getByLabel("Draft release track")).toHaveValue(
+    "00000000-0000-4000-8000-000000000502",
+  );
+
+  await page.getByLabel("Track name").fill("night signal");
+  await page.getByRole("button", { name: "Search source" }).click();
+  await expect(page.getByText("CC BY 4.0")).toBeVisible();
+  await page.getByRole("button", { name: "Import track" }).click();
+
+  await expect(page.getByRole("status")).toContainText(
+    "is being imported for “Night Signal”",
+  );
+  const importRequest = requests.find(
+    (request) => new URL(request.url()).pathname === "/v1/media/imports",
+  );
+  expect(importRequest?.method()).toBe("POST");
+  expect(importRequest?.headers().authorization).toBe(
+    "Bearer e2e-access-token",
+  );
+  expect(importRequest?.postDataJSON()).toEqual({
+    content_track_id: "00000000-0000-4000-8000-000000000502",
+    provider: "jamendo",
+    external_id: "42",
+  });
+});

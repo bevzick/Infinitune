@@ -45,6 +45,9 @@ const artist = {
   updated_at: "2026-11-10T00:00:00Z",
 };
 
+const releaseId = "00000000-0000-4000-8000-000000000501";
+const releaseTrackId = "00000000-0000-4000-8000-000000000502";
+
 export async function mockGateway(page: Page) {
   const requests: Request[] = [];
   await page.route("http://localhost:8000/v1/**", async (route) => {
@@ -78,6 +81,55 @@ export async function mockGateway(page: Page) {
         created_at: "2026-11-12T00:00:00Z",
         updated_at: "2026-11-12T00:00:00Z",
       });
+    }
+    if (url.pathname === "/v1/media/sources/providers") {
+      return json(route, {
+        items: [{ id: "jamendo" }, { id: "internet_archive" }],
+      });
+    }
+    if (url.pathname === "/v1/releases") {
+      return json(route, {
+        items: [draftRelease(false)],
+        page: { limit: 50, offset: 0, total: 1 },
+      });
+    }
+    if (url.pathname === `/v1/releases/${releaseId}`) {
+      return json(route, draftRelease(true));
+    }
+    if (url.pathname === "/v1/media/sources/jamendo/tracks") {
+      return json(route, {
+        items: [
+          {
+            provider: "jamendo",
+            external_id: "42",
+            title: "Night Signal",
+            artist: "Luna Veil",
+            page_url: "https://www.jamendo.com/track/42",
+            license: {
+              name: "CC BY 4.0",
+              url: "https://creativecommons.org/licenses/by/4.0/",
+              attribution: "Luna Veil",
+              allows_streaming: true,
+              allows_redistribution: true,
+            },
+            metadata: { album_name: "After Dark" },
+          },
+        ],
+        limit: 20,
+        offset: 0,
+        total: 1,
+      });
+    }
+    if (url.pathname === "/v1/media/imports") {
+      return json(
+        route,
+        {
+          media_asset_id: "00000000-0000-4000-8000-000000000601",
+          content_track_id: releaseTrackId,
+          status: "uploaded",
+        },
+        201,
+      );
     }
     if (url.pathname === "/v1/playlists") {
       return json(route, {
@@ -148,9 +200,34 @@ function interactionPage() {
   return { limit: 100, offset: 0, total: 0 };
 }
 
-function json(route: Route, body: unknown) {
+function draftRelease(withTracks: boolean) {
+  return {
+    id: releaseId,
+    creator_id: "00000000-0000-4000-8000-000000000503",
+    title: "Signals",
+    release_type: "single",
+    release_date: "2026-11-13",
+    status: "draft",
+    cover_object_key: null,
+    tracks: withTracks
+      ? [
+          {
+            id: releaseTrackId,
+            title: "Night Signal",
+            track_number: 1,
+            disc_number: 1,
+            explicit: false,
+          },
+        ]
+      : [],
+    created_at: "2026-11-13T00:00:00Z",
+    updated_at: "2026-11-13T00:00:00Z",
+  };
+}
+
+function json(route: Route, body: unknown, status = 200) {
   return route.fulfill({
-    status: 200,
+    status,
     contentType: "application/json",
     body: JSON.stringify(body),
   });
