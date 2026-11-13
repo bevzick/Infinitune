@@ -30,6 +30,7 @@ export function AppLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const [logoutError, setLogoutError] = useState("");
+  const isAdmin = session.identity?.roles.includes("admin") ?? false;
   useDocumentTitle(pageTitle(location.pathname));
 
   async function signOut() {
@@ -68,6 +69,14 @@ export function AppLayout() {
           <span className="sidebar-label">Browse music</span>
           <Navigation items={catalogNavigation} />
         </div>
+        {isAdmin ? (
+          <div className="sidebar-section">
+            <span className="sidebar-label">Operations</span>
+            <Navigation
+              items={[{ to: "/admin", label: "Administration", icon: "admin" }]}
+            />
+          </div>
+        ) : null}
         <div className="sidebar-note">
           <span className="status-dot" aria-hidden="true" />
           <span>Music services online</span>
@@ -168,6 +177,7 @@ export function pageTitle(pathname: string) {
   if (pathname === "/library") return "Library";
   if (pathname.startsWith("/library/")) return "Playlist";
   if (pathname === "/profile") return "Profile";
+  if (pathname === "/admin") return "Administration";
   return "Infinitune";
 }
 

@@ -87,11 +87,47 @@ func TestReviewReleaseRejectsInvalidID(t *testing.T) {
 	}
 }
 
+func TestListReleaseModerationReviewsReturnsAuditPage(t *testing.T) {
+	now := time.Now().UTC()
+	service := &moderationStub{page: moderation.Page{
+		Items: []moderation.Review{{
+			ID: uuid.New(), ReleaseID: uuid.New(), ReviewerUserID: uuid.New(),
+			Decision: moderation.DecisionRejected, Comment: "copyright mismatch",
+			ReviewedSubmissionAt: now, ReleaseStatus: release.StatusRejected, CreatedAt: now,
+		}}, Limit: 10, Offset: 20, Total: 31,
+	}}
+	request := httptest.NewRequest(http.MethodGet,
+		"/v1/moderation/release-reviews?limit=10&offset=20", nil)
+	request.Header.Set("Authorization", "Bearer access-token")
+	response := httptest.NewRecorder()
+	NewRouter(Dependencies{
+		Database: databaseStub{}, Tokens: tokenStub{identity: identity.Identity{
+			UserID: uuid.New(), Roles: []string{creator.GlobalRoleAdmin},
+		}}, Moderation: service,
+	}).ServeHTTP(response, request)
+	if response.Code != http.StatusOK || service.pageRequest.Limit != 10 ||
+		service.pageRequest.Offset != 20 || !strings.Contains(response.Body.String(), `"total":31`) ||
+		!strings.Contains(response.Body.String(), `"comment":"copyright mismatch"`) {
+		t.Fatalf("status = %d, request = %+v, body = %s", response.Code, service.pageRequest, response.Body.String())
+	}
+}
+
 type moderationStub struct {
 	result moderation.Review
 	err    error
 	actor  creator.Actor
 	input  moderation.Input
+	page        moderation.Page
+	pageRequest moderation.PageRequest
+}
+
+func (stub *moderationStub) List(
+	_ context.Context,
+	actor creator.Actor,
+	page moderation.PageRequest,
+) (moderation.Page, error) {
+	stub.actor, stub.pageRequest = actor, page
+	return stub.page, stub.err
 }
 
 func (stub *moderationStub) Review(

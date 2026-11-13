@@ -152,3 +152,27 @@ services:
       - ./internal/repository/redis
     networks:
       - backend
+
+  auth-admin-bootstrap:
+    build:
+      context: ./services/auth-service
+      dockerfile: Dockerfile
+      target: source
+    profiles: ["tools"]
+    restart: "no"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-}
+      POSTGRES_HOST: ${POSTGRES_HOST:-postgres}
+      POSTGRES_PORT: ${POSTGRES_PORT:-5432}
+      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER is required}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_AUTH_DB: ${POSTGRES_AUTH_DB:-auth_db}
+    entrypoint:
+      - go
+      - run
+      - ./cmd/admin-bootstrap
+    networks:
+      - backend

@@ -67,6 +67,22 @@ The default host endpoints are:
 | Loki | <http://127.0.0.1:3100> | local log storage API |
 | Alloy | <http://127.0.0.1:12345> | log collector status and diagnostics |
 
+### Create the first administrator
+
+The application does not expose a public administrator bootstrap endpoint. Register a normal
+account through the frontend first, then promote that existing account with the operator-only
+Compose command:
+
+```bash
+make auth-bootstrap-admin ADMIN_EMAIL=admin@example.com
+```
+
+The command connects directly to the private Auth database network, accepts only an active
+registered account, and is idempotent. It never creates a password or changes account
+credentials. Sign out and back in after promotion because access tokens contain a snapshot of
+the user's roles. The **Administration** navigation item will then appear, and the panel is
+available at <http://127.0.0.1:8088/admin>.
+
 Only loopback addresses are published. Redis, Kafka, MinIO, and application
 service ports remain inside the Compose network.
 

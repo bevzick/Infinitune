@@ -1,7 +1,11 @@
 import { type ElementType, lazy, Suspense } from "react";
 import { createBrowserRouter } from "react-router-dom";
 
-import { GuestRoute, ProtectedRoute } from "../features/session/routeGuards";
+import {
+  AdminRoute,
+  GuestRoute,
+  ProtectedRoute,
+} from "../features/session/routeGuards";
 import { RouteLoading } from "../shared/ui/RouteLoading";
 import { AppLayout } from "./AppLayout";
 
@@ -40,6 +44,9 @@ const PlaylistPage = lazy(async () => ({
 }));
 const ProfilePage = lazy(async () => ({
   default: (await import("../pages/ProfilePage")).ProfilePage,
+}));
+const AdminPage = lazy(async () => ({
+  default: (await import("../pages/AdminPage")).AdminPage,
 }));
 const NotFoundPage = lazy(async () => ({
   default: (await import("../pages/NotFoundPage")).NotFoundPage,
@@ -84,6 +91,10 @@ export const router = createBrowserRouter([
           },
           { path: "profile", element: deferred(ProfilePage, "profile") },
         ],
+      },
+      {
+        element: <AdminRoute />,
+        children: [{ path: "admin", element: deferred(AdminPage, "admin") }],
       },
       { path: "*", element: deferred(NotFoundPage, "page") },
     ],

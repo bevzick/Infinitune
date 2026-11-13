@@ -134,6 +134,43 @@ func (repository *ModerationRepository) RecordReview(
 	return recorded, nil
 }
 
+func (repository *ModerationRepository) ListReviews(
+	ctx context.Context,
+	page moderation.PageRequest,
+) (moderation.Page, error) {
+	var total int64
+	if err := repository.database.QueryRow(ctx,
+		`SELECT count(*) FROM content.moderation_reviews`).Scan(&total); err != nil {
+		return moderation.Page{}, fmt.Errorf("count moderation reviews: %w", err)
+	}
+	rows, err := repository.database.Query(ctx, `
+		SELECT id, release_id, reviewer_user_id, decision,
+		       COALESCE(comment, ''), reviewed_submission_at, created_at
+		FROM content.moderation_reviews
+		ORDER BY created_at DESC, id DESC
+		LIMIT $1 OFFSET $2
+	`, page.Limit, page.Offset)
+	if err != nil {
+		return moderation.Page{}, fmt.Errorf("query moderation reviews: %w", err)
+	}
+	defer rows.Close()
+	items := make([]moderation.Review, 0, page.Limit)
+	for rows.Next() {
+		item, scanErr := scanModerationReview(rows)
+		if scanErr != nil {
+			return moderation.Page{}, fmt.Errorf("scan moderation review: %w", scanErr)
+		}
+		item.ReleaseStatus = statusForDecision(item.Decision)
+		items = append(items, item)
+	}
+	if err = rows.Err(); err != nil {
+		return moderation.Page{}, fmt.Errorf("iterate moderation reviews: %w", err)
+	}
+	return moderation.Page{
+		Items: items, Limit: page.Limit, Offset: page.Offset, Total: total,
+	}, nil
+}
+
 func scanModerationReview(row pgx.Row) (moderation.Review, error) {
 	var result moderation.Review
 	var decision string

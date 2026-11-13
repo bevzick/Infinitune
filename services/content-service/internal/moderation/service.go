@@ -13,8 +13,14 @@ import (
 
 const maximumCommentLength = 2000
 
+const (
+	defaultPageLimit = 50
+	maximumPageLimit = 100
+)
+
 type Store interface {
 	RecordReview(context.Context, Review) (Review, error)
+	ListReviews(context.Context, PageRequest) (Page, error)
 }
 
 type Service struct {
@@ -42,6 +48,27 @@ func (service *Service) Review(
 	})
 	if err != nil {
 		return Review{}, fmt.Errorf("record moderation review: %w", err)
+	}
+	return result, nil
+}
+
+func (service *Service) List(
+	ctx context.Context,
+	actor creator.Actor,
+	page PageRequest,
+) (Page, error) {
+	if actor.UserID == uuid.Nil || !isModerator(actor.Roles) {
+		return Page{}, ErrForbidden
+	}
+	if page.Limit == 0 {
+		page.Limit = defaultPageLimit
+	}
+	if page.Limit < 1 || page.Limit > maximumPageLimit || page.Offset < 0 {
+		return Page{}, validationError("pagination", "limit or offset is invalid")
+	}
+	result, err := service.store.ListReviews(ctx, page)
+	if err != nil {
+		return Page{}, fmt.Errorf("list moderation reviews: %w", err)
 	}
 	return result, nil
 }

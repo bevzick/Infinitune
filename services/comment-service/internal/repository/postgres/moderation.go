@@ -128,6 +128,47 @@ func (repository *CommentRepository) ApplyModerationAction(
 	return decision, nil
 }
 
+func (repository *CommentRepository) ListModerationActions(
+	ctx context.Context,
+	page moderation.ActionPageRequest,
+) (moderation.ActionPage, error) {
+	var total int64
+	if err := repository.database.QueryRow(ctx,
+		`SELECT count(*) FROM comment.report_moderation_actions`).Scan(&total); err != nil {
+		return moderation.ActionPage{}, fmt.Errorf("count comment moderation actions: %w", err)
+	}
+	rows, err := repository.database.Query(ctx, `
+		SELECT id, report_id, moderator_user_id, action, note,
+		       previous_report_status, resulting_report_status,
+		       previous_comment_status, resulting_comment_status, created_at
+		FROM comment.report_moderation_actions
+		ORDER BY created_at DESC, id DESC
+		LIMIT $1 OFFSET $2
+	`, page.Limit, page.Offset)
+	if err != nil {
+		return moderation.ActionPage{}, fmt.Errorf("query comment moderation actions: %w", err)
+	}
+	defer rows.Close()
+	items := make([]moderation.Decision, 0, page.Limit)
+	for rows.Next() {
+		var item moderation.Decision
+		if err = rows.Scan(
+			&item.ID, &item.ReportID, &item.ModeratorUserID, &item.Action, &item.Note,
+			&item.PreviousReportStatus, &item.ResultingReportStatus,
+			&item.PreviousCommentStatus, &item.ResultingCommentStatus, &item.CreatedAt,
+		); err != nil {
+			return moderation.ActionPage{}, fmt.Errorf("scan comment moderation action: %w", err)
+		}
+		items = append(items, item)
+	}
+	if err = rows.Err(); err != nil {
+		return moderation.ActionPage{}, fmt.Errorf("iterate comment moderation actions: %w", err)
+	}
+	return moderation.ActionPage{
+		Items: items, Limit: page.Limit, Offset: page.Offset, Total: total,
+	}, nil
+}
+
 func moderationTransition(
 	action moderation.Action,
 	reportStatus comment.ReportStatus,

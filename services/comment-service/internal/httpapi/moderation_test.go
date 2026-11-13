@@ -75,12 +75,49 @@ func TestModerationErrorsAreMapped(t *testing.T) {
 	}
 }
 
+func TestListModerationActionsReturnsAuditPage(t *testing.T) {
+	service := &moderationStub{actionResult: moderation.ActionPage{
+		Items: []moderation.Decision{{
+			ID: uuid.New(), ReportID: uuid.New(), ModeratorUserID: uuid.New(),
+			Action: moderation.ActionHideComment, Note: "Policy violation", CreatedAt: time.Now(),
+		}}, Limit: 10, Offset: 20, Total: 21,
+	}}
+	router := NewRouter(Dependencies{
+		Database: databaseStub{},
+		Tokens: tokenStub{identity: identity.Identity{
+			UserID: uuid.New(), Roles: []string{"admin"},
+		}},
+		Moderation: service,
+	})
+	request := httptest.NewRequest(http.MethodGet,
+		"/v1/moderation/comment-actions?limit=10&offset=20", nil)
+	request.Header.Set("Authorization", "Bearer token")
+	response := httptest.NewRecorder()
+	router.ServeHTTP(response, request)
+	if response.Code != http.StatusOK || service.actionPage.Limit != 10 ||
+		service.actionPage.Offset != 20 || !strings.Contains(response.Body.String(), `"total":21`) ||
+		!strings.Contains(response.Body.String(), `"note":"Policy violation"`) {
+		t.Fatalf("status = %d; request = %+v; body = %s", response.Code, service.actionPage, response.Body.String())
+	}
+}
+
 type moderationStub struct {
 	actor      moderation.Actor
 	input      moderation.Input
 	page       moderation.PageRequest
 	pageResult moderation.Page
 	err        error
+	actionPage   moderation.ActionPageRequest
+	actionResult moderation.ActionPage
+}
+
+func (stub *moderationStub) ListActions(
+	_ context.Context,
+	actor moderation.Actor,
+	page moderation.ActionPageRequest,
+) (moderation.ActionPage, error) {
+	stub.actor, stub.actionPage = actor, page
+	return stub.actionResult, stub.err
 }
 
 func (stub *moderationStub) List(_ context.Context, actor moderation.Actor, page moderation.PageRequest) (moderation.Page, error) {
