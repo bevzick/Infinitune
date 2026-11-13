@@ -6,10 +6,12 @@ import {
   type CommentReport,
   type CreatorReviewItem,
   listCommentReports,
-  listPendingCreators,
-  listPendingReleases,
+  listCreatorsForModeration,
+  listReleasesForModeration,
   listUsers,
   moderateCommentReport,
+  type Page,
+  type PageMetadata,
   type ReleaseReviewItem,
   removeUserRole,
   reviewCreator,
@@ -21,14 +23,34 @@ import { ApiError } from "../shared/api/client";
 
 type Section = "users" | "content" | "reports";
 type LoadState = "loading" | "ready" | "error";
+type UserStatus = AdminUser["status"] | "all";
+type CreatorStatus = CreatorReviewItem["verification_status"];
+type ReleaseStatus =
+  | "pending_review"
+  | "approved"
+  | "changes_requested"
+  | "rejected"
+  | "published";
+type ReportStatus = CommentReport["report"]["status"];
+
+const pageSize = 10;
 
 export function AdminPage() {
   const { accessToken, identity } = useSession();
   const [section, setSection] = useState<Section>("users");
-  const [users, setUsers] = useState<AdminUser[]>([]);
-  const [creators, setCreators] = useState<CreatorReviewItem[]>([]);
-  const [releases, setReleases] = useState<ReleaseReviewItem[]>([]);
-  const [reports, setReports] = useState<CommentReport[]>([]);
+  const [users, setUsers] = useState<Page<AdminUser>>(emptyPage);
+  const [creators, setCreators] = useState<Page<CreatorReviewItem>>(emptyPage);
+  const [releases, setReleases] = useState<Page<ReleaseReviewItem>>(emptyPage);
+  const [reports, setReports] = useState<Page<CommentReport>>(emptyPage);
+  const [userStatus, setUserStatus] = useState<UserStatus>("all");
+  const [userOffset, setUserOffset] = useState(0);
+  const [creatorStatus, setCreatorStatus] = useState<CreatorStatus>("pending");
+  const [creatorOffset, setCreatorOffset] = useState(0);
+  const [releaseStatus, setReleaseStatus] =
+    useState<ReleaseStatus>("pending_review");
+  const [releaseOffset, setReleaseOffset] = useState(0);
+  const [reportStatus, setReportStatus] = useState<ReportStatus>("pending");
+  const [reportOffset, setReportOffset] = useState(0);
   const [state, setState] = useState<LoadState>("loading");
   const [error, setError] = useState("");
   const [busyId, setBusyId] = useState("");
@@ -41,15 +63,43 @@ export function AdminPage() {
       try {
         const [userPage, creatorPage, releasePage, reportPage] =
           await Promise.all([
-            listUsers(accessToken, "all", signal),
-            listPendingCreators(accessToken, signal),
-            listPendingReleases(accessToken, signal),
-            listCommentReports(accessToken, "pending", signal),
+            listUsers(
+              accessToken,
+              { status: userStatus, limit: pageSize, offset: userOffset },
+              signal,
+            ),
+            listCreatorsForModeration(
+              accessToken,
+              {
+                status: creatorStatus,
+                limit: pageSize,
+                offset: creatorOffset,
+              },
+              signal,
+            ),
+            listReleasesForModeration(
+              accessToken,
+              {
+                status: releaseStatus,
+                limit: pageSize,
+                offset: releaseOffset,
+              },
+              signal,
+            ),
+            listCommentReports(
+              accessToken,
+              {
+                status: reportStatus,
+                limit: pageSize,
+                offset: reportOffset,
+              },
+              signal,
+            ),
           ]);
-        setUsers(userPage.items);
-        setCreators(creatorPage.items);
-        setReleases(releasePage.items);
-        setReports(reportPage.items);
+        setUsers(userPage);
+        setCreators(creatorPage);
+        setReleases(releasePage);
+        setReports(reportPage);
         setState("ready");
       } catch (reason) {
         if (signal?.aborted) return;
@@ -57,7 +107,17 @@ export function AdminPage() {
         setState("error");
       }
     },
-    [accessToken],
+    [
+      accessToken,
+      creatorOffset,
+      creatorStatus,
+      releaseOffset,
+      releaseStatus,
+      reportOffset,
+      reportStatus,
+      userOffset,
+      userStatus,
+    ],
   );
 
   useEffect(() => {
@@ -81,9 +141,9 @@ export function AdminPage() {
 
   const counts = useMemo(
     () => ({
-      users: users.length,
-      content: creators.length + releases.length,
-      reports: reports.length,
+      users: users.page.total,
+      content: creators.page.total + releases.page.total,
+      reports: reports.page.total,
     }),
     [users, creators, releases, reports],
   );
@@ -106,9 +166,9 @@ export function AdminPage() {
       </header>
 
       <section className="admin-summary" aria-label="Administration summary">
-        <SummaryCard label="Users loaded" value={counts.users} />
-        <SummaryCard label="Content awaiting review" value={counts.content} />
-        <SummaryCard label="Open reports" value={counts.reports} />
+        <SummaryCard label="Users in selected status" value={counts.users} />
+        <SummaryCard label="Content results" value={counts.content} />
+        <SummaryCard label="Report results" value={counts.reports} />
       </section>
 
       <nav className="admin-tabs" aria-label="Administration sections">
@@ -149,7 +209,13 @@ export function AdminPage() {
         <div className="admin-workspace">
           {section === "users" ? (
             <UsersSection
-              users={users}
+              page={users}
+              status={userStatus}
+              onStatusChange={(next) => {
+                setUserStatus(next);
+                setUserOffset(0);
+              }}
+              onPageChange={setUserOffset}
               currentUserId={identity?.userId || ""}
               busyId={busyId}
               mutate={mutate}
@@ -159,7 +225,19 @@ export function AdminPage() {
           {section === "content" ? (
             <ContentSection
               creators={creators}
+              creatorStatus={creatorStatus}
+              onCreatorStatusChange={(next) => {
+                setCreatorStatus(next);
+                setCreatorOffset(0);
+              }}
+              onCreatorPageChange={setCreatorOffset}
               releases={releases}
+              releaseStatus={releaseStatus}
+              onReleaseStatusChange={(next) => {
+                setReleaseStatus(next);
+                setReleaseOffset(0);
+              }}
+              onReleasePageChange={setReleaseOffset}
               busyId={busyId}
               mutate={mutate}
               accessToken={accessToken || ""}
@@ -167,7 +245,13 @@ export function AdminPage() {
           ) : null}
           {section === "reports" ? (
             <ReportsSection
-              reports={reports}
+              page={reports}
+              status={reportStatus}
+              onStatusChange={(next) => {
+                setReportStatus(next);
+                setReportOffset(0);
+              }}
+              onPageChange={setReportOffset}
               busyId={busyId}
               mutate={mutate}
               accessToken={accessToken || ""}
@@ -215,27 +299,31 @@ function AdminTab({
 type Mutation = (id: string, action: () => Promise<unknown>) => Promise<void>;
 
 function UsersSection({
-  users,
+  page,
+  status,
+  onStatusChange,
+  onPageChange,
   currentUserId,
   busyId,
   mutate,
   accessToken,
 }: {
-  users: AdminUser[];
+  page: Page<AdminUser>;
+  status: UserStatus;
+  onStatusChange(status: UserStatus): void;
+  onPageChange(offset: number): void;
   currentUserId: string;
   busyId: string;
   mutate: Mutation;
   accessToken: string;
 }) {
   const [query, setQuery] = useState("");
-  const [status, setStatus] = useState<AdminUser["status"] | "all">("all");
   const normalized = query.trim().toLowerCase();
-  const visible = users.filter(
+  const visible = page.items.filter(
     (user) =>
-      (status === "all" || user.status === status) &&
-      (!normalized ||
-        user.email.toLowerCase().includes(normalized) ||
-        user.id.toLowerCase().includes(normalized)),
+      !normalized ||
+      user.email.toLowerCase().includes(normalized) ||
+      user.id.toLowerCase().includes(normalized),
   );
 
   return (
@@ -260,7 +348,7 @@ function UsersSection({
             <select
               value={status}
               onChange={(event) =>
-                setStatus(event.target.value as AdminUser["status"] | "all")
+                onStatusChange(event.target.value as UserStatus)
               }
             >
               <option value="all">All statuses</option>
@@ -363,19 +451,32 @@ function UsersSection({
       ) : (
         <AdminEmpty message="No users match the selected filters." />
       )}
+      <Pagination page={page.page} label="users" onPageChange={onPageChange} />
     </section>
   );
 }
 
 function ContentSection({
   creators,
+  creatorStatus,
+  onCreatorStatusChange,
+  onCreatorPageChange,
   releases,
+  releaseStatus,
+  onReleaseStatusChange,
+  onReleasePageChange,
   busyId,
   mutate,
   accessToken,
 }: {
-  creators: CreatorReviewItem[];
-  releases: ReleaseReviewItem[];
+  creators: Page<CreatorReviewItem>;
+  creatorStatus: CreatorStatus;
+  onCreatorStatusChange(status: CreatorStatus): void;
+  onCreatorPageChange(offset: number): void;
+  releases: Page<ReleaseReviewItem>;
+  releaseStatus: ReleaseStatus;
+  onReleaseStatusChange(status: ReleaseStatus): void;
+  onReleasePageChange(offset: number): void;
   busyId: string;
   mutate: Mutation;
   accessToken: string;
@@ -393,10 +494,24 @@ function ContentSection({
         <div className="admin-review-panel">
           <header>
             <h3>Creator verification</h3>
-            <span>{creators.length}</span>
+            <label className="admin-history-filter">
+              <span className="visually-hidden">
+                Creator verification status
+              </span>
+              <select
+                value={creatorStatus}
+                onChange={(event) =>
+                  onCreatorStatusChange(event.target.value as CreatorStatus)
+                }
+              >
+                <option value="pending">Pending</option>
+                <option value="verified">Verified</option>
+                <option value="rejected">Rejected</option>
+              </select>
+            </label>
           </header>
-          {creators.length ? (
-            creators.map((creator) => (
+          {creators.items.length ? (
+            creators.items.map((creator) => (
               <article className="admin-review-item" key={creator.id}>
                 <div>
                   <strong>{creator.display_name}</strong>
@@ -405,44 +520,69 @@ function ContentSection({
                   </small>
                   <code>{creator.id}</code>
                 </div>
-                <div className="admin-inline-actions">
-                  <button
-                    type="button"
-                    disabled={busyId === creator.id}
-                    onClick={() =>
-                      void mutate(creator.id, () =>
-                        reviewCreator(accessToken, creator.id, "verified"),
-                      )
-                    }
-                  >
-                    Verify
-                  </button>
-                  <button
-                    className="admin-action-danger"
-                    type="button"
-                    disabled={busyId === creator.id}
-                    onClick={() =>
-                      void mutate(creator.id, () =>
-                        reviewCreator(accessToken, creator.id, "rejected"),
-                      )
-                    }
-                  >
-                    Reject
-                  </button>
-                </div>
+                {creator.verification_status === "pending" ? (
+                  <div className="admin-inline-actions">
+                    <button
+                      type="button"
+                      disabled={busyId === creator.id}
+                      onClick={() =>
+                        void mutate(creator.id, () =>
+                          reviewCreator(accessToken, creator.id, "verified"),
+                        )
+                      }
+                    >
+                      Verify
+                    </button>
+                    <button
+                      className="admin-action-danger"
+                      type="button"
+                      disabled={busyId === creator.id}
+                      onClick={() =>
+                        void mutate(creator.id, () =>
+                          reviewCreator(accessToken, creator.id, "rejected"),
+                        )
+                      }
+                    >
+                      Reject
+                    </button>
+                  </div>
+                ) : (
+                  <StatusBadge value={creator.verification_status} />
+                )}
               </article>
             ))
           ) : (
-            <AdminEmpty message="No creators are awaiting verification." />
+            <AdminEmpty
+              message={`No ${humanize(creatorStatus)} creators found.`}
+            />
           )}
+          <Pagination
+            page={creators.page}
+            label="creators"
+            onPageChange={onCreatorPageChange}
+          />
         </div>
         <div className="admin-review-panel">
           <header>
             <h3>Release moderation</h3>
-            <span>{releases.length}</span>
+            <label className="admin-history-filter">
+              <span className="visually-hidden">Release moderation status</span>
+              <select
+                value={releaseStatus}
+                onChange={(event) =>
+                  onReleaseStatusChange(event.target.value as ReleaseStatus)
+                }
+              >
+                <option value="pending_review">Pending review</option>
+                <option value="approved">Approved</option>
+                <option value="changes_requested">Changes requested</option>
+                <option value="rejected">Rejected</option>
+                <option value="published">Published</option>
+              </select>
+            </label>
           </header>
-          {releases.length ? (
-            releases.map((release) => (
+          {releases.items.length ? (
+            releases.items.map((release) => (
               <article
                 className="admin-review-item admin-release-review"
                 key={release.id}
@@ -455,77 +595,90 @@ function ContentSection({
                   </small>
                   <code>{release.id}</code>
                 </div>
-                <label>
-                  <span className="visually-hidden">
-                    Review note for {release.title}
-                  </span>
-                  <textarea
-                    value={notes[release.id] || ""}
-                    onChange={(event) =>
-                      setNotes((current) => ({
-                        ...current,
-                        [release.id]: event.target.value,
-                      }))
-                    }
-                    maxLength={1000}
-                    placeholder="Review note (required for rejection or changes)"
-                  />
-                </label>
-                <div className="admin-inline-actions">
-                  <button
-                    type="button"
-                    disabled={busyId === release.id}
-                    onClick={() =>
-                      void mutate(release.id, () =>
-                        reviewRelease(accessToken, release.id, "approved"),
-                      )
-                    }
-                  >
-                    Approve
-                  </button>
-                  <button
-                    type="button"
-                    disabled={
-                      busyId === release.id || !notes[release.id]?.trim()
-                    }
-                    onClick={() =>
-                      void mutate(release.id, () =>
-                        reviewRelease(
-                          accessToken,
-                          release.id,
-                          "changes_requested",
-                          notes[release.id].trim(),
-                        ),
-                      )
-                    }
-                  >
-                    Request changes
-                  </button>
-                  <button
-                    className="admin-action-danger"
-                    type="button"
-                    disabled={
-                      busyId === release.id || !notes[release.id]?.trim()
-                    }
-                    onClick={() =>
-                      void mutate(release.id, () =>
-                        reviewRelease(
-                          accessToken,
-                          release.id,
-                          "rejected",
-                          notes[release.id].trim(),
-                        ),
-                      )
-                    }
-                  >
-                    Reject
-                  </button>
-                </div>
+                {release.status === "pending_review" ? (
+                  <>
+                    <label>
+                      <span className="visually-hidden">
+                        Review note for {release.title}
+                      </span>
+                      <textarea
+                        value={notes[release.id] || ""}
+                        onChange={(event) =>
+                          setNotes((current) => ({
+                            ...current,
+                            [release.id]: event.target.value,
+                          }))
+                        }
+                        maxLength={1000}
+                        placeholder="Review note (required for rejection or changes)"
+                      />
+                    </label>
+                    <div className="admin-inline-actions">
+                      <button
+                        type="button"
+                        disabled={busyId === release.id}
+                        onClick={() =>
+                          void mutate(release.id, () =>
+                            reviewRelease(accessToken, release.id, "approved"),
+                          )
+                        }
+                      >
+                        Approve
+                      </button>
+                      <button
+                        type="button"
+                        disabled={
+                          busyId === release.id || !notes[release.id]?.trim()
+                        }
+                        onClick={() =>
+                          void mutate(release.id, () =>
+                            reviewRelease(
+                              accessToken,
+                              release.id,
+                              "changes_requested",
+                              notes[release.id].trim(),
+                            ),
+                          )
+                        }
+                      >
+                        Request changes
+                      </button>
+                      <button
+                        className="admin-action-danger"
+                        type="button"
+                        disabled={
+                          busyId === release.id || !notes[release.id]?.trim()
+                        }
+                        onClick={() =>
+                          void mutate(release.id, () =>
+                            reviewRelease(
+                              accessToken,
+                              release.id,
+                              "rejected",
+                              notes[release.id].trim(),
+                            ),
+                          )
+                        }
+                      >
+                        Reject
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <StatusBadge value={release.status} />
+                )}
               </article>
             ))
           ) : (
-            <AdminEmpty message="No releases are awaiting moderation." />
+            <AdminEmpty
+              message={`No ${humanize(releaseStatus)} releases found.`}
+            />
           )}
+          <Pagination
+            page={releases.page}
+            label="releases"
+            onPageChange={onReleasePageChange}
+          />
         </div>
       </div>
     </section>
@@ -533,12 +686,18 @@ function ContentSection({
 }
 
 function ReportsSection({
-  reports,
+  page,
+  status,
+  onStatusChange,
+  onPageChange,
   busyId,
   mutate,
   accessToken,
 }: {
-  reports: CommentReport[];
+  page: Page<CommentReport>;
+  status: ReportStatus;
+  onStatusChange(status: ReportStatus): void;
+  onPageChange(offset: number): void;
   busyId: string;
   mutate: Mutation;
   accessToken: string;
@@ -549,93 +708,153 @@ function ReportsSection({
       <div className="admin-section-heading">
         <div>
           <span className="eyebrow">Community safety</span>
-          <h2 id="admin-reports-title">Pending comment reports</h2>
+          <h2 id="admin-reports-title">Comment report history</h2>
         </div>
+        <label className="admin-history-filter">
+          <span className="visually-hidden">Comment report status</span>
+          <select
+            value={status}
+            onChange={(event) =>
+              onStatusChange(event.target.value as ReportStatus)
+            }
+          >
+            <option value="pending">Pending</option>
+            <option value="reviewing">Reviewing</option>
+            <option value="resolved">Resolved</option>
+            <option value="rejected">Rejected</option>
+          </select>
+        </label>
       </div>
-      {reports.length ? (
+      {page.items.length ? (
         <div className="admin-report-list">
-          {reports.map(({ report, comment }) => (
+          {page.items.map(({ report, comment }) => (
             <article className="admin-report-card" key={report.id}>
               <div className="admin-report-meta">
                 <span className="admin-reason">{humanize(report.reason)}</span>
-                <small>{formatDate(report.created_at)}</small>
+                <span>
+                  <StatusBadge value={report.status} />
+                  <small>{formatDate(report.created_at)}</small>
+                </span>
               </div>
               <blockquote>{comment.content}</blockquote>
               {report.description ? <p>{report.description}</p> : null}
               <small>Comment author: {comment.user_id}</small>
-              <label>
-                <span className="visually-hidden">
-                  Moderation note for report {report.id}
-                </span>
-                <textarea
-                  value={notes[report.id] || ""}
-                  onChange={(event) =>
-                    setNotes((current) => ({
-                      ...current,
-                      [report.id]: event.target.value,
-                    }))
-                  }
-                  maxLength={2000}
-                  placeholder="Required moderation note"
-                />
-              </label>
-              <div className="admin-inline-actions">
-                <button
-                  type="button"
-                  disabled={busyId === report.id || !notes[report.id]?.trim()}
-                  onClick={() =>
-                    void mutate(report.id, () =>
-                      moderateCommentReport(
-                        accessToken,
-                        report.id,
-                        "start_review",
-                        notes[report.id].trim(),
-                      ),
-                    )
-                  }
-                >
-                  Start review
-                </button>
-                <button
-                  className="admin-action-danger"
-                  type="button"
-                  disabled={busyId === report.id || !notes[report.id]?.trim()}
-                  onClick={() =>
-                    void mutate(report.id, () =>
-                      moderateCommentReport(
-                        accessToken,
-                        report.id,
-                        "hide_comment",
-                        notes[report.id].trim(),
-                      ),
-                    )
-                  }
-                >
-                  Hide comment
-                </button>
-                <button
-                  type="button"
-                  disabled={busyId === report.id || !notes[report.id]?.trim()}
-                  onClick={() =>
-                    void mutate(report.id, () =>
-                      moderateCommentReport(
-                        accessToken,
-                        report.id,
-                        "reject_report",
-                        notes[report.id].trim(),
-                      ),
-                    )
-                  }
-                >
-                  Reject report
-                </button>
-              </div>
+              {report.status === "pending" || report.status === "reviewing" ? (
+                <>
+                  <label>
+                    <span className="visually-hidden">
+                      Moderation note for report {report.id}
+                    </span>
+                    <textarea
+                      value={notes[report.id] || ""}
+                      onChange={(event) =>
+                        setNotes((current) => ({
+                          ...current,
+                          [report.id]: event.target.value,
+                        }))
+                      }
+                      maxLength={2000}
+                      placeholder="Required moderation note"
+                    />
+                  </label>
+                  <div className="admin-inline-actions">
+                    {report.status === "pending" ? (
+                      <button
+                        type="button"
+                        disabled={
+                          busyId === report.id || !notes[report.id]?.trim()
+                        }
+                        onClick={() =>
+                          void mutate(report.id, () =>
+                            moderateCommentReport(
+                              accessToken,
+                              report.id,
+                              "start_review",
+                              notes[report.id].trim(),
+                            ),
+                          )
+                        }
+                      >
+                        Start review
+                      </button>
+                    ) : null}
+                    <button
+                      className="admin-action-danger"
+                      type="button"
+                      disabled={
+                        busyId === report.id || !notes[report.id]?.trim()
+                      }
+                      onClick={() =>
+                        void mutate(report.id, () =>
+                          moderateCommentReport(
+                            accessToken,
+                            report.id,
+                            comment.status === "hidden"
+                              ? "restore_comment"
+                              : "hide_comment",
+                            notes[report.id].trim(),
+                          ),
+                        )
+                      }
+                    >
+                      {comment.status === "hidden"
+                        ? "Restore comment"
+                        : "Hide comment"}
+                    </button>
+                    {report.status === "reviewing" ? (
+                      <button
+                        type="button"
+                        disabled={
+                          busyId === report.id || !notes[report.id]?.trim()
+                        }
+                        onClick={() =>
+                          void mutate(report.id, () =>
+                            moderateCommentReport(
+                              accessToken,
+                              report.id,
+                              "resolve_report",
+                              notes[report.id].trim(),
+                            ),
+                          )
+                        }
+                      >
+                        Resolve
+                      </button>
+                    ) : null}
+                    <button
+                      type="button"
+                      disabled={
+                        busyId === report.id || !notes[report.id]?.trim()
+                      }
+                      onClick={() =>
+                        void mutate(report.id, () =>
+                          moderateCommentReport(
+                            accessToken,
+                            report.id,
+                            "reject_report",
+                            notes[report.id].trim(),
+                          ),
+                        )
+                      }
+                    >
+                      Reject report
+                    </button>
+                  </div>
+                </>
+              ) : null}
             </article>
           ))}
         </div>
       ) : (
-        <AdminEmpty message="There are no pending comment reports." />
+        <AdminEmpty
+          message={`There are no ${humanize(status)} comment reports.`}
+        />
       )}
+      <Pagination
+        page={page.page}
+        label="comment reports"
+        onPageChange={onPageChange}
+      />
     </section>
   );
 }
@@ -646,6 +865,51 @@ function AdminLoading() {
       <span className="loading-pulse" aria-hidden="true" />
       Loading administration workspace…
     </div>
+  );
+}
+
+function StatusBadge({ value }: { value: string }) {
+  return (
+    <span className={`admin-status admin-status-${value}`}>
+      {humanize(value)}
+    </span>
+  );
+}
+
+function Pagination({
+  page,
+  label,
+  onPageChange,
+}: {
+  page: PageMetadata;
+  label: string;
+  onPageChange(offset: number): void;
+}) {
+  if (page.total <= page.limit || page.limit < 1) return null;
+  const start = page.offset + 1;
+  const end = Math.min(page.offset + page.limit, page.total);
+  return (
+    <nav className="admin-pagination" aria-label={`${label} pagination`}>
+      <span>
+        {start}–{end} of {page.total}
+      </span>
+      <div>
+        <button
+          type="button"
+          disabled={page.offset === 0}
+          onClick={() => onPageChange(Math.max(0, page.offset - page.limit))}
+        >
+          Previous
+        </button>
+        <button
+          type="button"
+          disabled={page.offset + page.limit >= page.total}
+          onClick={() => onPageChange(page.offset + page.limit)}
+        >
+          Next
+        </button>
+      </div>
+    </nav>
   );
 }
 
@@ -667,4 +931,11 @@ function formatDate(value: string) {
     month: "short",
     day: "numeric",
   }).format(new Date(value));
+}
+
+function emptyPage<T>(): Page<T> {
+  return {
+    items: [],
+    page: { limit: pageSize, offset: 0, total: 0 },
+  };
 }

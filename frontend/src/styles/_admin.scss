@@ -239,15 +239,37 @@
   letter-spacing: 0.05em;
 }
 
+.admin-status {
+  color: var(--app-muted);
+  background: var(--app-input);
+}
+
 .admin-status-active {
   color: #82e5b1;
   background: rgba(62, 188, 119, 0.13);
 }
 
 .admin-status-blocked,
-.admin-status-deleted {
+.admin-status-deleted,
+.admin-status-rejected,
+.admin-status-changes_requested {
   color: var(--app-danger);
   background: color-mix(in srgb, var(--app-danger) 12%, transparent);
+}
+
+.admin-status-approved,
+.admin-status-verified,
+.admin-status-published,
+.admin-status-resolved {
+  color: #82e5b1;
+  background: rgba(62, 188, 119, 0.13);
+}
+
+.admin-status-pending,
+.admin-status-pending_review,
+.admin-status-reviewing {
+  color: var(--app-accent);
+  background: var(--app-accent-soft);
 }
 
 .admin-role-list,
@@ -326,16 +348,16 @@
     h3 {
       margin: 0;
     }
-
-    span {
-      min-width: 1.7rem;
-      padding: 0.25rem;
-      border-radius: 99rem;
-      text-align: center;
-      background: var(--app-accent-soft);
-      font-size: 0.72rem;
-    }
   }
+}
+
+.admin-history-filter select {
+  min-height: 2.35rem;
+  padding: 0 1.8rem 0 0.65rem;
+  border: 1px solid var(--app-line);
+  border-radius: 0.65rem;
+  color: var(--app-text);
+  background: var(--app-input);
 }
 
 .admin-review-item,
@@ -405,6 +427,12 @@
   justify-content: space-between;
 }
 
+.admin-report-meta > span:last-child {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+
 .admin-reason {
   color: var(--app-accent);
   background: var(--app-accent-soft);
@@ -430,6 +458,38 @@
   justify-content: center;
   gap: 0.8rem;
   color: var(--app-muted);
+}
+
+.admin-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 1rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid var(--app-line);
+  color: var(--app-muted);
+  font-size: 0.76rem;
+
+  div {
+    display: flex;
+    gap: 0.4rem;
+  }
+
+  button {
+    min-height: 2.2rem;
+    padding: 0.4rem 0.7rem;
+    border: 1px solid var(--app-line);
+    border-radius: 0.6rem;
+    color: var(--app-text);
+    background: var(--app-input);
+    cursor: pointer;
+
+    &:disabled {
+      cursor: default;
+      opacity: 0.45;
+    }
+  }
 }
 
 @media (max-width: 1050px) {

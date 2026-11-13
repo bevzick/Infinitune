@@ -7,8 +7,8 @@ import { AdminPage } from "./AdminPage";
 const adminApi = vi.hoisted(() => ({
   assignUserRole: vi.fn(),
   listCommentReports: vi.fn(),
-  listPendingCreators: vi.fn(),
-  listPendingReleases: vi.fn(),
+  listCreatorsForModeration: vi.fn(),
+  listReleasesForModeration: vi.fn(),
   listUsers: vi.fn(),
   moderateCommentReport: vi.fn(),
   removeUserRole: vi.fn(),
@@ -44,8 +44,8 @@ describe("AdminPage", () => {
       ],
       page: { limit: 50, offset: 0, total: 1 },
     });
-    adminApi.listPendingCreators.mockResolvedValue(emptyPage);
-    adminApi.listPendingReleases.mockResolvedValue(emptyPage);
+    adminApi.listCreatorsForModeration.mockResolvedValue(emptyPage);
+    adminApi.listReleasesForModeration.mockResolvedValue(emptyPage);
     adminApi.listCommentReports.mockResolvedValue(emptyPage);
     adminApi.assignUserRole.mockResolvedValue({
       user_id: "listener-id",
@@ -65,7 +65,7 @@ describe("AdminPage", () => {
     expect(await screen.findByText("listener@example.com")).toBeInTheDocument();
     expect(adminApi.listUsers).toHaveBeenCalledWith(
       "admin-token",
-      "all",
+      { status: "all", limit: 10, offset: 0 },
       expect.any(AbortSignal),
     );
     expect(screen.getByRole("button", { name: "Block" })).toBeEnabled();
@@ -97,13 +97,73 @@ describe("AdminPage", () => {
     await screen.findByText("listener@example.com");
 
     await user.click(screen.getByRole("button", { name: /Content review/ }));
-    expect(
-      screen.getByText("No creators are awaiting verification."),
-    ).toBeInTheDocument();
+    expect(screen.getByText("No pending creators found.")).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: /Comment reports/ }));
     expect(
       screen.getByText("There are no pending comment reports."),
     ).toBeInTheDocument();
+  });
+
+  it("requests the next user page from the server", async () => {
+    adminApi.listUsers.mockResolvedValue({
+      items: [
+        {
+          id: "listener-id",
+          email: "listener@example.com",
+          status: "active",
+          email_verified: true,
+          roles: ["listener"],
+          created_at: "2026-11-01T00:00:00Z",
+          updated_at: "2026-11-01T00:00:00Z",
+          last_login_at: null,
+        },
+      ],
+      page: { limit: 10, offset: 0, total: 21 },
+    });
+    const user = userEvent.setup();
+    render(<AdminPage />);
+
+    await user.click(await screen.findByRole("button", { name: "Next" }));
+
+    await waitFor(() =>
+      expect(adminApi.listUsers).toHaveBeenLastCalledWith(
+        "admin-token",
+        { status: "all", limit: 10, offset: 10 },
+        expect.any(AbortSignal),
+      ),
+    );
+  });
+
+  it("loads completed moderation states from the server", async () => {
+    const user = userEvent.setup();
+    render(<AdminPage />);
+    await screen.findByText("listener@example.com");
+
+    await user.click(screen.getByRole("button", { name: /Content review/ }));
+    await user.selectOptions(
+      screen.getByLabelText("Creator verification status"),
+      "verified",
+    );
+    await waitFor(() =>
+      expect(adminApi.listCreatorsForModeration).toHaveBeenLastCalledWith(
+        "admin-token",
+        { status: "verified", limit: 10, offset: 0 },
+        expect.any(AbortSignal),
+      ),
+    );
+
+    await user.click(screen.getByRole("button", { name: /Comment reports/ }));
+    await user.selectOptions(
+      screen.getByLabelText("Comment report status"),
+      "resolved",
+    );
+    await waitFor(() =>
+      expect(adminApi.listCommentReports).toHaveBeenLastCalledWith(
+        "admin-token",
+        { status: "resolved", limit: 10, offset: 0 },
+        expect.any(AbortSignal),
+      ),
+    );
   });
 });

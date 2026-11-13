@@ -63,15 +63,28 @@ export type CommentReport = {
   };
 };
 
-type Page<T> = { items: T[]; page: PageMetadata };
+export type Page<T> = { items: T[]; page: PageMetadata };
+
+export type PageRequest = {
+  limit: number;
+  offset: number;
+};
+
+function pageQuery(page: PageRequest, status?: string) {
+  const query = new URLSearchParams({
+    limit: String(page.limit),
+    offset: String(page.offset),
+  });
+  if (status && status !== "all") query.set("status", status);
+  return query;
+}
 
 export function listUsers(
   accessToken: string,
-  status?: AdminUser["status"] | "all",
+  request: PageRequest & { status?: AdminUser["status"] | "all" },
   signal?: AbortSignal,
 ) {
-  const query = new URLSearchParams({ limit: "50", offset: "0" });
-  if (status && status !== "all") query.set("status", status);
+  const query = pageQuery(request, request.status);
   return apiRequest<AdminUserPage>(`/v1/auth/users?${query}`, {
     accessToken,
     signal,
@@ -112,9 +125,15 @@ export function removeUserRole(
   );
 }
 
-export function listPendingCreators(accessToken: string, signal?: AbortSignal) {
+export function listCreatorsForModeration(
+  accessToken: string,
+  request: PageRequest & {
+    status: CreatorReviewItem["verification_status"];
+  },
+  signal?: AbortSignal,
+) {
   return apiRequest<Page<CreatorReviewItem>>(
-    "/v1/moderation/creators?status=pending&limit=50&offset=0",
+    `/v1/moderation/creators?${pageQuery(request, request.status)}`,
     { accessToken, signal },
   );
 }
@@ -134,9 +153,13 @@ export function reviewCreator(
   );
 }
 
-export function listPendingReleases(accessToken: string, signal?: AbortSignal) {
+export function listReleasesForModeration(
+  accessToken: string,
+  request: PageRequest & { status: string },
+  signal?: AbortSignal,
+) {
   return apiRequest<Page<ReleaseReviewItem>>(
-    "/v1/moderation/releases?status=pending_review&limit=50&offset=0",
+    `/v1/moderation/releases?${pageQuery(request, request.status)}`,
     { accessToken, signal },
   );
 }
@@ -156,11 +179,11 @@ export function reviewRelease(
 
 export function listCommentReports(
   accessToken: string,
-  status: CommentReport["report"]["status"] = "pending",
+  request: PageRequest & { status: CommentReport["report"]["status"] },
   signal?: AbortSignal,
 ) {
   return apiRequest<Page<CommentReport>>(
-    `/v1/moderation/comment-reports?status=${status}&limit=50&offset=0`,
+    `/v1/moderation/comment-reports?${pageQuery(request, request.status)}`,
     { accessToken, signal },
   );
 }

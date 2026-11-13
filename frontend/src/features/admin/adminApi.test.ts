@@ -16,7 +16,11 @@ describe("adminApi", () => {
     );
     vi.stubGlobal("fetch", fetchMock);
 
-    await listUsers("admin-token", "blocked");
+    await listUsers("admin-token", {
+      status: "blocked",
+      limit: 50,
+      offset: 0,
+    });
 
     const [url, options] = fetchMock.mock.calls[0];
     expect(url).toBe(
