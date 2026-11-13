@@ -7,6 +7,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/bevzick/Infinitune/services/media-service/internal/media"
 	"github.com/bevzick/Infinitune/services/media-service/internal/source"
 	"github.com/google/uuid"
 )
@@ -60,5 +61,40 @@ func TestSourceRepositoryCreatesImmutableExternalProvenance(t *testing.T) {
 	loaded, err := repository.ByMediaAsset(ctx, assetID)
 	if err != nil || loaded.ExternalID != input.ExternalID {
 		t.Fatalf("ByMediaAsset() = %+v, error %v", loaded, err)
+	}
+}
+
+func TestMediaRepositoryCreatesExternalAssetSourceAndJobAtomically(t *testing.T) {
+	pool := openIntegrationDatabase(t)
+	ctx := context.Background()
+	assetID, trackID := uuid.New(), uuid.New()
+	t.Cleanup(func() { removeMediaAsset(t, pool, assetID) })
+	reference := source.Reference{
+		Kind: source.KindExternalProvider, Provider: source.ProviderJamendo,
+		ExternalID: "42", SourceURL: "https://www.jamendo.com/track/42",
+		License: source.License{
+			Name: "CC BY 4.0", URL: "https://creativecommons.org/licenses/by/4.0/",
+			Attribution: "Luna Veil", AllowsStreaming: true, AllowsRedistribution: true,
+		},
+		Metadata: map[string]string{"title": "Night Signal"},
+	}
+	repository := NewMediaRepository(pool)
+	asset, created, err := repository.CreateExternal(ctx, media.Asset{
+		ID: assetID, ContentTrackID: trackID,
+		OriginalObjectKey: "external-imports/" + assetID.String() + "/track.mp3",
+		OriginalFilename:  "track.mp3", Status: media.StatusUploaded,
+	}, reference)
+	if err != nil || !created || asset.SourceUploadID != uuid.Nil {
+		t.Fatalf("CreateExternal() = %+v, created %v, error %v", asset, created, err)
+	}
+	loaded, loadedReference, err := repository.ExternalByContentTrack(ctx, trackID)
+	if err != nil || loaded.ID != assetID || loadedReference.ExternalID != "42" {
+		t.Fatalf("ExternalByContentTrack() = %+v, %+v, %v", loaded, loadedReference, err)
+	}
+	var jobs int
+	if err = pool.QueryRow(ctx,
+		`SELECT count(*) FROM media.processing_jobs WHERE media_asset_id = $1`, assetID,
+	).Scan(&jobs); err != nil || jobs != 1 {
+		t.Fatalf("processing jobs = %d, error %v", jobs, err)
 	}
 }

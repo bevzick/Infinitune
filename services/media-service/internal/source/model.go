@@ -26,6 +26,7 @@ var (
 	ErrProviderConflict    = errors.New("media source provider is already registered")
 	ErrInvalidStream       = errors.New("invalid provider audio stream")
 	ErrNotFound            = errors.New("media source not found")
+	ErrProviderUnavailable = errors.New("media source provider unavailable")
 	ErrConflict            = errors.New("media asset source conflicts with stored provenance")
 )
 

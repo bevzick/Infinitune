@@ -8,11 +8,13 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/bevzick/Infinitune/services/media-service/internal/identity"
 	"github.com/bevzick/Infinitune/services/media-service/internal/media"
+	"github.com/bevzick/Infinitune/services/media-service/internal/source"
 	"github.com/bevzick/Infinitune/services/media-service/internal/storage"
 	"github.com/google/uuid"
 )
@@ -77,6 +79,30 @@ type ingestStub struct {
 	contentType string
 	sizeBytes   int64
 	body        string
+}
+
+type externalImportStub struct {
+	asset          media.Asset
+	created        bool
+	err            error
+	actorID        uuid.UUID
+	contentTrackID uuid.UUID
+	provider       source.ProviderName
+	externalID     string
+}
+
+func (stub *externalImportStub) Import(
+	_ context.Context,
+	actorID uuid.UUID,
+	contentTrackID uuid.UUID,
+	provider source.ProviderName,
+	externalID string,
+) (media.Asset, bool, error) {
+	stub.actorID = actorID
+	stub.contentTrackID = contentTrackID
+	stub.provider = provider
+	stub.externalID = externalID
+	return stub.asset, stub.created, stub.err
 }
 
 func (stub *ingestStub) Ingest(
@@ -178,6 +204,46 @@ func TestCreatorUploadRequiresContentLength(t *testing.T) {
 	response := httptest.NewRecorder()
 	NewRouter(dependencies).ServeHTTP(response, request)
 	if response.Code != http.StatusLengthRequired {
+		t.Fatalf("status = %d, body = %s", response.Code, response.Body.String())
+	}
+}
+
+func TestAuthenticatedUserImportsExternalTrack(t *testing.T) {
+	actorID, trackID, assetID := uuid.New(), uuid.New(), uuid.New()
+	service := &externalImportStub{created: true, asset: media.Asset{
+		ID: assetID, ContentTrackID: trackID, Status: media.StatusUploaded,
+	}}
+	dependencies := playbackDependencies()
+	dependencies.Tokens = identityVerifierStub{identity: identity.Identity{UserID: actorID}}
+	dependencies.Imports = service
+	request := httptest.NewRequest(http.MethodPost, "/v1/media/imports", strings.NewReader(`{
+		"content_track_id":"`+trackID.String()+`",
+		"provider":"jamendo",
+		"external_id":"42"
+	}`))
+	request.Header.Set("Authorization", "Bearer valid")
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	NewRouter(dependencies).ServeHTTP(response, request)
+	if response.Code != http.StatusCreated || service.actorID != actorID ||
+		service.contentTrackID != trackID || service.provider != source.ProviderJamendo ||
+		service.externalID != "42" {
+		t.Fatalf("status = %d, import = %+v, body = %s", response.Code, service, response.Body.String())
+	}
+}
+
+func TestExternalImportRejectsUnknownProvider(t *testing.T) {
+	dependencies := playbackDependencies()
+	dependencies.Imports = &externalImportStub{}
+	request := httptest.NewRequest(http.MethodPost, "/v1/media/imports", strings.NewReader(`{
+		"content_track_id":"`+uuid.NewString()+`",
+		"provider":"unknown",
+		"external_id":"42"
+	}`))
+	request.Header.Set("Authorization", "Bearer valid")
+	response := httptest.NewRecorder()
+	NewRouter(dependencies).ServeHTTP(response, request)
+	if response.Code != http.StatusUnprocessableEntity {
 		t.Fatalf("status = %d, body = %s", response.Code, response.Body.String())
 	}
 }

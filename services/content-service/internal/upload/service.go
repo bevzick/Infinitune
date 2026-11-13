@@ -27,6 +27,31 @@ type Service struct {
 	authorizer Authorizer
 }
 
+func (service *Service) AuthorizeImport(
+	ctx context.Context,
+	actorID uuid.UUID,
+	trackID uuid.UUID,
+) error {
+	if actorID == uuid.Nil || trackID == uuid.Nil {
+		return ErrInvalid
+	}
+	target, err := service.store.TrackTarget(ctx, trackID)
+	if err != nil {
+		return fmt.Errorf("read import track target: %w", err)
+	}
+	if err = service.authorizer.Authorize(
+		ctx, actorID, target.CreatorID, creator.PermissionContentUpload,
+	); err != nil {
+		return fmt.Errorf("authorize track import: %w", err)
+	}
+	if target.ReleaseStatus != release.StatusDraft &&
+		target.ReleaseStatus != release.StatusRejected &&
+		target.ReleaseStatus != release.StatusChangesRequested {
+		return ErrReleaseLocked
+	}
+	return nil
+}
+
 func NewService(store Store, authorizer Authorizer) *Service {
 	return &Service{store: store, authorizer: authorizer}
 }

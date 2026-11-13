@@ -49,6 +49,26 @@ declared size are validated before the stream reaches the ingest workflow.
 Temporary download URLs and the client identifier are never stored in asset
 provenance.
 
+An authenticated creator imports a configured source with:
+
+```http
+POST /v1/media/imports
+Content-Type: application/json
+
+{
+  "content_track_id": "<release-track-uuid>",
+  "provider": "jamendo",
+  "external_id": "<jamendo-track-id>"
+}
+```
+
+Before contacting the provider, Media asks Content whether the user may upload
+content for that draft release track. A successful import copies the original
+audio into private object storage, then creates the media asset, immutable
+provenance, and processing job in one PostgreSQL transaction. Retrying the same
+source for the same release track returns the existing asset; selecting a
+different source for that track returns a conflict.
+
 ## Provider boundary
 
 A provider adapter has two responsibilities:
@@ -62,6 +82,6 @@ unsupported media types, and streams outside the 500 MiB ingest limit.
 Provider-specific credentials, rate limits, retries, and HTTP behavior stay
 inside each adapter.
 
-The next implementation stages add the authorized import job that copies a
-validated Jamendo stream into private object storage and records the provenance
-transactionally, followed by the Internet Archive HTTP adapter.
+The next implementation stage lets Content submission and publication select a
+ready external asset by release track, followed by the Internet Archive HTTP
+adapter registered in the same import workflow.

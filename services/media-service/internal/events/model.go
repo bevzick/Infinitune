@@ -29,7 +29,7 @@ type AudioVariant struct {
 
 type AssetReadyData struct {
 	MediaAssetID   uuid.UUID      `json:"media_asset_id"`
-	SourceUploadID uuid.UUID      `json:"source_upload_id"`
+	SourceUploadID *uuid.UUID     `json:"source_upload_id,omitempty"`
 	ContentTrackID *uuid.UUID     `json:"content_track_id,omitempty"`
 	CatalogTrackID *uuid.UUID     `json:"catalog_track_id,omitempty"`
 	DurationMS     int            `json:"duration_ms"`
@@ -61,7 +61,11 @@ func NewAssetReady(asset media.Asset, variants []media.AudioVariant, occurredAt 
 	if asset.DurationMS != nil {
 		durationMS = *asset.DurationMS
 	}
-	var contentTrackID, catalogTrackID *uuid.UUID
+	var sourceUploadID, contentTrackID, catalogTrackID *uuid.UUID
+	if asset.SourceUploadID != uuid.Nil {
+		value := asset.SourceUploadID
+		sourceUploadID = &value
+	}
 	if asset.ContentTrackID != uuid.Nil {
 		value := asset.ContentTrackID
 		contentTrackID = &value
@@ -73,7 +77,7 @@ func NewAssetReady(asset media.Asset, variants []media.AudioVariant, occurredAt 
 	payload, err := json.Marshal(Envelope[AssetReadyData]{
 		ID: eventID, Type: AssetReadyV1, Source: "media-service", OccurredAt: occurredAt.UTC(),
 		Data: AssetReadyData{
-			MediaAssetID: asset.ID, SourceUploadID: asset.SourceUploadID,
+			MediaAssetID: asset.ID, SourceUploadID: sourceUploadID,
 			ContentTrackID: contentTrackID, CatalogTrackID: catalogTrackID,
 			DurationMS: durationMS, Variants: eventVariants,
 		},

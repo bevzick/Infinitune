@@ -42,7 +42,7 @@ func (repository *MediaRepository) AssetByID(
 	id uuid.UUID,
 ) (media.Asset, error) {
 	var asset media.Asset
-	var trackID, contentTrackID *uuid.UUID
+	var trackID, contentTrackID, sourceUploadID *uuid.UUID
 	err := repository.database.QueryRow(ctx, `
 		SELECT
 			id, track_id, content_track_id, source_upload_id, original_object_key, original_filename,
@@ -53,7 +53,7 @@ func (repository *MediaRepository) AssetByID(
 		&asset.ID,
 		&trackID,
 		&contentTrackID,
-		&asset.SourceUploadID,
+		&sourceUploadID,
 		&asset.OriginalObjectKey,
 		&asset.OriginalFilename,
 		&asset.DurationMS,
@@ -72,6 +72,9 @@ func (repository *MediaRepository) AssetByID(
 	}
 	if contentTrackID != nil {
 		asset.ContentTrackID = *contentTrackID
+	}
+	if sourceUploadID != nil {
+		asset.SourceUploadID = *sourceUploadID
 	}
 
 	asset.Variants, err = repository.audioVariants(ctx, id)
@@ -364,9 +367,9 @@ func (repository *MediaRepository) AssetBySourceUpload(
 
 func scanAsset(row pgx.Row) (media.Asset, error) {
 	var asset media.Asset
-	var trackID, contentTrackID *uuid.UUID
+	var trackID, contentTrackID, sourceUploadID *uuid.UUID
 	err := row.Scan(
-		&asset.ID, &trackID, &contentTrackID, &asset.SourceUploadID,
+		&asset.ID, &trackID, &contentTrackID, &sourceUploadID,
 		&asset.OriginalObjectKey, &asset.OriginalFilename, &asset.DurationMS,
 		&asset.Status, &asset.CreatedAt, &asset.UpdatedAt,
 	)
@@ -375,6 +378,9 @@ func scanAsset(row pgx.Row) (media.Asset, error) {
 	}
 	if contentTrackID != nil {
 		asset.ContentTrackID = *contentTrackID
+	}
+	if sourceUploadID != nil {
+		asset.SourceUploadID = *sourceUploadID
 	}
 	return asset, err
 }

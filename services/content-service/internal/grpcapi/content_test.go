@@ -77,6 +77,20 @@ func TestContentServerReturnsPlaybackDecision(t *testing.T) {
 	}
 }
 
+func TestContentServerAuthorizesTrackImport(t *testing.T) {
+	trackID, userID := uuid.New(), uuid.New()
+	uploads := &uploadSessionsStub{}
+	response, err := NewContentServer(&checkerStub{}, uploads, nil).CheckTrackImport(
+		context.Background(), &contentv1.CheckTrackImportRequest{
+			ReleaseTrackId: trackID.String(), UserId: userID.String(),
+		},
+	)
+	if err != nil || !response.GetAllowed() || uploads.importTrackID != trackID ||
+		uploads.importUserID != userID {
+		t.Fatalf("CheckTrackImport() = %+v, %v; uploads = %+v", response, err, uploads)
+	}
+}
+
 func TestContentServerRejectsInvalidPlaybackTrack(t *testing.T) {
 	_, err := NewContentServer(&checkerStub{}, nil, &playbackAccessStub{}).CheckTrackPlayback(
 		context.Background(), &contentv1.CheckTrackPlaybackRequest{ReleaseTrackId: "bad"},
@@ -92,8 +106,10 @@ type checkerStub struct {
 }
 
 type uploadSessionsStub struct {
-	session upload.Session
-	err     error
+	session       upload.Session
+	err           error
+	importTrackID uuid.UUID
+	importUserID  uuid.UUID
 }
 
 type playbackAccessStub struct {
@@ -120,6 +136,16 @@ func (stub *uploadSessionsStub) Transition(
 	context.Context, uuid.UUID, upload.Status,
 ) (upload.Session, error) {
 	return stub.session, stub.err
+}
+
+func (stub *uploadSessionsStub) AuthorizeImport(
+	_ context.Context,
+	userID uuid.UUID,
+	trackID uuid.UUID,
+) error {
+	stub.importUserID = userID
+	stub.importTrackID = trackID
+	return stub.err
 }
 
 func (stub *checkerStub) Check(

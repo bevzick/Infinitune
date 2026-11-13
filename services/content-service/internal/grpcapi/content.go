@@ -20,6 +20,7 @@ type AccessChecker interface {
 type UploadSessions interface {
 	SessionForUser(context.Context, uuid.UUID, uuid.UUID) (upload.Session, error)
 	Transition(context.Context, uuid.UUID, upload.Status) (upload.Session, error)
+	AuthorizeImport(context.Context, uuid.UUID, uuid.UUID) error
 }
 
 type PlaybackAccess interface {
@@ -39,6 +40,38 @@ func NewContentServer(
 	playback PlaybackAccess,
 ) *ContentServer {
 	return &ContentServer{access: access, uploads: uploads, playback: playback}
+}
+
+func (server *ContentServer) CheckTrackImport(
+	ctx context.Context,
+	request *contentv1.CheckTrackImportRequest,
+) (*contentv1.CheckTrackImportResponse, error) {
+	if request == nil || server.uploads == nil {
+		return nil, status.Error(codes.InvalidArgument, "request is required")
+	}
+	trackID, err := parseUUID(request.GetReleaseTrackId(), "release_track_id")
+	if err != nil {
+		return nil, err
+	}
+	userID, err := parseUUID(request.GetUserId(), "user_id")
+	if err != nil {
+		return nil, err
+	}
+	if err = server.uploads.AuthorizeImport(ctx, userID, trackID); err != nil {
+		switch {
+		case errors.Is(err, creator.ErrForbidden):
+			return nil, status.Error(codes.PermissionDenied, "track is not available to this user")
+		case errors.Is(err, upload.ErrInvalid):
+			return nil, status.Error(codes.InvalidArgument, err.Error())
+		case errors.Is(err, upload.ErrNotFound):
+			return nil, status.Error(codes.NotFound, "release track was not found")
+		case errors.Is(err, upload.ErrReleaseLocked):
+			return nil, status.Error(codes.FailedPrecondition, err.Error())
+		default:
+			return nil, status.Error(codes.Internal, "track import could not be authorized")
+		}
+	}
+	return &contentv1.CheckTrackImportResponse{Allowed: true}, nil
 }
 
 func (server *ContentServer) CheckTrackPlayback(

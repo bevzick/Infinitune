@@ -8,6 +8,7 @@ service ContentService {
   rpc CheckPermission(CheckPermissionRequest) returns (CheckPermissionResponse);
   rpc GetUploadSession(GetUploadSessionRequest) returns (UploadSession);
   rpc TransitionUpload(TransitionUploadRequest) returns (UploadSession);
+  rpc CheckTrackImport(CheckTrackImportRequest) returns (CheckTrackImportResponse);
   rpc CheckTrackPlayback(CheckTrackPlaybackRequest) returns (CheckTrackPlaybackResponse);
 }
 
@@ -49,5 +50,14 @@ message CheckTrackPlaybackRequest {
 }
 
 message CheckTrackPlaybackResponse {
+  bool allowed = 1;
+}
+
+message CheckTrackImportRequest {
+  string release_track_id = 1;
+  string user_id = 2;
+}
+
+message CheckTrackImportResponse {
   bool allowed = 1;
 }

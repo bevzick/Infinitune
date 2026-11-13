@@ -19,6 +19,10 @@ func NewMediaReadinessRepository(pool *pgxpool.Pool) *MediaReadinessRepository {
 }
 
 func (repository *MediaReadinessRepository) UpsertReady(ctx context.Context, asset events.ReadyAsset) error {
+	var sourceUploadID any
+	if asset.SourceUploadID != uuid.Nil {
+		sourceUploadID = asset.SourceUploadID
+	}
 	_, err := repository.pool.Exec(ctx, `
 		INSERT INTO content.media_asset_readiness (
 			media_asset_id, source_upload_id, content_track_id, duration_ms, event_id, occurred_at
@@ -31,7 +35,7 @@ func (repository *MediaReadinessRepository) UpsertReady(ctx context.Context, ass
 		    occurred_at=EXCLUDED.occurred_at,
 		    updated_at=now()
 		WHERE EXCLUDED.occurred_at > content.media_asset_readiness.occurred_at
-	`, asset.MediaAssetID, asset.SourceUploadID, asset.ContentTrackID,
+	`, asset.MediaAssetID, sourceUploadID, asset.ContentTrackID,
 		asset.DurationMS, asset.EventID, asset.OccurredAt)
 	if err != nil {
 		return fmt.Errorf("upsert media readiness: %w", err)

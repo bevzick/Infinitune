@@ -21,6 +21,7 @@ const _ = grpc.SupportPackageIsVersion9
 const (
 	ContentService_GetUploadSession_FullMethodName   = "/infinitune.content.v1.ContentService/GetUploadSession"
 	ContentService_TransitionUpload_FullMethodName   = "/infinitune.content.v1.ContentService/TransitionUpload"
+	ContentService_CheckTrackImport_FullMethodName   = "/infinitune.content.v1.ContentService/CheckTrackImport"
 	ContentService_CheckTrackPlayback_FullMethodName = "/infinitune.content.v1.ContentService/CheckTrackPlayback"
 )
 
@@ -32,6 +33,7 @@ const (
 type ContentServiceClient interface {
 	GetUploadSession(ctx context.Context, in *GetUploadSessionRequest, opts ...grpc.CallOption) (*UploadSession, error)
 	TransitionUpload(ctx context.Context, in *TransitionUploadRequest, opts ...grpc.CallOption) (*UploadSession, error)
+	CheckTrackImport(ctx context.Context, in *CheckTrackImportRequest, opts ...grpc.CallOption) (*CheckTrackImportResponse, error)
 	CheckTrackPlayback(ctx context.Context, in *CheckTrackPlaybackRequest, opts ...grpc.CallOption) (*CheckTrackPlaybackResponse, error)
 }
 
@@ -63,6 +65,16 @@ func (c *contentServiceClient) TransitionUpload(ctx context.Context, in *Transit
 	return out, nil
 }
 
+func (c *contentServiceClient) CheckTrackImport(ctx context.Context, in *CheckTrackImportRequest, opts ...grpc.CallOption) (*CheckTrackImportResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CheckTrackImportResponse)
+	err := c.cc.Invoke(ctx, ContentService_CheckTrackImport_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *contentServiceClient) CheckTrackPlayback(ctx context.Context, in *CheckTrackPlaybackRequest, opts ...grpc.CallOption) (*CheckTrackPlaybackResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(CheckTrackPlaybackResponse)
@@ -81,6 +93,7 @@ func (c *contentServiceClient) CheckTrackPlayback(ctx context.Context, in *Check
 type ContentServiceServer interface {
 	GetUploadSession(context.Context, *GetUploadSessionRequest) (*UploadSession, error)
 	TransitionUpload(context.Context, *TransitionUploadRequest) (*UploadSession, error)
+	CheckTrackImport(context.Context, *CheckTrackImportRequest) (*CheckTrackImportResponse, error)
 	CheckTrackPlayback(context.Context, *CheckTrackPlaybackRequest) (*CheckTrackPlaybackResponse, error)
 	mustEmbedUnimplementedContentServiceServer()
 }
@@ -97,6 +110,9 @@ func (UnimplementedContentServiceServer) GetUploadSession(context.Context, *GetU
 }
 func (UnimplementedContentServiceServer) TransitionUpload(context.Context, *TransitionUploadRequest) (*UploadSession, error) {
 	return nil, status.Error(codes.Unimplemented, "method TransitionUpload not implemented")
+}
+func (UnimplementedContentServiceServer) CheckTrackImport(context.Context, *CheckTrackImportRequest) (*CheckTrackImportResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CheckTrackImport not implemented")
 }
 func (UnimplementedContentServiceServer) CheckTrackPlayback(context.Context, *CheckTrackPlaybackRequest) (*CheckTrackPlaybackResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method CheckTrackPlayback not implemented")
@@ -158,6 +174,24 @@ func _ContentService_TransitionUpload_Handler(srv interface{}, ctx context.Conte
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ContentService_CheckTrackImport_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CheckTrackImportRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ContentServiceServer).CheckTrackImport(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ContentService_CheckTrackImport_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ContentServiceServer).CheckTrackImport(ctx, req.(*CheckTrackImportRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _ContentService_CheckTrackPlayback_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(CheckTrackPlaybackRequest)
 	if err := dec(in); err != nil {
@@ -190,6 +224,10 @@ var ContentService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "TransitionUpload",
 			Handler:    _ContentService_TransitionUpload_Handler,
+		},
+		{
+			MethodName: "CheckTrackImport",
+			Handler:    _ContentService_CheckTrackImport_Handler,
 		},
 		{
 			MethodName: "CheckTrackPlayback",

@@ -433,6 +433,102 @@ func (x *CheckTrackPlaybackResponse) GetAllowed() bool {
 	return false
 }
 
+type CheckTrackImportRequest struct {
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	ReleaseTrackId string                 `protobuf:"bytes,1,opt,name=release_track_id,json=releaseTrackId,proto3" json:"release_track_id,omitempty"`
+	UserId         string                 `protobuf:"bytes,2,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *CheckTrackImportRequest) Reset() {
+	*x = CheckTrackImportRequest{}
+	mi := &file_api_content_v1_content_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CheckTrackImportRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CheckTrackImportRequest) ProtoMessage() {}
+
+func (x *CheckTrackImportRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_api_content_v1_content_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CheckTrackImportRequest.ProtoReflect.Descriptor instead.
+func (*CheckTrackImportRequest) Descriptor() ([]byte, []int) {
+	return file_api_content_v1_content_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *CheckTrackImportRequest) GetReleaseTrackId() string {
+	if x != nil {
+		return x.ReleaseTrackId
+	}
+	return ""
+}
+
+func (x *CheckTrackImportRequest) GetUserId() string {
+	if x != nil {
+		return x.UserId
+	}
+	return ""
+}
+
+type CheckTrackImportResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Allowed       bool                   `protobuf:"varint,1,opt,name=allowed,proto3" json:"allowed,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CheckTrackImportResponse) Reset() {
+	*x = CheckTrackImportResponse{}
+	mi := &file_api_content_v1_content_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CheckTrackImportResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CheckTrackImportResponse) ProtoMessage() {}
+
+func (x *CheckTrackImportResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_api_content_v1_content_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CheckTrackImportResponse.ProtoReflect.Descriptor instead.
+func (*CheckTrackImportResponse) Descriptor() ([]byte, []int) {
+	return file_api_content_v1_content_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *CheckTrackImportResponse) GetAllowed() bool {
+	if x != nil {
+		return x.Allowed
+	}
+	return false
+}
+
 var File_api_content_v1_content_proto protoreflect.FileDescriptor
 
 const file_api_content_v1_content_proto_rawDesc = "" +
@@ -470,11 +566,17 @@ const file_api_content_v1_content_proto_rawDesc = "" +
 	"\x19CheckTrackPlaybackRequest\x12(\n" +
 	"\x10release_track_id\x18\x01 \x01(\tR\x0ereleaseTrackId\"6\n" +
 	"\x1aCheckTrackPlaybackResponse\x12\x18\n" +
-	"\aallowed\x18\x01 \x01(\bR\aallowed2\xd1\x03\n" +
+	"\aallowed\x18\x01 \x01(\bR\aallowed\"\\\n" +
+	"\x17CheckTrackImportRequest\x12(\n" +
+	"\x10release_track_id\x18\x01 \x01(\tR\x0ereleaseTrackId\x12\x17\n" +
+	"\auser_id\x18\x02 \x01(\tR\x06userId\"4\n" +
+	"\x18CheckTrackImportResponse\x12\x18\n" +
+	"\aallowed\x18\x01 \x01(\bR\aallowed2\xc6\x04\n" +
 	"\x0eContentService\x12p\n" +
 	"\x0fCheckPermission\x12-.infinitune.content.v1.CheckPermissionRequest\x1a..infinitune.content.v1.CheckPermissionResponse\x12h\n" +
 	"\x10GetUploadSession\x12..infinitune.content.v1.GetUploadSessionRequest\x1a$.infinitune.content.v1.UploadSession\x12h\n" +
-	"\x10TransitionUpload\x12..infinitune.content.v1.TransitionUploadRequest\x1a$.infinitune.content.v1.UploadSession\x12y\n" +
+	"\x10TransitionUpload\x12..infinitune.content.v1.TransitionUploadRequest\x1a$.infinitune.content.v1.UploadSession\x12s\n" +
+	"\x10CheckTrackImport\x12..infinitune.content.v1.CheckTrackImportRequest\x1a/.infinitune.content.v1.CheckTrackImportResponse\x12y\n" +
 	"\x12CheckTrackPlayback\x120.infinitune.content.v1.CheckTrackPlaybackRequest\x1a1.infinitune.content.v1.CheckTrackPlaybackResponseBQZOgithub.com/bevzick/Infinitune/services/content-service/api/content/v1;contentv1b\x06proto3"
 
 var (
@@ -489,7 +591,7 @@ func file_api_content_v1_content_proto_rawDescGZIP() []byte {
 	return file_api_content_v1_content_proto_rawDescData
 }
 
-var file_api_content_v1_content_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
+var file_api_content_v1_content_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
 var file_api_content_v1_content_proto_goTypes = []any{
 	(*CheckPermissionRequest)(nil),     // 0: infinitune.content.v1.CheckPermissionRequest
 	(*CheckPermissionResponse)(nil),    // 1: infinitune.content.v1.CheckPermissionResponse
@@ -498,18 +600,22 @@ var file_api_content_v1_content_proto_goTypes = []any{
 	(*UploadSession)(nil),              // 4: infinitune.content.v1.UploadSession
 	(*CheckTrackPlaybackRequest)(nil),  // 5: infinitune.content.v1.CheckTrackPlaybackRequest
 	(*CheckTrackPlaybackResponse)(nil), // 6: infinitune.content.v1.CheckTrackPlaybackResponse
+	(*CheckTrackImportRequest)(nil),    // 7: infinitune.content.v1.CheckTrackImportRequest
+	(*CheckTrackImportResponse)(nil),   // 8: infinitune.content.v1.CheckTrackImportResponse
 }
 var file_api_content_v1_content_proto_depIdxs = []int32{
 	0, // 0: infinitune.content.v1.ContentService.CheckPermission:input_type -> infinitune.content.v1.CheckPermissionRequest
 	2, // 1: infinitune.content.v1.ContentService.GetUploadSession:input_type -> infinitune.content.v1.GetUploadSessionRequest
 	3, // 2: infinitune.content.v1.ContentService.TransitionUpload:input_type -> infinitune.content.v1.TransitionUploadRequest
-	5, // 3: infinitune.content.v1.ContentService.CheckTrackPlayback:input_type -> infinitune.content.v1.CheckTrackPlaybackRequest
-	1, // 4: infinitune.content.v1.ContentService.CheckPermission:output_type -> infinitune.content.v1.CheckPermissionResponse
-	4, // 5: infinitune.content.v1.ContentService.GetUploadSession:output_type -> infinitune.content.v1.UploadSession
-	4, // 6: infinitune.content.v1.ContentService.TransitionUpload:output_type -> infinitune.content.v1.UploadSession
-	6, // 7: infinitune.content.v1.ContentService.CheckTrackPlayback:output_type -> infinitune.content.v1.CheckTrackPlaybackResponse
-	4, // [4:8] is the sub-list for method output_type
-	0, // [0:4] is the sub-list for method input_type
+	7, // 3: infinitune.content.v1.ContentService.CheckTrackImport:input_type -> infinitune.content.v1.CheckTrackImportRequest
+	5, // 4: infinitune.content.v1.ContentService.CheckTrackPlayback:input_type -> infinitune.content.v1.CheckTrackPlaybackRequest
+	1, // 5: infinitune.content.v1.ContentService.CheckPermission:output_type -> infinitune.content.v1.CheckPermissionResponse
+	4, // 6: infinitune.content.v1.ContentService.GetUploadSession:output_type -> infinitune.content.v1.UploadSession
+	4, // 7: infinitune.content.v1.ContentService.TransitionUpload:output_type -> infinitune.content.v1.UploadSession
+	8, // 8: infinitune.content.v1.ContentService.CheckTrackImport:output_type -> infinitune.content.v1.CheckTrackImportResponse
+	6, // 9: infinitune.content.v1.ContentService.CheckTrackPlayback:output_type -> infinitune.content.v1.CheckTrackPlaybackResponse
+	5, // [5:10] is the sub-list for method output_type
+	0, // [0:5] is the sub-list for method input_type
 	0, // [0:0] is the sub-list for extension type_name
 	0, // [0:0] is the sub-list for extension extendee
 	0, // [0:0] is the sub-list for field type_name
@@ -526,7 +632,7 @@ func file_api_content_v1_content_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_api_content_v1_content_proto_rawDesc), len(file_api_content_v1_content_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   7,
+			NumMessages:   9,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

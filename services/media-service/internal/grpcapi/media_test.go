@@ -59,6 +59,20 @@ func TestGetMediaAssetMapsMetadata(t *testing.T) {
 	}
 }
 
+func TestGetMediaAssetOmitsUploadIDForExternalImport(t *testing.T) {
+	response, err := NewMediaServer(metadataStub{asset: media.Asset{
+		ID: uuid.New(), ContentTrackID: uuid.New(), Status: media.StatusUploaded,
+	}}).GetMediaAsset(context.Background(), &mediav1.GetMediaAssetRequest{
+		MediaAssetId: uuid.NewString(),
+	})
+	if err != nil {
+		t.Fatalf("GetMediaAsset() error = %v", err)
+	}
+	if response.GetSourceUploadId() != "" {
+		t.Fatalf("SourceUploadId = %q, want empty", response.GetSourceUploadId())
+	}
+}
+
 func TestMediaServerReturnsControlledErrors(t *testing.T) {
 	tests := []struct {
 		name string

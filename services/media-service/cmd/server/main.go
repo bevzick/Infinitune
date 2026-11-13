@@ -28,6 +28,9 @@ import (
 	"github.com/bevzick/Infinitune/services/media-service/internal/media"
 	"github.com/bevzick/Infinitune/services/media-service/internal/processing"
 	postgres_repository "github.com/bevzick/Infinitune/services/media-service/internal/repository/postgres"
+	"github.com/bevzick/Infinitune/services/media-service/internal/source"
+	"github.com/bevzick/Infinitune/services/media-service/internal/source/jamendo"
+	"github.com/bevzick/Infinitune/services/media-service/internal/sourceimport"
 	"github.com/bevzick/Infinitune/services/media-service/internal/storage"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -104,6 +107,26 @@ func main() {
 		contentClient,
 		mediaRepository, objectStorage,
 	)
+	var externalImportService *sourceimport.Service
+	if cfg.Jamendo != nil {
+		jamendoProvider, providerErr := jamendo.New(jamendo.Config{
+			ClientID: cfg.Jamendo.ClientID,
+			BaseURL:  cfg.Jamendo.APIURL,
+			Timeout:  cfg.Jamendo.Timeout,
+		}, nil)
+		if providerErr != nil {
+			logger.Error("failed to initialize Jamendo provider", "error", providerErr)
+			os.Exit(1)
+		}
+		providers, registryErr := source.NewRegistry(jamendoProvider)
+		if registryErr != nil {
+			logger.Error("failed to initialize media source registry", "error", registryErr)
+			os.Exit(1)
+		}
+		externalImportService = sourceimport.NewService(
+			contentClient, providers, mediaRepository, objectStorage,
+		)
+	}
 	processingWorker := processing.NewWorker(
 		mediaRepository,
 		objectStorage,
@@ -134,6 +157,7 @@ func main() {
 			Objects:  objectStorage,
 			Media:    metadataService,
 			Ingest:   ingestService,
+			Imports:  externalImportService,
 			Tokens:   tokenVerifier,
 			Origins:  cfg.Origins,
 			Logger:   logger,

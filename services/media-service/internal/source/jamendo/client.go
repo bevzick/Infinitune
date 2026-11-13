@@ -24,9 +24,9 @@ const (
 )
 
 var (
-	ErrUnavailable        = errors.New("Jamendo API unavailable")
-	ErrDownloadForbidden  = errors.New("Jamendo track download is not allowed")
-	ErrUnsupportedLicense = errors.New("Jamendo track license is unsupported")
+	ErrUnavailable        = source.ErrProviderUnavailable
+	ErrDownloadForbidden  = fmt.Errorf("Jamendo track download is not allowed: %w", source.ErrInvalid)
+	ErrUnsupportedLicense = fmt.Errorf("Jamendo track license is unsupported: %w", source.ErrInvalid)
 )
 
 type Config struct {

@@ -43,6 +43,23 @@ func TestMediaHandlerAcknowledgesCatalogAssetWithoutProjecting(t *testing.T) {
 	}
 }
 
+func TestMediaHandlerProjectsExternalAssetWithoutUpload(t *testing.T) {
+	store := &mediaStoreStub{}
+	trackID := uuid.New()
+	payload := []byte(`{"id":"` + uuid.NewString() + `","type":"media.asset.ready.v1",` +
+		`"source":"media-service","occurred_at":"2026-11-12T12:00:00Z","data":{` +
+		`"media_asset_id":"` + uuid.NewString() + `","content_track_id":"` + trackID.String() + `",` +
+		`"duration_ms":125000,"variants":[{"codec":"mp3","container":"mp3",` +
+		`"bitrate_kbps":320,"sample_rate":48000,"channels":2}]}}`)
+	if err := NewMediaHandler(store).Handle(context.Background(), payload); err != nil {
+		t.Fatalf("Handle() error = %v", err)
+	}
+	if store.calls != 1 || store.asset.ContentTrackID != trackID ||
+		store.asset.SourceUploadID != uuid.Nil {
+		t.Fatalf("asset = %+v, calls = %d", store.asset, store.calls)
+	}
+}
+
 func TestMediaHandlerRejectsMalformedAsset(t *testing.T) {
 	payload := []byte(`{"id":"` + uuid.NewString() + `","type":"media.asset.ready.v1",` +
 		`"source":"media-service","occurred_at":"2026-11-12T12:00:00Z","data":{` +

@@ -32,10 +32,29 @@ func TestNewAssetReadyBuildsVersionedEvent(t *testing.T) {
 		t.Fatalf("decode payload: %v", err)
 	}
 	if envelope.Source != "media-service" || envelope.Data.MediaAssetID != asset.ID ||
-		envelope.Data.SourceUploadID != asset.SourceUploadID ||
+		envelope.Data.SourceUploadID == nil || *envelope.Data.SourceUploadID != asset.SourceUploadID ||
 		envelope.Data.ContentTrackID == nil || *envelope.Data.ContentTrackID != asset.ContentTrackID ||
 		envelope.Data.CatalogTrackID != nil || envelope.Data.DurationMS != durationMS ||
 		len(envelope.Data.Variants) != 1 || envelope.Data.Variants[0].BitrateKbps != 320 {
 		t.Fatalf("envelope = %+v", envelope)
+	}
+}
+
+func TestNewAssetReadyOmitsUploadForExternalAsset(t *testing.T) {
+	duration := 1000
+	message, err := NewAssetReady(media.Asset{
+		ID: uuid.New(), ContentTrackID: uuid.New(), DurationMS: &duration,
+	}, []media.AudioVariant{{
+		Codec: "mp3", Container: "mp3", BitrateKbps: 128, SampleRate: 44100, Channels: 2,
+	}}, time.Now(), AssetReadyV1)
+	if err != nil {
+		t.Fatalf("NewAssetReady() error = %v", err)
+	}
+	var envelope Envelope[AssetReadyData]
+	if err = json.Unmarshal(message.Payload, &envelope); err != nil {
+		t.Fatalf("Unmarshal() error = %v", err)
+	}
+	if envelope.Data.SourceUploadID != nil {
+		t.Fatalf("SourceUploadID = %v, want nil", envelope.Data.SourceUploadID)
 	}
 }
