@@ -37,10 +37,26 @@ func TestProjectedStoreDoesNotMaskProjectionFailure(t *testing.T) {
 	}
 }
 
+func TestProjectedStoreLoadsExternalAssetByTrack(t *testing.T) {
+	want := Asset{ID: uuid.New(), ContentTrackID: uuid.New()}
+	projection := &assetStoreStub{asset: want}
+	got, err := NewProjectedStore(projection, &assetStoreStub{}).
+		AssetByTrack(context.Background(), want.ContentTrackID)
+	if err != nil || got.ID != want.ID || projection.trackCalls != 1 {
+		t.Fatalf("AssetByTrack() = %+v, %v; calls = %d", got, err, projection.trackCalls)
+	}
+}
+
 type assetStoreStub struct {
-	asset Asset
-	err   error
-	calls int
+	asset      Asset
+	err        error
+	calls      int
+	trackCalls int
+}
+
+func (stub *assetStoreStub) AssetByTrack(context.Context, uuid.UUID) (Asset, error) {
+	stub.trackCalls++
+	return stub.asset, stub.err
 }
 
 func (stub *assetStoreStub) AssetByUpload(context.Context, uuid.UUID) (Asset, error) {

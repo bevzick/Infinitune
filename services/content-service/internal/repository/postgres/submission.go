@@ -118,10 +118,17 @@ func (repository *SubmissionRepository) SubmitRelease(
 		      FROM content.release_tracks AS track
 		      WHERE track.release_id = release.id
 		        AND (
-		          NOT EXISTS (
-		              SELECT 1 FROM content.uploads AS upload
-		              WHERE upload.release_track_id = track.id
-		                AND upload.status = 'completed'
+		          (
+		              NOT EXISTS (
+		                  SELECT 1 FROM content.uploads AS upload
+		                  WHERE upload.release_track_id = track.id
+		                    AND upload.status = 'completed'
+		              )
+		              AND NOT EXISTS (
+		                  SELECT 1 FROM content.media_asset_readiness AS media
+		                  WHERE media.content_track_id = track.id
+		                    AND media.source_upload_id IS NULL
+		              )
 		          )
 		          OR NOT EXISTS (
 		              SELECT 1 FROM content.track_rights AS track_right

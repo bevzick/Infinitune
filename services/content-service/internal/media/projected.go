@@ -11,13 +11,22 @@ type AssetStore interface {
 	AssetByUpload(context.Context, uuid.UUID) (Asset, error)
 }
 
+type ProjectionStore interface {
+	AssetStore
+	AssetByTrack(context.Context, uuid.UUID) (Asset, error)
+}
+
 type ProjectedStore struct {
-	projection AssetStore
+	projection ProjectionStore
 	legacy     AssetStore
 }
 
-func NewProjectedStore(projection, legacy AssetStore) *ProjectedStore {
+func NewProjectedStore(projection ProjectionStore, legacy AssetStore) *ProjectedStore {
 	return &ProjectedStore{projection: projection, legacy: legacy}
+}
+
+func (store *ProjectedStore) AssetByTrack(ctx context.Context, trackID uuid.UUID) (Asset, error) {
+	return store.projection.AssetByTrack(ctx, trackID)
 }
 
 func (store *ProjectedStore) AssetByUpload(ctx context.Context, uploadID uuid.UUID) (Asset, error) {

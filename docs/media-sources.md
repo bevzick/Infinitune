@@ -69,6 +69,12 @@ provenance, and processing job in one PostgreSQL transaction. Retrying the same
 source for the same release track returns the existing asset; selecting a
 different source for that track returns a conflict.
 
+When processing finishes, Content projects the ready external asset by
+`content_track_id`. Submission and publication use the latest completed upload
+for a local file when one exists; otherwise they use this external projection.
+The same worldwide streaming and distribution rights checks apply to both
+paths.
+
 ## Provider boundary
 
 A provider adapter has two responsibilities:
@@ -82,6 +88,5 @@ unsupported media types, and streams outside the 500 MiB ingest limit.
 Provider-specific credentials, rate limits, retries, and HTTP behavior stay
 inside each adapter.
 
-The next implementation stage lets Content submission and publication select a
-ready external asset by release track, followed by the Internet Archive HTTP
-adapter registered in the same import workflow.
+The next implementation stage adds the Internet Archive HTTP adapter and
+registers it in the same import workflow.

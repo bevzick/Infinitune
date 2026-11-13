@@ -25,6 +25,7 @@ type AccessChecker interface {
 
 type MediaAssets interface {
 	AssetByUpload(context.Context, uuid.UUID) (contentmedia.Asset, error)
+	AssetByTrack(context.Context, uuid.UUID) (contentmedia.Asset, error)
 }
 
 type Service struct {
@@ -82,16 +83,19 @@ func (service *Service) Submit(
 }
 
 func (service *Service) checkTrack(ctx context.Context, track Track) error {
-	if track.CompletedUploadID == nil || *track.CompletedUploadID == uuid.Nil {
-		return &ReadinessError{TrackID: track.ID, Reason: "completed audio upload is required"}
-	}
 	if !track.HasWorldwideStreaming {
 		return &ReadinessError{TrackID: track.ID, Reason: "worldwide streaming rights are required"}
 	}
 	if !track.HasWorldwideDistribution {
 		return &ReadinessError{TrackID: track.ID, Reason: "worldwide distribution rights are required"}
 	}
-	asset, err := service.media.AssetByUpload(ctx, *track.CompletedUploadID)
+	var asset contentmedia.Asset
+	var err error
+	if track.CompletedUploadID != nil && *track.CompletedUploadID != uuid.Nil {
+		asset, err = service.media.AssetByUpload(ctx, *track.CompletedUploadID)
+	} else {
+		asset, err = service.media.AssetByTrack(ctx, track.ID)
+	}
 	if errors.Is(err, contentmedia.ErrNotFound) {
 		return &ReadinessError{TrackID: track.ID, Reason: "processed media asset is required"}
 	}
@@ -101,7 +105,9 @@ func (service *Service) checkTrack(ctx context.Context, track Track) error {
 	if err != nil {
 		return fmt.Errorf("check track %s media: %w: %v", track.ID, ErrMediaUnavailable, err)
 	}
-	if asset.ContentTrackID != track.ID || asset.SourceUploadID != *track.CompletedUploadID {
+	if asset.ContentTrackID != track.ID ||
+		(track.CompletedUploadID != nil && asset.SourceUploadID != *track.CompletedUploadID) ||
+		(track.CompletedUploadID == nil && asset.SourceUploadID != uuid.Nil) {
 		return fmt.Errorf("track %s: %w", track.ID, ErrInconsistentMedia)
 	}
 	if asset.Status != contentmedia.StatusReady {

@@ -61,3 +61,27 @@ func (repository *MediaReadinessRepository) AssetByUpload(ctx context.Context, u
 	asset.Status = contentmedia.StatusReady
 	return asset, nil
 }
+
+func (repository *MediaReadinessRepository) AssetByTrack(
+	ctx context.Context,
+	trackID uuid.UUID,
+) (contentmedia.Asset, error) {
+	if trackID == uuid.Nil {
+		return contentmedia.Asset{}, fmt.Errorf("track_id must be a UUID: %w", contentmedia.ErrInvalid)
+	}
+	var asset contentmedia.Asset
+	var sourceUploadID *uuid.UUID
+	err := repository.pool.QueryRow(ctx, `
+		SELECT media_asset_id, source_upload_id, content_track_id, duration_ms
+		FROM content.media_asset_readiness
+		WHERE content_track_id=$1 AND source_upload_id IS NULL
+	`, trackID).Scan(&asset.ID, &sourceUploadID, &asset.ContentTrackID, &asset.DurationMS)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return contentmedia.Asset{}, contentmedia.ErrNotFound
+	}
+	if err != nil {
+		return contentmedia.Asset{}, fmt.Errorf("query external media readiness: %w", err)
+	}
+	asset.Status = contentmedia.StatusReady
+	return asset, nil
+}
