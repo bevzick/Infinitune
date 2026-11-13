@@ -35,6 +35,9 @@ func TestLoadUsesMediaDependencies(t *testing.T) {
 	t.Setenv("MEDIA_JAMENDO_CLIENT_ID", "test-client-id")
 	t.Setenv("MEDIA_JAMENDO_API_URL", "https://api.example.test/v3.0")
 	t.Setenv("MEDIA_JAMENDO_TIMEOUT", "3s")
+	t.Setenv("MEDIA_INTERNET_ARCHIVE_METADATA_URL", "https://metadata.example.test")
+	t.Setenv("MEDIA_INTERNET_ARCHIVE_DOWNLOAD_URL", "https://download.example.test")
+	t.Setenv("MEDIA_INTERNET_ARCHIVE_TIMEOUT", "4s")
 
 	config, err := Load()
 	if err != nil {
@@ -73,6 +76,30 @@ func TestLoadUsesMediaDependencies(t *testing.T) {
 		config.Jamendo.APIURL != "https://api.example.test/v3.0" ||
 		config.Jamendo.Timeout != 3*time.Second {
 		t.Errorf("Jamendo = %+v", config.Jamendo)
+	}
+	if config.InternetArchive.MetadataURL != "https://metadata.example.test" ||
+		config.InternetArchive.DownloadURL != "https://download.example.test" ||
+		config.InternetArchive.Timeout != 4*time.Second {
+		t.Errorf("InternetArchive = %+v", config.InternetArchive)
+	}
+}
+
+func TestLoadRejectsInvalidInternetArchiveConfiguration(t *testing.T) {
+	tests := []struct {
+		name, key, value string
+	}{
+		{"insecure metadata URL", "MEDIA_INTERNET_ARCHIVE_METADATA_URL", "http://archive.org/metadata"},
+		{"download URL with query", "MEDIA_INTERNET_ARCHIVE_DOWNLOAD_URL", "https://archive.org/download?x=1"},
+		{"invalid timeout", "MEDIA_INTERNET_ARCHIVE_TIMEOUT", "0s"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			setRequiredEnvironment(t)
+			t.Setenv(test.key, test.value)
+			if _, err := Load(); err == nil {
+				t.Fatal("Load() error = nil")
+			}
+		})
 	}
 }
 
@@ -154,4 +181,7 @@ func setRequiredEnvironment(t *testing.T) {
 	t.Setenv("MEDIA_JAMENDO_CLIENT_ID", "")
 	t.Setenv("MEDIA_JAMENDO_API_URL", "")
 	t.Setenv("MEDIA_JAMENDO_TIMEOUT", "")
+	t.Setenv("MEDIA_INTERNET_ARCHIVE_METADATA_URL", "")
+	t.Setenv("MEDIA_INTERNET_ARCHIVE_DOWNLOAD_URL", "")
+	t.Setenv("MEDIA_INTERNET_ARCHIVE_TIMEOUT", "")
 }

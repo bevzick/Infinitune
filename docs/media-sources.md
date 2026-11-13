@@ -49,6 +49,24 @@ declared size are validated before the stream reaches the ingest workflow.
 Temporary download URLs and the client identifier are never stored in asset
 provenance.
 
+### Internet Archive configuration
+
+Public Internet Archive reads do not require an API key. The adapter uses the
+official item metadata response to verify the item, file, declared size, and
+license. Optional endpoint configuration is available through:
+
+- `MEDIA_INTERNET_ARCHIVE_METADATA_URL` (default
+  `https://archive.org/metadata`);
+- `MEDIA_INTERNET_ARCHIVE_DOWNLOAD_URL` (default
+  `https://archive.org/download`);
+- `MEDIA_INTERNET_ARCHIVE_TIMEOUT` (default `20s`, maximum `1m`).
+
+The `external_id` must identify both an item and one exact file, for example
+`concert-identifier/audio/track-01.flac`. Only original MP3, FLAC, WAV, and M4A
+files from `audio` or `etree` items are accepted. The item must contain a
+recognized Creative Commons license URL, CC0 declaration, or Public Domain
+Mark. Arbitrary rights text is not treated as permission to copy or stream.
+
 An authenticated creator imports a configured source with:
 
 ```http
@@ -88,5 +106,6 @@ unsupported media types, and streams outside the 500 MiB ingest limit.
 Provider-specific credentials, rate limits, retries, and HTTP behavior stay
 inside each adapter.
 
-The next implementation stage adds the Internet Archive HTTP adapter and
-registers it in the same import workflow.
+The next implementation stage adds provider discovery endpoints so the frontend
+can inspect licensed metadata and available Internet Archive audio files before
+starting an import.

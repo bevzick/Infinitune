@@ -36,6 +36,9 @@ const (
 	defaultOutboxBatch     = 100
 	defaultJamendoAPIURL   = "https://api.jamendo.com/v3.0"
 	defaultJamendoTimeout  = 15 * time.Second
+	defaultArchiveMetadata = "https://archive.org/metadata"
+	defaultArchiveDownload = "https://archive.org/download"
+	defaultArchiveTimeout  = 20 * time.Second
 )
 
 type EventsConfig struct {
@@ -51,16 +54,23 @@ type JamendoConfig struct {
 	Timeout  time.Duration
 }
 
+type InternetArchiveConfig struct {
+	MetadataURL string
+	DownloadURL string
+	Timeout     time.Duration
+}
+
 type Config struct {
-	HTTPAddress    string
-	GRPCAddress    string
-	ContentAddress string
-	Database       database.Config
-	Storage        storage.Config
-	Identity       identity.Config
-	Origins        []string
-	Events         EventsConfig
-	Jamendo        *JamendoConfig
+	HTTPAddress     string
+	GRPCAddress     string
+	ContentAddress  string
+	Database        database.Config
+	Storage         storage.Config
+	Identity        identity.Config
+	Origins         []string
+	Events          EventsConfig
+	Jamendo         *JamendoConfig
+	InternetArchive InternetArchiveConfig
 }
 
 func Load() (Config, error) {
@@ -96,6 +106,10 @@ func Load() (Config, error) {
 	if err != nil {
 		return Config{}, err
 	}
+	archiveConfig, err := loadInternetArchiveConfig()
+	if err != nil {
+		return Config{}, err
+	}
 	return Config{
 		HTTPAddress: net.JoinHostPort(envOrDefault("MEDIA_HTTP_HOST", defaultHTTPHost), httpPort),
 		GRPCAddress: net.JoinHostPort(envOrDefault("MEDIA_GRPC_HOST", defaultGRPCHost), grpcPort),
@@ -111,10 +125,44 @@ func Load() (Config, error) {
 			KeyID:           envOrDefault("AUTH_JWT_KEY_ID", defaultJWTKeyID),
 			RefreshInterval: defaultJWKSRefresh,
 		},
-		Origins: origins,
-		Events:  eventsConfig,
-		Jamendo: jamendoConfig,
+		Origins:         origins,
+		Events:          eventsConfig,
+		Jamendo:         jamendoConfig,
+		InternetArchive: archiveConfig,
 	}, nil
+}
+
+func loadInternetArchiveConfig() (InternetArchiveConfig, error) {
+	metadataURL := envOrDefault("MEDIA_INTERNET_ARCHIVE_METADATA_URL", defaultArchiveMetadata)
+	if err := validateProviderURL("MEDIA_INTERNET_ARCHIVE_METADATA_URL", metadataURL); err != nil {
+		return InternetArchiveConfig{}, err
+	}
+	downloadURL := envOrDefault("MEDIA_INTERNET_ARCHIVE_DOWNLOAD_URL", defaultArchiveDownload)
+	if err := validateProviderURL("MEDIA_INTERNET_ARCHIVE_DOWNLOAD_URL", downloadURL); err != nil {
+		return InternetArchiveConfig{}, err
+	}
+	timeout := defaultArchiveTimeout
+	if raw := os.Getenv("MEDIA_INTERNET_ARCHIVE_TIMEOUT"); raw != "" {
+		parsed, err := time.ParseDuration(raw)
+		if err != nil || parsed <= 0 || parsed > time.Minute {
+			return InternetArchiveConfig{}, fmt.Errorf(
+				"invalid MEDIA_INTERNET_ARCHIVE_TIMEOUT %q: expected a duration up to 1m", raw,
+			)
+		}
+		timeout = parsed
+	}
+	return InternetArchiveConfig{
+		MetadataURL: metadataURL, DownloadURL: downloadURL, Timeout: timeout,
+	}, nil
+}
+
+func validateProviderURL(key, value string) error {
+	parsed, err := url.Parse(value)
+	if err != nil || parsed.Scheme != "https" || parsed.Host == "" ||
+		parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" {
+		return fmt.Errorf("%s must be an HTTPS URL without credentials, query, or fragment", key)
+	}
+	return nil
 }
 
 func loadJamendoConfig() (*JamendoConfig, error) {
