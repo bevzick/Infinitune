@@ -79,7 +79,7 @@ func writeIngestError(c *gin.Context, logger *slog.Logger, err error) {
 	case errors.Is(err, content.ErrUnavailable), errors.Is(err, ingest.ErrStorage):
 		writeError(c, http.StatusServiceUnavailable, "ingest_unavailable", "Media ingest is temporarily unavailable")
 	default:
-		logger.Error("media ingest failed", "error", err)
+		loggerWithRequest(c, logger).Error("media ingest failed", "error", err)
 		writeError(c, http.StatusInternalServerError, "internal_error", "Upload could not be completed")
 	}
 }

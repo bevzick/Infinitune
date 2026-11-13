@@ -46,8 +46,9 @@ type Dependencies struct {
 func NewRouter(dependencies Dependencies) http.Handler {
 	gin.SetMode(gin.ReleaseMode)
 
+	dependencies.Logger = normalizeLogger(dependencies.Logger)
 	router := gin.New()
-	router.Use(gin.Logger(), gin.Recovery(), cors(dependencies.Origins))
+	router.Use(observeRequests(dependencies.Logger), recoverPanics(dependencies.Logger), cors(dependencies.Origins))
 	router.GET("/health", health(dependencies.Database))
 	router.GET("/v1/users/profiles/:user_id", publicProfile(dependencies.Profiles, dependencies.Logger))
 

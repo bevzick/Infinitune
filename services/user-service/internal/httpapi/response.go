@@ -39,7 +39,7 @@ func writeDomainError(c *gin.Context, logger *slog.Logger, err error) {
 	case errors.Is(err, profile.ErrUsernameTaken):
 		writeError(c, http.StatusConflict, "username_taken", "Username is already taken")
 	default:
-		logger.Error("user request failed", "error", err)
+		loggerWithRequest(c, logger).Error("user request failed", "error", err)
 		writeError(c, http.StatusInternalServerError, "internal_error", "Request could not be completed")
 	}
 }

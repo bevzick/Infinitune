@@ -75,10 +75,10 @@ func writeDomainError(c *gin.Context, logger *slog.Logger, err error) {
 	case errors.Is(err, publication.ErrCatalogUnavailable):
 		writeError(c, http.StatusServiceUnavailable, "catalog_unavailable", "Catalog publication is temporarily unavailable")
 	case errors.Is(err, publication.ErrInconsistentMedia):
-		logger.Error("release media association is inconsistent", "error", err)
+		loggerWithRequest(c, logger).Error("release media association is inconsistent", "error", err)
 		writeError(c, http.StatusInternalServerError, "inconsistent_media", "Release media association is inconsistent")
 	case errors.Is(err, publication.ErrInconsistentCatalog):
-		logger.Error("catalog publication response is inconsistent", "error", err)
+		loggerWithRequest(c, logger).Error("catalog publication response is inconsistent", "error", err)
 		writeError(c, http.StatusInternalServerError, "inconsistent_catalog", "Catalog publication response is inconsistent")
 	case errors.Is(err, moderation.ErrInvalid):
 		writeError(c, http.StatusUnprocessableEntity, "invalid_moderation_review", err.Error())
@@ -113,7 +113,7 @@ func writeDomainError(c *gin.Context, logger *slog.Logger, err error) {
 	case errors.Is(err, submission.ErrMediaUnavailable):
 		writeError(c, http.StatusServiceUnavailable, "media_unavailable", "Media readiness could not be checked")
 	case errors.Is(err, submission.ErrInconsistentMedia):
-		logger.Error("release media association is inconsistent", "error", err)
+		loggerWithRequest(c, logger).Error("release media association is inconsistent", "error", err)
 		writeError(c, http.StatusInternalServerError, "inconsistent_media", "Release media association is inconsistent")
 	case errors.Is(err, creator.ErrTargetUserNotFound):
 		writeError(c, http.StatusNotFound, "user_not_found", "User was not found")
@@ -130,7 +130,7 @@ func writeDomainError(c *gin.Context, logger *slog.Logger, err error) {
 	case errors.Is(err, creator.ErrUserDirectoryUnavailable):
 		writeError(c, http.StatusServiceUnavailable, "user_service_unavailable", "User service is unavailable")
 	default:
-		logger.Error("content request failed", "error", err)
+		loggerWithRequest(c, logger).Error("content request failed", "error", err)
 		writeError(c, http.StatusInternalServerError, "internal_error", "Request could not be completed")
 	}
 }

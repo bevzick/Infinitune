@@ -27,7 +27,7 @@ func authenticate(tokens IdentityVerifier, logger *slog.Logger) gin.HandlerFunc 
 			return
 		}
 		if err != nil {
-			logger.Error("identity verification unavailable", "error", err)
+			loggerWithRequest(c, logger).Error("identity verification unavailable", "error", err)
 			writeError(c, http.StatusServiceUnavailable,
 				"identity_unavailable", "Identity verification is unavailable")
 			return

@@ -33,7 +33,7 @@ func writeDomainError(c *gin.Context, logger *slog.Logger, err error) {
 	case errors.Is(err, metadata.ErrNotFound):
 		writeError(c, http.StatusNotFound, "catalog_item_not_found", "Catalog item was not found", "")
 	default:
-		logger.Error("catalog request failed", "error", err)
+		loggerWithRequest(c, logger).Error("catalog request failed", "error", err)
 		writeError(c, http.StatusInternalServerError, "internal_error", "Request could not be completed", "")
 	}
 }

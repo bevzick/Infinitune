@@ -29,7 +29,7 @@ func writeDomainError(c *gin.Context, logger *slog.Logger, err error) {
 	case errors.Is(err, recommendation.ErrInvalid):
 		writeError(c, http.StatusUnprocessableEntity, "invalid_recommendation_request", "Recommendation request is invalid")
 	default:
-		logger.Error("recommendation request failed", "error", err)
+		loggerWithRequest(c, logger).Error("recommendation request failed", "error", err)
 		writeError(c, http.StatusInternalServerError, "internal_error", "Request could not be completed")
 	}
 }

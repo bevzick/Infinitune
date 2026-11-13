@@ -59,7 +59,7 @@ func writeDomainError(c *gin.Context, logger *slog.Logger, err error) {
 	case errors.Is(err, moderation.ErrConflict):
 		writeError(c, http.StatusConflict, "moderation_state_conflict", "Action conflicts with the current moderation state")
 	default:
-		logger.Error("comment request failed", "error", err)
+		loggerWithRequest(c, logger).Error("comment request failed", "error", err)
 		writeError(c, http.StatusInternalServerError, "internal_error", "Request could not be completed")
 	}
 }

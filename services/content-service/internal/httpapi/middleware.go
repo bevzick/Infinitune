@@ -33,7 +33,7 @@ func authenticate(tokens IdentityVerifier, logger *slog.Logger) gin.HandlerFunc 
 			return
 		}
 		if err != nil {
-			logger.Error("identity verification unavailable", "error", err)
+			loggerWithRequest(c, logger).Error("identity verification unavailable", "error", err)
 			writeError(c, http.StatusServiceUnavailable, "identity_unavailable", "Identity verification is unavailable")
 			return
 		}
@@ -60,10 +60,11 @@ func cors(origins []string) gin.HandlerFunc {
 			c.Header("Vary", "Origin")
 			if slices.Contains(origins, origin) {
 				c.Header("Access-Control-Allow-Origin", origin)
+				c.Header("Access-Control-Expose-Headers", requestIDHeader)
 			}
 		}
 		if c.Request.Method == http.MethodOptions {
-			c.Header("Access-Control-Allow-Headers", "Authorization, Content-Type")
+			c.Header("Access-Control-Allow-Headers", "Authorization, Content-Type, X-Request-ID")
 			c.Header("Access-Control-Allow-Methods", "GET, POST, PATCH, PUT, DELETE, OPTIONS")
 			c.Status(http.StatusNoContent)
 			c.Abort()
