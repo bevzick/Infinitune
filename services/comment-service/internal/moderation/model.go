@@ -66,3 +66,15 @@ type Page struct {
 	Offset int
 	Total  int64
 }
+
+type ActionPageRequest struct {
+	Limit  int
+	Offset int
+}
+
+type ActionPage struct {
+	Items  []Decision
+	Limit  int
+	Offset int
+	Total  int64
+}

@@ -67,6 +67,18 @@ func TestServiceListsValidatedModerationQueue(t *testing.T) {
 	}
 }
 
+func TestServiceListsModerationActionAudit(t *testing.T) {
+	store := &moderationStoreStub{actions: ActionPage{
+		Items: []Decision{{ID: uuid.New()}}, Total: 1,
+	}}
+	result, err := NewService(store).ListActions(context.Background(), Actor{
+		UserID: uuid.New(), Roles: []string{"admin"},
+	}, ActionPageRequest{})
+	if err != nil || result.Total != 1 || store.actionPage.Limit != defaultPageLimit {
+		t.Fatalf("ListActions() = %+v, %v; request = %+v", result, err, store.actionPage)
+	}
+}
+
 func validInput() Input {
 	return Input{ReportID: uuid.New(), Action: ActionStartReview, Note: "Reviewing"}
 }
@@ -74,6 +86,16 @@ func validInput() Input {
 type moderationStoreStub struct {
 	page       PageRequest
 	applyCalls int
+	actionPage ActionPageRequest
+	actions    ActionPage
+}
+
+func (stub *moderationStoreStub) ListModerationActions(
+	_ context.Context,
+	page ActionPageRequest,
+) (ActionPage, error) {
+	stub.actionPage = page
+	return stub.actions, nil
 }
 
 func (stub *moderationStoreStub) ListModerationCases(_ context.Context, page PageRequest) (Page, error) {

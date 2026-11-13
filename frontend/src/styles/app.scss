@@ -8,6 +8,7 @@
 @use "feedback";
 @use "accessibility";
 @use "imports";
+@use "admin";
 
 html {
   background: var(--app-bg);

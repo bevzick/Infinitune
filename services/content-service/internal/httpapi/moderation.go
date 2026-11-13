@@ -28,6 +28,39 @@ type moderationReviewResponse struct {
 	CreatedAt            time.Time           `json:"created_at"`
 }
 
+func listReleaseModerationReviews(service ReleaseModeration, logger *slog.Logger) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		limit, err := queryInteger(c, "limit")
+		if err != nil {
+			writeError(c, http.StatusBadRequest, "invalid_moderation_query", "limit must be an integer")
+			return
+		}
+		offset, err := queryInteger(c, "offset")
+		if err != nil {
+			writeError(c, http.StatusBadRequest, "invalid_moderation_query", "offset must be an integer")
+			return
+		}
+		verified := requestIdentity(c)
+		result, err := service.List(c.Request.Context(), creator.Actor{
+			UserID: verified.UserID, Roles: verified.Roles,
+		}, moderation.PageRequest{Limit: limit, Offset: offset})
+		if err != nil {
+			writeDomainError(c, logger, err)
+			return
+		}
+		items := make([]moderationReviewResponse, 0, len(result.Items))
+		for _, item := range result.Items {
+			items = append(items, presentModerationReview(item))
+		}
+		c.JSON(http.StatusOK, gin.H{
+			"items": items,
+			"page": releasePageMetadata{
+				Limit: result.Limit, Offset: result.Offset, Total: result.Total,
+			},
+		})
+	}
+}
+
 func reviewRelease(service ReleaseModeration, logger *slog.Logger) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		releaseID, err := uuid.Parse(c.Param("release_id"))
@@ -51,11 +84,15 @@ func reviewRelease(service ReleaseModeration, logger *slog.Logger) gin.HandlerFu
 			writeDomainError(c, logger, err)
 			return
 		}
-		c.JSON(http.StatusOK, moderationReviewResponse{
-			ID: result.ID.String(), ReleaseID: result.ReleaseID.String(),
-			ReviewerUserID: result.ReviewerUserID.String(), Decision: result.Decision,
-			Comment: result.Comment, ReviewedSubmissionAt: result.ReviewedSubmissionAt,
-			ReleaseStatus: result.ReleaseStatus, CreatedAt: result.CreatedAt,
-		})
+		c.JSON(http.StatusOK, presentModerationReview(result))
+	}
+}
+
+func presentModerationReview(result moderation.Review) moderationReviewResponse {
+	return moderationReviewResponse{
+		ID: result.ID.String(), ReleaseID: result.ReleaseID.String(),
+		ReviewerUserID: result.ReviewerUserID.String(), Decision: result.Decision,
+		Comment: result.Comment, ReviewedSubmissionAt: result.ReviewedSubmissionAt,
+		ReleaseStatus: result.ReleaseStatus, CreatedAt: result.CreatedAt,
 	}
 }

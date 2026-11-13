@@ -34,6 +34,7 @@ export function AppLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const [logoutError, setLogoutError] = useState("");
+  const isAdmin = session.identity?.roles.includes("admin") ?? false;
   useDocumentTitle(pageTitle(location.pathname));
 
   async function signOut() {
@@ -76,6 +77,14 @@ export function AppLayout() {
           <div className="sidebar-section">
             <span className="sidebar-label">Creator studio</span>
             <Navigation items={creatorNavigation} />
+          </div>
+        ) : null}
+        {isAdmin ? (
+          <div className="sidebar-section">
+            <span className="sidebar-label">Operations</span>
+            <Navigation
+              items={[{ to: "/admin", label: "Administration", icon: "admin" }]}
+            />
           </div>
         ) : null}
         <div className="sidebar-note">
@@ -182,6 +191,7 @@ export function pageTitle(pathname: string) {
   if (pathname.startsWith("/library/")) return "Playlist";
   if (pathname === "/profile") return "Profile";
   if (pathname === "/creator/import") return "Import music";
+  if (pathname === "/admin") return "Administration";
   return "Infinitune";
 }
 

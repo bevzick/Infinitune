@@ -232,7 +232,7 @@ services:
     routes:
       - name: content-options
         paths:
-          - ~/v1/(?:creators|releases|release-tracks|track-rights|moderation/(?:releases|creators))(?:/|$)
+          - ~/v1/(?:creators|releases|release-tracks|track-rights|moderation/(?:releases|creators|release-reviews))(?:/|$)
         methods:
           - OPTIONS
         regex_priority: 110
@@ -240,7 +240,7 @@ services:
 
       - name: content-protected
         paths:
-          - ~/v1/(?:creators|releases|release-tracks|track-rights|moderation/(?:releases|creators))(?:/|$)
+          - ~/v1/(?:creators|releases|release-tracks|track-rights|moderation/(?:releases|creators|release-reviews))(?:/|$)
         methods:
           - GET
           - POST
@@ -299,7 +299,7 @@ services:
 
       - name: comment-options
         paths:
-          - ~/v1/(?:comments|moderation/comment-reports)(?:/|$)
+          - ~/v1/(?:comments|moderation/(?:comment-reports|comment-actions))(?:/|$)
         methods:
           - OPTIONS
         regex_priority: 110
@@ -324,7 +324,7 @@ services:
 
       - name: comment-moderation-protected
         paths:
-          - ~/v1/moderation/comment-reports(?:/|$)
+          - ~/v1/moderation/(?:comment-reports|comment-actions)(?:/|$)
         methods:
           - GET
           - POST

@@ -81,15 +81,35 @@ func TestServicePreservesStoreError(t *testing.T) {
 	}
 }
 
+func TestServiceListsAuditForModerator(t *testing.T) {
+	store := &storeStub{page: Page{Items: []Review{{ID: uuid.New()}}, Total: 1}}
+	page, err := NewService(store).List(context.Background(), moderatorActor(), PageRequest{})
+	if err != nil || page.Total != 1 || store.pageRequest.Limit != defaultPageLimit {
+		t.Fatalf("List() = %+v, %v; request = %+v", page, err, store.pageRequest)
+	}
+	if _, err = NewService(store).List(context.Background(), creator.Actor{
+		UserID: uuid.New(), Roles: []string{string(creator.RoleOwner)},
+	}, PageRequest{}); !errors.Is(err, ErrForbidden) {
+		t.Fatalf("List(listener) error = %v", err)
+	}
+}
+
 func moderatorActor() creator.Actor {
 	return creator.Actor{UserID: uuid.New(), Roles: []string{creator.GlobalRoleModerator}}
 }
 
 type storeStub struct {
-	result Review
-	err    error
-	review Review
-	calls  int
+	result      Review
+	err         error
+	review      Review
+	calls       int
+	page        Page
+	pageRequest PageRequest
+}
+
+func (stub *storeStub) ListReviews(_ context.Context, page PageRequest) (Page, error) {
+	stub.pageRequest = page
+	return stub.page, stub.err
 }
 
 func (stub *storeStub) RecordReview(_ context.Context, review Review) (Review, error) {

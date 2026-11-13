@@ -51,6 +51,7 @@ type ReleaseSubmissions interface {
 }
 type ReleaseModeration interface {
 	Review(context.Context, creator.Actor, moderation.Input) (moderation.Review, error)
+	List(context.Context, creator.Actor, moderation.PageRequest) (moderation.Page, error)
 }
 type ReleasePublications interface {
 	Publish(context.Context, uuid.UUID, uuid.UUID) (release.Release, error)
@@ -117,6 +118,7 @@ func NewRouter(dependencies Dependencies) http.Handler {
 	content.POST("/releases/:release_id/publications", publishRelease(dependencies.Publications, dependencies.Logger))
 	content.GET("/moderation/releases", listReleaseModerationQueue(dependencies.Releases, dependencies.Logger))
 	content.GET("/moderation/creators", listCreatorVerificationQueue(dependencies.Creators, dependencies.Logger))
+	content.GET("/moderation/release-reviews", listReleaseModerationReviews(dependencies.Moderation, dependencies.Logger))
 	return router
 }
 
