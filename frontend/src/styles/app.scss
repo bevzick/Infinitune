@@ -10,6 +10,7 @@
 @use "imports";
 @use "admin";
 @use "creator-releases";
+@use "creator-accounts";
 
 html {
   background: var(--app-bg);

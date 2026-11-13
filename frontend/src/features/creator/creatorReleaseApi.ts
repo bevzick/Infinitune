@@ -7,6 +7,11 @@ export type CreatorAccount = {
   verification_status: "unverified" | "pending" | "verified" | "rejected";
 };
 
+export type CreateCreatorAccountInput = Pick<
+  CreatorAccount,
+  "type" | "display_name"
+>;
+
 export type ReleaseType = "single" | "ep" | "album" | "compilation";
 export type ReleaseStatus =
   | "draft"
@@ -67,6 +72,27 @@ export function listCreatorAccounts(accessToken: string, signal?: AbortSignal) {
     accessToken,
     signal,
   });
+}
+
+export function createCreatorAccount(
+  accessToken: string,
+  input: CreateCreatorAccountInput,
+) {
+  return apiRequest<CreatorAccount>("/v1/creators", {
+    method: "POST",
+    accessToken,
+    body: JSON.stringify(input),
+  });
+}
+
+export function submitCreatorVerification(
+  accessToken: string,
+  creatorId: string,
+) {
+  return apiRequest<CreatorAccount>(
+    `/v1/creators/${creatorId}/verification-submissions`,
+    { method: "POST", accessToken },
+  );
 }
 
 export async function listDraftReleases(

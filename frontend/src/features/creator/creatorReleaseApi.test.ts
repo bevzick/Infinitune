@@ -1,14 +1,43 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
+  createCreatorAccount,
   createRelease,
   listDraftReleases,
+  submitCreatorVerification,
   updateRelease,
 } from "./creatorReleaseApi";
 
 afterEach(() => vi.unstubAllGlobals());
 
 describe("creator release API", () => {
+  it("creates and submits a creator account for verification", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockImplementation(async () =>
+        jsonResponse({ id: "creator-1", verification_status: "unverified" }),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await createCreatorAccount("token", {
+      type: "artist",
+      display_name: "Luna Veil",
+    });
+    await submitCreatorVerification("token", "creator-1");
+
+    expect(fetchMock.mock.calls[0][0]).toBe(
+      "http://localhost:8000/v1/creators",
+    );
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({
+      type: "artist",
+      display_name: "Luna Veil",
+    });
+    expect(fetchMock.mock.calls[1][0]).toBe(
+      "http://localhost:8000/v1/creators/creator-1/verification-submissions",
+    );
+    expect(fetchMock.mock.calls[1][1].method).toBe("POST");
+  });
+
   it("hydrates draft release tracks", async () => {
     const fetchMock = vi
       .fn()

@@ -1,4 +1,5 @@
 import { type FormEvent, useCallback, useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 
 import {
   type CreatorAccount,
@@ -105,7 +106,8 @@ export function CreatorReleasesPage() {
 
       {!accounts.length ? (
         <CreatorReleaseNotice title="No creator account available">
-          Create or join a creator account before preparing a release.
+          Create or join a creator account before preparing a release.{" "}
+          <Link to="/creator/accounts">Open creator accounts</Link>
         </CreatorReleaseNotice>
       ) : null}
 
