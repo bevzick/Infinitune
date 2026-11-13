@@ -54,7 +54,7 @@
 
 .creator-release-card-heading {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  grid-template-columns: auto minmax(0, 1fr) auto auto auto;
   align-items: center;
   gap: 1rem;
 
@@ -305,6 +305,11 @@
   gap: 0.5rem;
 }
 
+.creator-track-upload-title span {
+  color: var(--app-muted);
+  font-size: 0.78rem;
+}
+
 .creator-track-rights-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(8rem, auto) minmax(8rem, auto);
@@ -341,6 +346,109 @@
   }
 }
 
+.creator-track-uploads {
+  display: grid;
+  gap: 1rem;
+  margin-top: 1rem;
+  padding: clamp(1rem, 3vw, 1.4rem);
+  border: 1px solid var(--app-line);
+  border-radius: 0.9rem;
+  background: var(--app-bg-elevated);
+
+  > header {
+    display: flex;
+    align-items: end;
+    justify-content: space-between;
+    gap: 1rem;
+
+    h3 {
+      margin: 0.2rem 0 0;
+    }
+
+    p {
+      margin: 0;
+      color: var(--app-muted);
+      font-size: 0.82rem;
+    }
+  }
+}
+
+.creator-track-upload-list {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.creator-track-upload-row {
+  display: grid;
+  grid-template-columns: minmax(9rem, 0.8fr) minmax(13rem, 1.2fr) auto;
+  align-items: end;
+  gap: 0.8rem;
+  padding: 0.9rem;
+  border: 1px solid var(--app-line);
+  border-radius: 0.75rem;
+  background: var(--app-panel);
+
+  label,
+  .creator-track-upload-title {
+    display: grid;
+    gap: 0.35rem;
+  }
+
+  label {
+    color: var(--app-muted);
+    font-size: 0.75rem;
+    font-weight: 750;
+  }
+
+  input[type="file"] {
+    min-width: 0;
+    min-height: 2.65rem;
+    padding: 0.5rem;
+    border: 1px solid var(--app-line);
+    border-radius: 0.65rem;
+    color: var(--app-text);
+    background: var(--app-input);
+  }
+
+  > button {
+    min-height: 2.65rem;
+    padding: 0 0.9rem;
+    border: 0;
+    border-radius: 0.65rem;
+    color: white;
+    background: var(--app-accent-strong);
+    cursor: pointer;
+    font-weight: 800;
+
+    &:disabled {
+      cursor: not-allowed;
+      opacity: 0.55;
+    }
+  }
+}
+
+.creator-track-upload-status {
+  display: grid;
+  grid-column: 1 / -1;
+  gap: 0.4rem;
+  color: var(--app-muted);
+  font-size: 0.82rem;
+
+  &.uploaded {
+    color: #35ad79;
+  }
+
+  &.error {
+    color: var(--app-danger);
+  }
+
+  progress {
+    width: 100%;
+    height: 0.45rem;
+    accent-color: var(--app-accent-strong);
+  }
+}
+
 @media (max-width: 900px) {
   .creator-release-fields {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -362,7 +470,8 @@
     align-items: stretch;
   }
 
-  .creator-track-rights > header {
+  .creator-track-rights > header,
+  .creator-track-uploads > header {
     align-items: start;
     flex-direction: column;
   }
@@ -373,6 +482,10 @@
     > div {
       grid-column: 1 / -1;
     }
+  }
+
+  .creator-track-upload-row {
+    grid-template-columns: 1fr;
   }
 
   .creator-releases-heading {

@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   createCreatorAccount,
   createRelease,
+  createTrackUploadSession,
   listDraftReleases,
   submitCreatorVerification,
   updateRelease,
@@ -94,6 +95,12 @@ describe("creator release API", () => {
       cover_object_key: null,
       tracks: [{ id: "track-1", ...createInput.tracks[0] }],
     });
+    await createTrackUploadSession("token", "track-1", {
+      idempotency_key: "00000000-0000-4000-8000-000000000001",
+      original_name: "signals.flac",
+      mime_type: "audio/flac",
+      size_bytes: 1024,
+    });
 
     expect(fetchMock.mock.calls[0][1].method).toBe("POST");
     expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual(createInput);
@@ -101,6 +108,16 @@ describe("creator release API", () => {
       "http://localhost:8000/v1/releases/release-1",
     );
     expect(fetchMock.mock.calls[1][1].method).toBe("PUT");
+    expect(fetchMock.mock.calls[2][0]).toBe(
+      "http://localhost:8000/v1/release-tracks/track-1/uploads",
+    );
+    expect(fetchMock.mock.calls[2][1].method).toBe("POST");
+    expect(JSON.parse(fetchMock.mock.calls[2][1].body)).toEqual({
+      idempotency_key: "00000000-0000-4000-8000-000000000001",
+      original_name: "signals.flac",
+      mime_type: "audio/flac",
+      size_bytes: 1024,
+    });
   });
 });
 

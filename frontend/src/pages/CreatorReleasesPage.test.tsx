@@ -12,6 +12,8 @@ const creatorApi = vi.hoisted(() => ({
   listTrackRights: vi.fn(),
   setTrackRight: vi.fn(),
   deleteTrackRight: vi.fn(),
+  createTrackUploadSession: vi.fn(),
+  uploadAudioFile: vi.fn(),
 }));
 
 vi.mock("../features/creator/creatorReleaseApi", () => creatorApi);
@@ -77,6 +79,28 @@ describe("CreatorReleasesPage", () => {
       }),
     );
     creatorApi.deleteTrackRight.mockResolvedValue(undefined);
+    creatorApi.createTrackUploadSession.mockResolvedValue({
+      id: "upload-1",
+      upload_url: "/v1/media/uploads/upload-1",
+      status: "pending",
+    });
+    creatorApi.uploadAudioFile.mockImplementation(
+      async (
+        _token: string,
+        _url: string,
+        _file: File,
+        _mimeType: string,
+        onProgress: (progress: number) => void,
+      ) => {
+        onProgress(50);
+        onProgress(100);
+        return {
+          media_asset_id: "asset-1",
+          content_track_id: "track-1",
+          status: "uploaded",
+        };
+      },
+    );
   });
 
   afterEach(() => {
@@ -179,6 +203,48 @@ describe("CreatorReleasesPage", () => {
     expect(creatorApi.deleteTrackRight).toHaveBeenCalledWith(
       "access-token",
       "right-streaming",
+    );
+  });
+
+  it("uploads local audio for a release track", async () => {
+    const user = userEvent.setup();
+    render(<CreatorReleasesPage />);
+
+    await user.click(
+      await screen.findByRole("button", { name: "Upload audio" }),
+    );
+    const file = new File(["audio-data"], "night-signal.mp3", {
+      type: "audio/mpeg",
+    });
+    await user.upload(
+      screen.getByLabelText("Audio file for Night Signal"),
+      file,
+    );
+    await user.click(
+      screen.getByRole("button", { name: "Upload Night Signal" }),
+    );
+
+    expect(creatorApi.createTrackUploadSession).toHaveBeenCalledWith(
+      "access-token",
+      "track-1",
+      {
+        idempotency_key: expect.stringMatching(
+          /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
+        ),
+        original_name: "night-signal.mp3",
+        mime_type: "audio/mpeg",
+        size_bytes: 10,
+      },
+    );
+    expect(creatorApi.uploadAudioFile).toHaveBeenCalledWith(
+      "access-token",
+      "/v1/media/uploads/upload-1",
+      file,
+      "audio/mpeg",
+      expect.any(Function),
+    );
+    expect(await screen.findByRole("status")).toHaveTextContent(
+      "Uploaded. Audio processing has been queued.",
     );
   });
 });

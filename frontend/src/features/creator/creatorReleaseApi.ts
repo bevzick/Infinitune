@@ -1,4 +1,4 @@
-import { apiRequest } from "../../shared/api/client";
+import { ApiError, apiRequest, gatewayUrl } from "../../shared/api/client";
 
 export type CreatorAccount = {
   id: string;
@@ -64,6 +64,24 @@ export type SetTrackRightInput = Pick<
   TrackRight,
   "territory_code" | "rights_type" | "valid_from" | "valid_until"
 >;
+
+export type UploadSession = {
+  id: string;
+  release_track_id: string;
+  upload_url: string;
+  original_name: string;
+  mime_type: string;
+  size_bytes: number;
+  status: "pending" | "uploading" | "completed" | "failed";
+  created_at: string;
+  updated_at: string;
+};
+
+export type MediaUploadResult = {
+  media_asset_id: string;
+  content_track_id: string;
+  status: "uploaded" | "processing" | "ready" | "failed";
+};
 
 export type CreateReleaseInput = {
   creator_id: string;
@@ -184,5 +202,72 @@ export function deleteTrackRight(accessToken: string, rightId: string) {
   return apiRequest<void>(`/v1/track-rights/${rightId}`, {
     method: "DELETE",
     accessToken,
+  });
+}
+
+export function createTrackUploadSession(
+  accessToken: string,
+  releaseTrackId: string,
+  input: {
+    idempotency_key: string;
+    original_name: string;
+    mime_type: string;
+    size_bytes: number;
+  },
+) {
+  return apiRequest<UploadSession>(
+    `/v1/release-tracks/${releaseTrackId}/uploads`,
+    {
+      method: "POST",
+      accessToken,
+      body: JSON.stringify(input),
+    },
+  );
+}
+
+export function uploadAudioFile(
+  accessToken: string,
+  uploadUrl: string,
+  file: File,
+  mimeType: string,
+  onProgress: (percentage: number) => void,
+) {
+  if (!uploadUrl.startsWith("/") || uploadUrl.startsWith("//")) {
+    return Promise.reject(new Error("Upload URL must be root-relative"));
+  }
+  return new Promise<MediaUploadResult>((resolve, reject) => {
+    const request = new XMLHttpRequest();
+    request.open("PUT", `${gatewayUrl}${uploadUrl}`);
+    request.responseType = "json";
+    request.withCredentials = true;
+    request.setRequestHeader("Accept", "application/json");
+    request.setRequestHeader("Authorization", `Bearer ${accessToken}`);
+    request.setRequestHeader("Content-Type", mimeType);
+    request.upload.addEventListener("progress", (event) => {
+      if (event.lengthComputable && event.total > 0) {
+        onProgress(Math.round((event.loaded / event.total) * 100));
+      }
+    });
+    request.addEventListener("load", () => {
+      if (request.status >= 200 && request.status < 300) {
+        onProgress(100);
+        resolve(request.response as MediaUploadResult);
+        return;
+      }
+      const payload = request.response as {
+        error?: { code?: string; message?: string };
+      } | null;
+      reject(
+        new ApiError(
+          request.status,
+          payload?.error?.code || "upload_failed",
+          payload?.error?.message || "Audio upload failed",
+        ),
+      );
+    });
+    request.addEventListener("error", () =>
+      reject(new ApiError(0, "upload_failed", "Audio upload failed")),
+    );
+    request.send(file);
   });
 }

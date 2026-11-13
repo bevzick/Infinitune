@@ -6,6 +6,7 @@ import {
   type CreatorRelease,
   type CreatorReleaseTrack,
   createRelease,
+  createTrackUploadSession,
   deleteTrackRight,
   listCreatorAccounts,
   listDraftReleases,
@@ -15,6 +16,7 @@ import {
   type TrackRight,
   type TrackRightType,
   updateRelease,
+  uploadAudioFile,
 } from "../features/creator/creatorReleaseApi";
 import { useSession } from "../features/session/SessionContext";
 import { ApiError } from "../shared/api/client";
@@ -42,6 +44,7 @@ export function CreatorReleasesPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [editingId, setEditingId] = useState("");
   const [rightsReleaseId, setRightsReleaseId] = useState("");
+  const [uploadReleaseId, setUploadReleaseId] = useState("");
   const [notice, setNotice] = useState("");
 
   const load = useCallback(
@@ -104,6 +107,7 @@ export function CreatorReleasesPage() {
             setShowCreate(true);
             setEditingId("");
             setRightsReleaseId("");
+            setUploadReleaseId("");
             setNotice("");
           }}
         >
@@ -168,6 +172,7 @@ export function CreatorReleasesPage() {
                     );
                     setShowCreate(false);
                     setRightsReleaseId("");
+                    setUploadReleaseId("");
                     setNotice("");
                   }}
                 >
@@ -181,6 +186,7 @@ export function CreatorReleasesPage() {
                       current === release.id ? "" : release.id,
                     );
                     setEditingId("");
+                    setUploadReleaseId("");
                     setShowCreate(false);
                     setNotice("");
                   }}
@@ -188,6 +194,23 @@ export function CreatorReleasesPage() {
                   {rightsReleaseId === release.id
                     ? "Close rights"
                     : "Manage rights"}
+                </button>
+                <button
+                  className="creator-release-secondary-action"
+                  type="button"
+                  onClick={() => {
+                    setUploadReleaseId((current) =>
+                      current === release.id ? "" : release.id,
+                    );
+                    setEditingId("");
+                    setRightsReleaseId("");
+                    setShowCreate(false);
+                    setNotice("");
+                  }}
+                >
+                  {uploadReleaseId === release.id
+                    ? "Close uploads"
+                    : "Upload audio"}
                 </button>
               </div>
               <ol className="creator-release-track-summary">
@@ -237,6 +260,12 @@ export function CreatorReleasesPage() {
                   release={release}
                 />
               ) : null}
+              {uploadReleaseId === release.id && accessToken ? (
+                <TrackAudioManager
+                  accessToken={accessToken}
+                  release={release}
+                />
+              ) : null}
             </article>
           ))
         ) : (
@@ -247,6 +276,185 @@ export function CreatorReleasesPage() {
       </section>
     </section>
   );
+}
+
+const maximumAudioBytes = 500 * 1024 * 1024;
+const audioTypes: Record<string, string> = {
+  wav: "audio/wav",
+  flac: "audio/flac",
+  mp3: "audio/mpeg",
+  m4a: "audio/mp4",
+};
+
+type TrackUploadState = {
+  stage: "idle" | "creating" | "uploading" | "uploaded" | "error";
+  progress: number;
+  message: string;
+};
+
+function TrackAudioManager({
+  accessToken,
+  release,
+}: {
+  accessToken: string;
+  release: CreatorRelease;
+}) {
+  const [files, setFiles] = useState<Record<string, File | undefined>>({});
+  const [uploads, setUploads] = useState<Record<string, TrackUploadState>>({});
+
+  function selectFile(trackId: string, file?: File) {
+    setFiles((current) => ({ ...current, [trackId]: file }));
+    const error = file ? validateAudioFile(file) : "";
+    setUploads((current) => ({
+      ...current,
+      [trackId]: error
+        ? { stage: "error", progress: 0, message: error }
+        : { stage: "idle", progress: 0, message: "" },
+    }));
+  }
+
+  async function upload(track: CreatorReleaseTrack) {
+    const file = files[track.id];
+    if (!file) return;
+    const validationError = validateAudioFile(file);
+    if (validationError) {
+      selectFile(track.id, file);
+      return;
+    }
+    const mimeType = audioMimeType(file);
+    setUploads((current) => ({
+      ...current,
+      [track.id]: {
+        stage: "creating",
+        progress: 0,
+        message: "Creating upload session…",
+      },
+    }));
+    try {
+      const session = await createTrackUploadSession(accessToken, track.id, {
+        idempotency_key: crypto.randomUUID(),
+        original_name: file.name,
+        mime_type: mimeType,
+        size_bytes: file.size,
+      });
+      setUploads((current) => ({
+        ...current,
+        [track.id]: {
+          stage: "uploading",
+          progress: 0,
+          message: "Uploading audio…",
+        },
+      }));
+      const result = await uploadAudioFile(
+        accessToken,
+        session.upload_url,
+        file,
+        mimeType,
+        (progress) =>
+          setUploads((current) => ({
+            ...current,
+            [track.id]: {
+              stage: "uploading",
+              progress,
+              message: `Uploading audio… ${progress}%`,
+            },
+          })),
+      );
+      setUploads((current) => ({
+        ...current,
+        [track.id]: {
+          stage: "uploaded",
+          progress: 100,
+          message:
+            result.status === "ready"
+              ? "Audio is ready."
+              : "Uploaded. Audio processing has been queued.",
+        },
+      }));
+    } catch (reason) {
+      setUploads((current) => ({
+        ...current,
+        [track.id]: {
+          stage: "error",
+          progress: 0,
+          message: errorMessage(reason, "Could not upload audio"),
+        },
+      }));
+    }
+  }
+
+  return (
+    <section className="creator-track-uploads" aria-label="Track audio uploads">
+      <header>
+        <div>
+          <span className="eyebrow">Local source audio</span>
+          <h3>Upload masters</h3>
+        </div>
+        <p>WAV, FLAC, MP3 or M4A · maximum 500 MiB per track.</p>
+      </header>
+      <div className="creator-track-upload-list">
+        {release.tracks.map((track) => {
+          const state = uploads[track.id];
+          const busy =
+            state?.stage === "creating" || state?.stage === "uploading";
+          return (
+            <div className="creator-track-upload-row" key={track.id}>
+              <div className="creator-track-upload-title">
+                <strong>{track.title}</strong>
+                <span>
+                  Disc {track.disc_number} · Track {track.track_number}
+                </span>
+              </div>
+              <label>
+                Audio file for {track.title}
+                <input
+                  type="file"
+                  accept=".wav,.flac,.mp3,.m4a,audio/wav,audio/flac,audio/mpeg,audio/mp4"
+                  disabled={busy}
+                  onChange={(event) =>
+                    selectFile(track.id, event.currentTarget.files?.[0])
+                  }
+                />
+              </label>
+              <button
+                type="button"
+                disabled={!files[track.id] || busy || state?.stage === "error"}
+                onClick={() => void upload(track)}
+              >
+                {busy ? "Uploading…" : `Upload ${track.title}`}
+              </button>
+              {state?.message ? (
+                <div
+                  className={`creator-track-upload-status ${state.stage}`}
+                  role={state.stage === "error" ? "alert" : "status"}
+                >
+                  <span>{state.message}</span>
+                  {state.stage === "uploading" ? (
+                    <progress value={state.progress} max={100}>
+                      {state.progress}%
+                    </progress>
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+function audioMimeType(file: File) {
+  const extension = file.name.split(".").pop()?.toLowerCase() || "";
+  return audioTypes[extension] || file.type;
+}
+
+function validateAudioFile(file: File) {
+  const extension = file.name.split(".").pop()?.toLowerCase() || "";
+  if (!audioTypes[extension]) return "Choose a WAV, FLAC, MP3 or M4A file.";
+  if (file.size < 1) return "The audio file is empty.";
+  if (file.size > maximumAudioBytes) return "The audio file exceeds 500 MiB.";
+  return "";
 }
 
 const managedRights: Array<{ type: TrackRightType; label: string }> = [
