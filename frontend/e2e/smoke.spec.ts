@@ -149,6 +149,49 @@ test("creator builds a release draft with its initial tracks", async ({
   });
 });
 
+test("creator creates an account and submits it for verification", async ({
+  page,
+}) => {
+  const requests = await mockGateway(page, { emptyCreatorAccounts: true });
+  await page.goto("/creator/accounts");
+
+  await page.getByLabel("Email").fill("creator@example.com");
+  await page.getByLabel("Password").fill("correct-horse-battery-staple");
+  await page.getByRole("button", { name: "Sign in" }).click();
+
+  await expect(page).toHaveURL(/\/creator\/accounts$/);
+  await expect(
+    page.getByRole("heading", { name: "Creator accounts" }),
+  ).toBeVisible();
+  await expect(page.getByText("No creator accounts yet")).toBeVisible();
+  await page.getByRole("button", { name: "+ New creator account" }).click();
+  await page.getByLabel("Account type").selectOption("label");
+  await page.getByLabel("Display name").fill("Northern Lights");
+  await page.getByRole("button", { name: "Create account" }).click();
+
+  await expect(page.getByText("Not submitted")).toBeVisible();
+  await page.getByRole("button", { name: "Submit for verification" }).click();
+  await expect(page.getByText("Pending review")).toBeVisible();
+  await expect(page.getByText("Awaiting moderator review")).toBeVisible();
+
+  const createRequest = requests.find(
+    (request) =>
+      new URL(request.url()).pathname === "/v1/creators" &&
+      request.method() === "POST",
+  );
+  expect(createRequest?.postDataJSON()).toEqual({
+    type: "label",
+    display_name: "Northern Lights",
+  });
+  const verificationRequest = requests.find((request) =>
+    new URL(request.url()).pathname.endsWith("/verification-submissions"),
+  );
+  expect(verificationRequest?.method()).toBe("POST");
+  expect(verificationRequest?.headers().authorization).toBe(
+    "Bearer e2e-access-token",
+  );
+});
+
 test("administrator can open the protected administration workspace", async ({
   page,
 }) => {

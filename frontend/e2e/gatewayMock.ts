@@ -48,12 +48,24 @@ const artist = {
 const releaseId = "00000000-0000-4000-8000-000000000501";
 const releaseTrackId = "00000000-0000-4000-8000-000000000502";
 
+type GatewayCreatorAccount = {
+  id: string;
+  type: "artist" | "label" | "distributor";
+  display_name: string;
+  verification_status: "unverified" | "pending" | "verified" | "rejected";
+  created_at: string;
+  updated_at: string;
+};
+
 export async function mockGateway(
   page: Page,
-  options: { roles?: string[] } = {},
+  options: { roles?: string[]; emptyCreatorAccounts?: boolean } = {},
 ) {
   const requests: Request[] = [];
   let createdDraft: ReturnType<typeof draftRelease> | null = null;
+  let creatorAccounts: GatewayCreatorAccount[] = options.emptyCreatorAccounts
+    ? []
+    : [defaultCreatorAccount()];
   await page.route("http://localhost:8000/v1/**", async (route) => {
     const request = route.request();
     const url = new URL(request.url());
@@ -86,17 +98,36 @@ export async function mockGateway(
         updated_at: "2026-11-12T00:00:00Z",
       });
     }
+    if (url.pathname === "/v1/creators" && request.method() === "POST") {
+      const input = request.postDataJSON() as {
+        type: "artist" | "label" | "distributor";
+        display_name: string;
+      };
+      const created = {
+        id: "00000000-0000-4000-8000-000000000521",
+        type: input.type,
+        display_name: input.display_name,
+        verification_status: "unverified",
+        created_at: "2026-11-13T00:00:00Z",
+        updated_at: "2026-11-13T00:00:00Z",
+      };
+      creatorAccounts = [created, ...creatorAccounts];
+      return json(route, created, 201);
+    }
     if (url.pathname === "/v1/creators") {
-      return json(route, [
-        {
-          id: "00000000-0000-4000-8000-000000000503",
-          type: "artist",
-          display_name: "Luna Veil",
-          verification_status: "verified",
-          created_at: "2026-11-13T00:00:00Z",
-          updated_at: "2026-11-13T00:00:00Z",
-        },
-      ]);
+      return json(route, creatorAccounts);
+    }
+    const verification = url.pathname.match(
+      /^\/v1\/creators\/([^/]+)\/verification-submissions$/,
+    );
+    if (verification && request.method() === "POST") {
+      const account = creatorAccounts.find(({ id }) => id === verification[1]);
+      if (!account) return apiError(route, 404, "creator_not_found");
+      const updated = { ...account, verification_status: "pending" };
+      creatorAccounts = creatorAccounts.map((item) =>
+        item.id === updated.id ? updated : item,
+      );
+      return json(route, updated);
     }
     if (url.pathname === "/v1/media/sources/providers") {
       return json(route, {
@@ -274,6 +305,17 @@ function interactionPage() {
   return { limit: 100, offset: 0, total: 0 };
 }
 
+function defaultCreatorAccount(): GatewayCreatorAccount {
+  return {
+    id: "00000000-0000-4000-8000-000000000503",
+    type: "artist",
+    display_name: "Luna Veil",
+    verification_status: "verified",
+    created_at: "2026-11-13T00:00:00Z",
+    updated_at: "2026-11-13T00:00:00Z",
+  };
+}
+
 function draftRelease(withTracks: boolean) {
   return {
     id: releaseId,
@@ -304,5 +346,13 @@ function json(route: Route, body: unknown, status = 200) {
     status,
     contentType: "application/json",
     body: JSON.stringify(body),
+  });
+}
+
+function apiError(route: Route, status: number, code: string) {
+  return route.fulfill({
+    status,
+    contentType: "application/json",
+    body: JSON.stringify({ error: { code, message: code } }),
   });
 }
