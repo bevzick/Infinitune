@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/bevzick/Infinitune/services/interaction-service/internal/correlation"
 	"github.com/bevzick/Infinitune/services/interaction-service/internal/events"
 	"github.com/twmb/franz-go/pkg/kgo"
 )
@@ -20,10 +21,15 @@ func NewProducer(brokers []string) (*Producer, error) {
 }
 
 func (producer *Producer) Publish(ctx context.Context, message events.Message) error {
+	correlationID := correlation.ID(ctx)
+	if correlationID == "" {
+		correlationID = message.ID.String()
+	}
 	record := &kgo.Record{Topic: message.Topic, Key: []byte(message.Key), Value: message.Payload, Headers: []kgo.RecordHeader{
 		{Key: "event_id", Value: []byte(message.ID.String())},
 		{Key: "event_type", Value: []byte(message.Type)},
 		{Key: "content_type", Value: []byte("application/json")},
+		{Key: "correlation_id", Value: []byte(correlationID)},
 	}}
 	if err := producer.client.ProduceSync(ctx, record).FirstErr(); err != nil {
 		return fmt.Errorf("publish %s: %w", message.Type, err)

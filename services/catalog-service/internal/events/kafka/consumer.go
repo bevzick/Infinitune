@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/bevzick/Infinitune/services/catalog-service/internal/correlation"
 	"github.com/bevzick/Infinitune/services/catalog-service/internal/events"
 	"github.com/twmb/franz-go/pkg/kgo"
 )
@@ -51,13 +52,15 @@ func (consumer *Consumer) Run(ctx context.Context) {
 }
 
 func (consumer *Consumer) process(ctx context.Context, record *kgo.Record) {
+	ctx = correlation.WithID(ctx, recordCorrelationID(record))
+	requestLogger := consumer.logger.With("request_id", correlation.ID(ctx))
 	for ctx.Err() == nil {
 		err := consumer.handler.Handle(ctx, record.Value)
 		if err == nil {
 			consumer.metrics.ConsumerProcessed(time.Now().UTC())
 			if err = consumer.client.CommitRecords(ctx, record); err != nil {
 				consumer.metrics.ConsumerOperationFailed()
-				consumer.logger.Error("failed to commit Kafka event", "topic", record.Topic, "partition", record.Partition, "offset", record.Offset, "error", err)
+				requestLogger.Error("failed to commit Kafka event", "topic", record.Topic, "partition", record.Partition, "offset", record.Offset, "error", err)
 			}
 			return
 		}
@@ -65,25 +68,36 @@ func (consumer *Consumer) process(ctx context.Context, record *kgo.Record) {
 		if errors.Is(err, events.ErrInvalidEvent) {
 			if deadLetterErr := consumer.publishDeadLetter(ctx, record, err); deadLetterErr != nil {
 				consumer.metrics.ConsumerDeadLetterPublishFailed()
-				consumer.logger.Warn("failed to publish invalid event to dead-letter topic", "topic", record.Topic, "partition", record.Partition, "offset", record.Offset, "error", deadLetterErr)
+				requestLogger.Warn("failed to publish invalid event to dead-letter topic", "topic", record.Topic, "partition", record.Partition, "offset", record.Offset, "error", deadLetterErr)
 				if !waitRetry(ctx) {
 					return
 				}
 				continue
 			}
 			consumer.metrics.ConsumerDeadLettered()
-			consumer.logger.Error("routed invalid Kafka event to dead-letter topic", "topic", record.Topic, "partition", record.Partition, "offset", record.Offset, "error", err)
+			requestLogger.Error("routed invalid Kafka event to dead-letter topic", "topic", record.Topic, "partition", record.Partition, "offset", record.Offset, "error", err)
 			if commitErr := consumer.client.CommitRecords(ctx, record); commitErr != nil {
 				consumer.metrics.ConsumerOperationFailed()
-				consumer.logger.Error("failed to commit invalid Kafka event", "topic", record.Topic, "partition", record.Partition, "offset", record.Offset, "error", commitErr)
+				requestLogger.Error("failed to commit invalid Kafka event", "topic", record.Topic, "partition", record.Partition, "offset", record.Offset, "error", commitErr)
 			}
 			return
 		}
-		consumer.logger.Warn("failed to handle Kafka event", "topic", record.Topic, "partition", record.Partition, "offset", record.Offset, "error", err)
+		requestLogger.Warn("failed to handle Kafka event", "topic", record.Topic, "partition", record.Partition, "offset", record.Offset, "error", err)
 		if !waitRetry(ctx) {
 			return
 		}
 	}
+}
+
+func recordCorrelationID(record *kgo.Record) string {
+	for _, key := range []string{"correlation_id", "event_id"} {
+		for _, header := range record.Headers {
+			if header.Key == key && correlation.Valid(string(header.Value)) {
+				return string(header.Value)
+			}
+		}
+	}
+	return correlation.Normalize("")
 }
 
 func (consumer *Consumer) publishDeadLetter(ctx context.Context, original *kgo.Record, failure error) error {

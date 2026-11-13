@@ -8,25 +8,22 @@ import (
 	"runtime/debug"
 	"time"
 
+	"github.com/bevzick/Infinitune/services/content-service/internal/correlation"
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 )
 
 const (
 	requestIDHeader     = "X-Request-ID"
 	requestIDContextKey = "request_id"
-	maximumRequestIDLen = 128
 )
 
 func observeRequests(logger *slog.Logger) gin.HandlerFunc {
 	logger = normalizeLogger(logger)
 	return func(c *gin.Context) {
-		requestID := c.GetHeader(requestIDHeader)
-		if !validRequestID(requestID) {
-			requestID = uuid.NewString()
-		}
+		requestID := correlation.Normalize(c.GetHeader(requestIDHeader))
 
 		c.Set(requestIDContextKey, requestID)
+		c.Request = c.Request.WithContext(correlation.WithID(c.Request.Context(), requestID))
 		c.Header(requestIDHeader, requestID)
 
 		startedAt := time.Now()
@@ -89,21 +86,4 @@ func normalizeLogger(logger *slog.Logger) *slog.Logger {
 		return slog.Default()
 	}
 	return logger
-}
-
-func validRequestID(value string) bool {
-	if value == "" || len(value) > maximumRequestIDLen {
-		return false
-	}
-	for _, character := range value {
-		if character >= 'a' && character <= 'z' ||
-			character >= 'A' && character <= 'Z' ||
-			character >= '0' && character <= '9' ||
-			character == '-' || character == '_' ||
-			character == '.' || character == ':' {
-			continue
-		}
-		return false
-	}
-	return true
 }

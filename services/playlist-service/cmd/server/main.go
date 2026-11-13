@@ -17,6 +17,7 @@ import (
 	recommendationv1 "github.com/bevzick/Infinitune/services/playlist-service/api/recommendation/v1"
 	"github.com/bevzick/Infinitune/services/playlist-service/internal/catalog"
 	"github.com/bevzick/Infinitune/services/playlist-service/internal/config"
+	"github.com/bevzick/Infinitune/services/playlist-service/internal/correlation"
 	"github.com/bevzick/Infinitune/services/playlist-service/internal/database"
 	"github.com/bevzick/Infinitune/services/playlist-service/internal/httpapi"
 	"github.com/bevzick/Infinitune/services/playlist-service/internal/identity"
@@ -65,13 +66,18 @@ func main() {
 	catalogConnection, err := grpc.NewClient(
 		cfg.CatalogAddress,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithUnaryInterceptor(correlation.UnaryClientInterceptor()),
 	)
 	if err != nil {
 		logger.Error("failed to configure Catalog gRPC client", "error", err)
 		os.Exit(1)
 	}
 	defer catalogConnection.Close()
-	recommendationConnection, err := grpc.NewClient(cfg.RecommendationAddress, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	recommendationConnection, err := grpc.NewClient(
+		cfg.RecommendationAddress,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithUnaryInterceptor(correlation.UnaryClientInterceptor()),
+	)
 	if err != nil {
 		logger.Error("failed to configure Recommendation gRPC client", "error", err)
 		os.Exit(1)

@@ -18,6 +18,7 @@ import (
 	"github.com/bevzick/Infinitune/services/comment-service/internal/catalog"
 	comment_domain "github.com/bevzick/Infinitune/services/comment-service/internal/comment"
 	"github.com/bevzick/Infinitune/services/comment-service/internal/config"
+	"github.com/bevzick/Infinitune/services/comment-service/internal/correlation"
 	"github.com/bevzick/Infinitune/services/comment-service/internal/database"
 	"github.com/bevzick/Infinitune/services/comment-service/internal/grpcapi"
 	"github.com/bevzick/Infinitune/services/comment-service/internal/httpapi"
@@ -65,6 +66,7 @@ func main() {
 	}
 	catalogConnection, err := grpc.NewClient(
 		cfg.CatalogAddress, grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithUnaryInterceptor(correlation.UnaryClientInterceptor()),
 	)
 	if err != nil {
 		logger.Error("failed to configure Catalog gRPC client", "error", err)
@@ -82,7 +84,7 @@ func main() {
 		logger.Error("failed to listen for gRPC", "error", err)
 		os.Exit(1)
 	}
-	grpcServer := grpc.NewServer()
+	grpcServer := grpc.NewServer(grpc.UnaryInterceptor(correlation.UnaryServerInterceptor(logger)))
 	commentv1.RegisterCommentServiceServer(grpcServer, grpcapi.NewCommentServer(comments))
 
 	server := &http.Server{

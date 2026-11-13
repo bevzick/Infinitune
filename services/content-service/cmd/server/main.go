@@ -19,6 +19,7 @@ import (
 	userv1 "github.com/bevzick/Infinitune/services/content-service/api/user/v1"
 	content_catalog "github.com/bevzick/Infinitune/services/content-service/internal/catalog"
 	"github.com/bevzick/Infinitune/services/content-service/internal/config"
+	"github.com/bevzick/Infinitune/services/content-service/internal/correlation"
 	"github.com/bevzick/Infinitune/services/content-service/internal/creator"
 	"github.com/bevzick/Infinitune/services/content-service/internal/database"
 	"github.com/bevzick/Infinitune/services/content-service/internal/events"
@@ -83,7 +84,11 @@ func main() {
 		logger.Error("failed to initialize identity verifier", "error", err)
 		os.Exit(1)
 	}
-	userConnection, err := grpc.NewClient(cfg.UserAddress, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	userConnection, err := grpc.NewClient(
+		cfg.UserAddress,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithUnaryInterceptor(correlation.UnaryClientInterceptor()),
+	)
 	if err != nil {
 		logger.Error("failed to initialize user service client", "error", err)
 		os.Exit(1)
@@ -91,6 +96,7 @@ func main() {
 	defer userConnection.Close()
 	mediaConnection, err := grpc.NewClient(
 		cfg.MediaAddress, grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithUnaryInterceptor(correlation.UnaryClientInterceptor()),
 	)
 	if err != nil {
 		logger.Error("failed to initialize media service client", "error", err)
@@ -99,6 +105,7 @@ func main() {
 	defer mediaConnection.Close()
 	catalogConnection, err := grpc.NewClient(
 		cfg.CatalogAddress, grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithUnaryInterceptor(correlation.UnaryClientInterceptor()),
 	)
 	if err != nil {
 		logger.Error("failed to initialize catalog service client", "error", err)
@@ -158,7 +165,7 @@ func main() {
 		logger.Error("failed to listen for gRPC", "error", err)
 		os.Exit(1)
 	}
-	grpcServer := grpc.NewServer()
+	grpcServer := grpc.NewServer(grpc.UnaryInterceptor(correlation.UnaryServerInterceptor(logger)))
 	contentv1.RegisterContentServiceServer(
 		grpcServer, grpcapi.NewContentServer(accessService, uploadService, playbackService),
 	)
