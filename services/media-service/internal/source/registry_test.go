@@ -31,6 +31,25 @@ func TestRegistryResolvesAndOpensRegisteredProvider(t *testing.T) {
 	}
 }
 
+func TestRegistryListsAndDiscoversRegisteredProviders(t *testing.T) {
+	provider := &providerStub{name: ProviderJamendo}
+	registry, err := NewRegistry(provider)
+	if err != nil {
+		t.Fatalf("NewRegistry() error = %v", err)
+	}
+	if got := registry.Providers(); len(got) != 1 || got[0] != ProviderJamendo {
+		t.Fatalf("Providers() = %v", got)
+	}
+	page, err := registry.Discover(context.Background(), ProviderJamendo, DiscoveryQuery{Query: "focus"})
+	if err != nil {
+		t.Fatalf("Discover() error = %v", err)
+	}
+	if provider.discovery.Query != "focus" || provider.discovery.Limit != DefaultDiscoveryLimit ||
+		len(page.Tracks) != 1 {
+		t.Fatalf("query = %+v, page = %+v", provider.discovery, page)
+	}
+}
+
 func TestRegistryRejectsDuplicateAndUnregisteredProviders(t *testing.T) {
 	_, err := NewRegistry(
 		&providerStub{name: ProviderJamendo},
@@ -74,9 +93,19 @@ type providerStub struct {
 	stream     AudioStream
 	resolvedID string
 	openedID   string
+	discovery  DiscoveryQuery
 }
 
 func (stub *providerStub) Name() ProviderName { return stub.name }
+
+func (stub *providerStub) Discover(_ context.Context, query DiscoveryQuery) (DiscoveryPage, error) {
+	stub.discovery = query
+	return DiscoveryPage{Tracks: []Track{{
+		ExternalID: "42", Title: "Test Track", Artist: "Test Artist",
+		PageURL: "https://example.com/tracks/42",
+		License: License{Name: "CC BY", URL: "https://example.com/licenses/cc-by"},
+	}}, Limit: query.Limit, Offset: query.Offset, Total: 1}, nil
+}
 
 func (stub *providerStub) Resolve(_ context.Context, externalID string) (Track, error) {
 	stub.resolvedID = externalID

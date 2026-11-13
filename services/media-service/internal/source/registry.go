@@ -3,10 +3,58 @@ package source
 import (
 	"context"
 	"fmt"
+	"sort"
+	"strings"
 )
 
 type Registry struct {
 	providers map[ProviderName]Provider
+}
+
+func (registry *Registry) Providers() []ProviderName {
+	if registry == nil {
+		return []ProviderName{}
+	}
+	providers := make([]ProviderName, 0, len(registry.providers))
+	for name := range registry.providers {
+		providers = append(providers, name)
+	}
+	sort.Slice(providers, func(left, right int) bool { return providers[left] < providers[right] })
+	return providers
+}
+
+func (registry *Registry) Discover(
+	ctx context.Context,
+	providerName ProviderName,
+	query DiscoveryQuery,
+) (DiscoveryPage, error) {
+	provider, err := registry.provider(providerName)
+	if err != nil {
+		return DiscoveryPage{}, err
+	}
+	query.Query = strings.TrimSpace(query.Query)
+	if query.Query == "" || len(query.Query) > MaximumDiscoveryQuery {
+		return DiscoveryPage{}, validationError("query", "must contain between 1 and 200 characters")
+	}
+	if query.Limit == 0 {
+		query.Limit = DefaultDiscoveryLimit
+	}
+	if query.Limit < 1 || query.Limit > MaximumDiscoveryLimit || query.Offset < 0 {
+		return DiscoveryPage{}, validationError("pagination", "is outside the supported range")
+	}
+	page, err := provider.Discover(ctx, query)
+	if err != nil {
+		return DiscoveryPage{}, fmt.Errorf("discover %s tracks: %w", providerName, err)
+	}
+	if page.Limit != query.Limit || page.Offset != query.Offset || page.Total < len(page.Tracks) {
+		return DiscoveryPage{}, fmt.Errorf("%w: provider returned invalid discovery pagination", ErrInvalid)
+	}
+	for index, track := range page.Tracks {
+		if err = ValidateTrack(track); err != nil {
+			return DiscoveryPage{}, fmt.Errorf("validate %s discovery track %d: %w", providerName, index, err)
+		}
+	}
+	return page, nil
 }
 
 func NewRegistry(providers ...Provider) (*Registry, error) {

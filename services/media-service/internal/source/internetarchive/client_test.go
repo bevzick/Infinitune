@@ -48,6 +48,29 @@ func TestResolveMapsLicensedOriginalAudio(t *testing.T) {
 	}
 }
 
+func TestDiscoverListsEligibleOriginalFiles(t *testing.T) {
+	server := newArchiveServer(t, func(_ *testing.T, _ *http.Request) itemDocument {
+		item := validItem()
+		item.Files = append(item.Files,
+			fileRecord{Name: "audio/track two.flac", Source: "original", Format: "Flac", Size: "8"},
+			fileRecord{Name: "derived.mp3", Source: "derivative", Format: "VBR MP3", Size: "4"},
+		)
+		return item
+	})
+	defer server.Close()
+	client := newTestClient(t, server)
+	page, err := client.Discover(context.Background(), source.DiscoveryQuery{
+		Query: "night-signals", Limit: 1, Offset: 1,
+	})
+	if err != nil {
+		t.Fatalf("Discover() error = %v", err)
+	}
+	if page.Total != 2 || len(page.Tracks) != 1 ||
+		page.Tracks[0].ExternalID != "night-signals/audio/track two.flac" {
+		t.Fatalf("Discover() = %+v", page)
+	}
+}
+
 func TestOpenDownloadsSelectedFile(t *testing.T) {
 	var server *httptest.Server
 	server = httptest.NewTLSServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {

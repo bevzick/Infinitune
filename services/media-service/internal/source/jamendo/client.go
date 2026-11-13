@@ -105,6 +105,36 @@ func (client *Client) Resolve(ctx context.Context, externalID string) (source.Tr
 	if err != nil {
 		return source.Track{}, err
 	}
+	return normalizedTrack(result)
+}
+
+func (client *Client) Discover(
+	ctx context.Context,
+	query source.DiscoveryQuery,
+) (source.DiscoveryPage, error) {
+	parameters := url.Values{
+		"namesearch": []string{query.Query},
+		"limit":      []string{strconv.Itoa(query.Limit)},
+		"offset":     []string{strconv.Itoa(query.Offset)},
+	}
+	document, err := client.tracks(ctx, parameters)
+	if err != nil {
+		return source.DiscoveryPage{}, err
+	}
+	tracks := make([]source.Track, 0, len(document.Results))
+	for _, result := range document.Results {
+		track, normalizeErr := normalizedTrack(result)
+		if normalizeErr == nil && track.License.AllowsRedistribution {
+			tracks = append(tracks, track)
+		}
+	}
+	return source.DiscoveryPage{
+		Tracks: tracks, Limit: query.Limit, Offset: query.Offset,
+		Total: document.Headers.ResultsCount,
+	}, nil
+}
+
+func normalizedTrack(result trackResult) (source.Track, error) {
 	license, err := licenseFromURL(result.LicenseURL, result.ArtistName, result.DownloadAllowed)
 	if err != nil {
 		return source.Track{}, err
@@ -183,38 +213,9 @@ func (client *Client) track(ctx context.Context, externalID string) (trackResult
 	if !validTrackID(externalID) {
 		return trackResult{}, fmt.Errorf("%w: Jamendo track ID must contain only digits", source.ErrInvalid)
 	}
-	endpoint := *client.baseURL
-	endpoint.Path = strings.TrimRight(endpoint.Path, "/") + "/tracks/"
-	query := endpoint.Query()
-	query.Set("client_id", client.clientID)
-	query.Set("format", "json")
-	query.Set("limit", "1")
-	query.Set("id", externalID)
-	query.Set("include", "licenses")
-	query.Set("audioformat", "mp32")
-	query.Set("audiodlformat", "mp32")
-	endpoint.RawQuery = query.Encode()
-	request, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint.String(), nil)
+	document, err := client.tracks(ctx, url.Values{"id": []string{externalID}, "limit": []string{"1"}})
 	if err != nil {
-		return trackResult{}, fmt.Errorf("create Jamendo track request: %w", err)
-	}
-	request.Header.Set("Accept", "application/json")
-	response, err := client.client.Do(request)
-	if err != nil {
-		return trackResult{}, fmt.Errorf("%w: resolve track: %v", ErrUnavailable, err)
-	}
-	defer response.Body.Close()
-	if response.StatusCode != http.StatusOK {
-		return trackResult{}, fmt.Errorf("%w: tracks endpoint returned %s", ErrUnavailable, response.Status)
-	}
-	var document tracksResponse
-	decoder := json.NewDecoder(io.LimitReader(response.Body, maximumResponse))
-	if err = decoder.Decode(&document); err != nil {
-		return trackResult{}, fmt.Errorf("%w: decode tracks response: %v", ErrUnavailable, err)
-	}
-	if document.Headers.Status != "success" || document.Headers.Code != 0 {
-		return trackResult{}, fmt.Errorf("%w: API code %d: %s",
-			ErrUnavailable, document.Headers.Code, document.Headers.ErrorMessage)
+		return trackResult{}, err
 	}
 	if len(document.Results) == 0 {
 		return trackResult{}, source.ErrNotFound
@@ -225,6 +226,46 @@ func (client *Client) track(ctx context.Context, externalID string) (trackResult
 			ErrUnavailable, result.ID, externalID)
 	}
 	return result, nil
+}
+
+func (client *Client) tracks(ctx context.Context, parameters url.Values) (tracksResponse, error) {
+	endpoint := *client.baseURL
+	endpoint.Path = strings.TrimRight(endpoint.Path, "/") + "/tracks/"
+	query := endpoint.Query()
+	for key, values := range parameters {
+		for _, value := range values {
+			query.Add(key, value)
+		}
+	}
+	query.Set("client_id", client.clientID)
+	query.Set("format", "json")
+	query.Set("include", "licenses")
+	query.Set("audioformat", "mp32")
+	query.Set("audiodlformat", "mp32")
+	endpoint.RawQuery = query.Encode()
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint.String(), nil)
+	if err != nil {
+		return tracksResponse{}, fmt.Errorf("create Jamendo track request: %w", err)
+	}
+	request.Header.Set("Accept", "application/json")
+	response, err := client.client.Do(request)
+	if err != nil {
+		return tracksResponse{}, fmt.Errorf("%w: query tracks: %v", ErrUnavailable, err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		return tracksResponse{}, fmt.Errorf("%w: tracks endpoint returned %s", ErrUnavailable, response.Status)
+	}
+	var document tracksResponse
+	decoder := json.NewDecoder(io.LimitReader(response.Body, maximumResponse))
+	if err = decoder.Decode(&document); err != nil {
+		return tracksResponse{}, fmt.Errorf("%w: decode tracks response: %v", ErrUnavailable, err)
+	}
+	if document.Headers.Status != "success" || document.Headers.Code != 0 {
+		return tracksResponse{}, fmt.Errorf("%w: API code %d: %s",
+			ErrUnavailable, document.Headers.Code, document.Headers.ErrorMessage)
+	}
+	return document, nil
 }
 
 func (client *Client) validateDownloadURL(downloadURL *url.URL) error {
@@ -327,6 +368,7 @@ type responseHeaders struct {
 	Status       string `json:"status"`
 	Code         int    `json:"code"`
 	ErrorMessage string `json:"error_message"`
+	ResultsCount int    `json:"results_count"`
 }
 
 type trackResult struct {

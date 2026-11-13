@@ -18,6 +18,9 @@ const (
 	MaximumMetadataKeySize   = 64
 	MaximumMetadataValueSize = 1024
 	MaximumAudioSizeBytes    = 500 * 1024 * 1024
+	MaximumDiscoveryQuery    = 200
+	MaximumDiscoveryLimit    = 50
+	DefaultDiscoveryLimit    = 20
 )
 
 var (
@@ -77,6 +80,19 @@ type Track struct {
 	Metadata   map[string]string
 }
 
+type DiscoveryQuery struct {
+	Query  string
+	Limit  int
+	Offset int
+}
+
+type DiscoveryPage struct {
+	Tracks []Track
+	Limit  int
+	Offset int
+	Total  int
+}
+
 type AudioStream struct {
 	Body      io.ReadCloser
 	Filename  string
@@ -86,6 +102,7 @@ type AudioStream struct {
 
 type Provider interface {
 	Name() ProviderName
+	Discover(context.Context, DiscoveryQuery) (DiscoveryPage, error)
 	Resolve(context.Context, string) (Track, error)
 	Open(context.Context, string) (AudioStream, error)
 }

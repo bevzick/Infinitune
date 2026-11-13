@@ -169,6 +169,7 @@ func main() {
 			Media:    metadataService,
 			Ingest:   ingestService,
 			Imports:  externalImportService,
+			Sources:  providers,
 			Tokens:   tokenVerifier,
 			Origins:  cfg.Origins,
 			Logger:   logger,

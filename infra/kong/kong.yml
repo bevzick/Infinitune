@@ -142,6 +142,38 @@ services:
                 - exp
               run_on_preflight: false
 
+      - name: media-external-import
+        paths:
+          - ~/v1/media/imports$
+        methods:
+          - POST
+          - OPTIONS
+        regex_priority: 105
+        strip_path: false
+        plugins:
+          - name: jwt
+            config:
+              key_claim_name: iss
+              claims_to_verify:
+                - exp
+              run_on_preflight: false
+
+      - name: media-source-discovery
+        paths:
+          - ~/v1/media/sources(?:/.*)?$
+        methods:
+          - GET
+          - OPTIONS
+        regex_priority: 105
+        strip_path: false
+        plugins:
+          - name: jwt
+            config:
+              key_claim_name: iss
+              claims_to_verify:
+                - exp
+              run_on_preflight: false
+
   - name: playlist-service
     url: http://playlist-service:8080
     routes:

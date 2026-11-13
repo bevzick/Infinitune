@@ -106,6 +106,34 @@ unsupported media types, and streams outside the 500 MiB ingest limit.
 Provider-specific credentials, rate limits, retries, and HTTP behavior stay
 inside each adapter.
 
-The next implementation stage adds provider discovery endpoints so the frontend
-can inspect licensed metadata and available Internet Archive audio files before
-starting an import.
+## Discovery API
+
+Authenticated clients can inspect only the providers that are configured in
+the running Media service:
+
+```http
+GET /v1/media/sources/providers
+```
+
+Search normalized, importable tracks with bounded pagination:
+
+```http
+GET /v1/media/sources/jamendo/tracks?query=night&limit=20&offset=0
+GET /v1/media/sources/internet_archive/tracks?query=item-identifier&limit=20&offset=0
+```
+
+For Jamendo, `query` is a track-name search. Results without a supported
+license or download permission are omitted. For Internet Archive, `query` is
+an exact item identifier; the result contains eligible original audio files in
+that item. This avoids ambiguous full-catalog matches and lets a creator select
+the exact file used as `external_id`.
+
+Resolve one exact provider identifier before import with:
+
+```http
+GET /v1/media/sources/internet_archive/track?external_id=item-identifier%2Faudio%2Ftrack.flac
+```
+
+Discovery responses contain the provider, external identifier, title, artist,
+stable public page, normalized license permissions, attribution, and bounded
+metadata. They never expose provider credentials or temporary download URLs.

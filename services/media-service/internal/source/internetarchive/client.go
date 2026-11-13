@@ -106,6 +106,56 @@ func (client *Client) Resolve(ctx context.Context, externalID string) (source.Tr
 	if err != nil {
 		return source.Track{}, err
 	}
+	return normalizedTrack(item, file, license), nil
+}
+
+func (client *Client) Discover(
+	ctx context.Context,
+	query source.DiscoveryQuery,
+) (source.DiscoveryPage, error) {
+	if !validIdentifier(query.Query) {
+		return source.DiscoveryPage{}, fmt.Errorf("%w: query must be an Internet Archive item identifier", source.ErrInvalid)
+	}
+	item, err := client.item(ctx, query.Query)
+	if err != nil {
+		return source.DiscoveryPage{}, err
+	}
+	license, err := archiveLicense(item.Metadata.LicenseURL.First(), item.artist())
+	if err != nil {
+		return source.DiscoveryPage{}, err
+	}
+	available := make([]source.Track, 0, len(item.Files))
+	for _, file := range item.Files {
+		if file.Source != "original" || !validFileName(file.Name) {
+			continue
+		}
+		if _, _, formatErr := audioFormat(file); formatErr != nil {
+			continue
+		}
+		size, sizeErr := strconv.ParseInt(file.Size, 10, 64)
+		if sizeErr != nil || size < 1 || size > source.MaximumAudioSizeBytes {
+			continue
+		}
+		track := normalizedTrack(item, file, license)
+		if source.ValidateTrack(track) == nil {
+			available = append(available, track)
+		}
+	}
+	total := len(available)
+	start := query.Offset
+	if start > total {
+		start = total
+	}
+	end := start + query.Limit
+	if end > total {
+		end = total
+	}
+	return source.DiscoveryPage{
+		Tracks: available[start:end], Limit: query.Limit, Offset: query.Offset, Total: total,
+	}, nil
+}
+
+func normalizedTrack(item itemDocument, file fileRecord, license source.License) source.Track {
 	title := file.Title
 	if strings.TrimSpace(title) == "" {
 		title = item.Metadata.Title.First()
@@ -126,10 +176,10 @@ func (client *Client) Resolve(ctx context.Context, externalID string) (source.Tr
 		metadata["track_number"] = file.Track
 	}
 	return source.Track{
-		ExternalID: externalID, Title: title, Artist: artist,
+		ExternalID: item.Metadata.Identifier + "/" + file.Name, Title: title, Artist: artist,
 		PageURL: "https://archive.org/details/" + url.PathEscape(item.Metadata.Identifier),
 		License: license, Metadata: metadata,
-	}, nil
+	}
 }
 
 func (client *Client) Open(ctx context.Context, externalID string) (source.AudioStream, error) {
@@ -194,44 +244,9 @@ func (client *Client) resolve(
 	if err != nil {
 		return itemDocument{}, fileRecord{}, err
 	}
-	endpoint := *client.metadataURL
-	endpoint.Path = strings.TrimRight(endpoint.Path, "/") + "/" + url.PathEscape(identifier)
-	query := endpoint.Query()
-	query.Set("extended_err", "1")
-	endpoint.RawQuery = query.Encode()
-	request, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint.String(), nil)
+	item, err := client.item(ctx, identifier)
 	if err != nil {
-		return itemDocument{}, fileRecord{}, fmt.Errorf("create Internet Archive metadata request: %w", err)
-	}
-	request.Header.Set("Accept", "application/json")
-	response, err := client.client.Do(request)
-	if err != nil {
-		return itemDocument{}, fileRecord{}, fmt.Errorf("%w: read Internet Archive metadata: %v", source.ErrProviderUnavailable, err)
-	}
-	defer response.Body.Close()
-	if response.StatusCode != http.StatusOK {
-		return itemDocument{}, fileRecord{}, fmt.Errorf("%w: metadata returned %s", source.ErrProviderUnavailable, response.Status)
-	}
-	payload, err := io.ReadAll(io.LimitReader(response.Body, maximumResponse+1))
-	if err != nil || len(payload) > maximumResponse {
-		return itemDocument{}, fileRecord{}, fmt.Errorf("%w: invalid metadata response", source.ErrProviderUnavailable)
-	}
-	if strings.TrimSpace(string(payload)) == "[]" {
-		return itemDocument{}, fileRecord{}, source.ErrNotFound
-	}
-	var item itemDocument
-	if err = json.Unmarshal(payload, &item); err != nil {
-		return itemDocument{}, fileRecord{}, fmt.Errorf("%w: decode Internet Archive metadata: %v", source.ErrProviderUnavailable, err)
-	}
-	if item.Error != "" {
-		if item.ErrorCode == 104 {
-			return itemDocument{}, fileRecord{}, source.ErrNotFound
-		}
-		return itemDocument{}, fileRecord{}, fmt.Errorf("%w: metadata error %d", source.ErrProviderUnavailable, item.ErrorCode)
-	}
-	if item.Metadata.Identifier != identifier ||
-		(item.Metadata.MediaType != "audio" && item.Metadata.MediaType != "etree") {
-		return itemDocument{}, fileRecord{}, fmt.Errorf("%w: item is not public audio", source.ErrInvalid)
+		return itemDocument{}, fileRecord{}, err
 	}
 	for _, file := range item.Files {
 		if file.Name == fileName {
@@ -245,6 +260,49 @@ func (client *Client) resolve(
 		}
 	}
 	return itemDocument{}, fileRecord{}, source.ErrNotFound
+}
+
+func (client *Client) item(ctx context.Context, identifier string) (itemDocument, error) {
+	endpoint := *client.metadataURL
+	endpoint.Path = strings.TrimRight(endpoint.Path, "/") + "/" + url.PathEscape(identifier)
+	query := endpoint.Query()
+	query.Set("extended_err", "1")
+	endpoint.RawQuery = query.Encode()
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint.String(), nil)
+	if err != nil {
+		return itemDocument{}, fmt.Errorf("create Internet Archive metadata request: %w", err)
+	}
+	request.Header.Set("Accept", "application/json")
+	response, err := client.client.Do(request)
+	if err != nil {
+		return itemDocument{}, fmt.Errorf("%w: read Internet Archive metadata: %v", source.ErrProviderUnavailable, err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		return itemDocument{}, fmt.Errorf("%w: metadata returned %s", source.ErrProviderUnavailable, response.Status)
+	}
+	payload, err := io.ReadAll(io.LimitReader(response.Body, maximumResponse+1))
+	if err != nil || len(payload) > maximumResponse {
+		return itemDocument{}, fmt.Errorf("%w: invalid metadata response", source.ErrProviderUnavailable)
+	}
+	if strings.TrimSpace(string(payload)) == "[]" {
+		return itemDocument{}, source.ErrNotFound
+	}
+	var item itemDocument
+	if err = json.Unmarshal(payload, &item); err != nil {
+		return itemDocument{}, fmt.Errorf("%w: decode Internet Archive metadata: %v", source.ErrProviderUnavailable, err)
+	}
+	if item.Error != "" {
+		if item.ErrorCode == 104 {
+			return itemDocument{}, source.ErrNotFound
+		}
+		return itemDocument{}, fmt.Errorf("%w: metadata error %d", source.ErrProviderUnavailable, item.ErrorCode)
+	}
+	if item.Metadata.Identifier != identifier ||
+		(item.Metadata.MediaType != "audio" && item.Metadata.MediaType != "etree") {
+		return itemDocument{}, fmt.Errorf("%w: item is not public audio", source.ErrInvalid)
+	}
+	return item, nil
 }
 
 func parseExternalID(value string) (string, string, error) {

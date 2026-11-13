@@ -50,6 +50,33 @@ func TestResolveMapsJamendoTrack(t *testing.T) {
 	}
 }
 
+func TestDiscoverSearchesLicensedDownloadableTracks(t *testing.T) {
+	server := httptest.NewTLSServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+		query := request.URL.Query()
+		if query.Get("namesearch") != "night" || query.Get("limit") != "5" || query.Get("offset") != "10" {
+			t.Errorf("query = %v", query)
+		}
+		licensed := validTrack("42", "https://storage.jamendo.com/42.mp3")
+		forbidden := validTrack("43", "")
+		forbidden.DownloadAllowed = false
+		_ = json.NewEncoder(response).Encode(tracksResponse{
+			Headers: responseHeaders{Status: "success", ResultsCount: 12},
+			Results: []trackResult{licensed, forbidden},
+		})
+	}))
+	defer server.Close()
+	client := newTestClient(t, server)
+	page, err := client.Discover(context.Background(), source.DiscoveryQuery{
+		Query: "night", Limit: 5, Offset: 10,
+	})
+	if err != nil {
+		t.Fatalf("Discover() error = %v", err)
+	}
+	if page.Total != 12 || len(page.Tracks) != 1 || page.Tracks[0].ExternalID != "42" {
+		t.Fatalf("Discover() = %+v", page)
+	}
+}
+
 func TestOpenReturnsAllowedAudio(t *testing.T) {
 	var server *httptest.Server
 	server = httptest.NewTLSServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
