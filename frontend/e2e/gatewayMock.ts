@@ -45,7 +45,10 @@ const artist = {
   updated_at: "2026-11-10T00:00:00Z",
 };
 
-export async function mockGateway(page: Page) {
+export async function mockGateway(
+  page: Page,
+  options: { roles?: string[] } = {},
+) {
   const requests: Request[] = [];
   await page.route("http://localhost:8000/v1/**", async (route) => {
     const request = route.request();
@@ -62,7 +65,7 @@ export async function mockGateway(page: Page) {
     if (url.pathname === "/v1/auth/identity") {
       return json(route, {
         user_id: "00000000-0000-4000-8000-000000000001",
-        roles: ["listener"],
+        roles: options.roles || ["listener"],
         issued_at: "2026-11-12T00:00:00Z",
         expires_at: "2099-01-01T00:00:00Z",
       });
@@ -77,6 +80,33 @@ export async function mockGateway(page: Page) {
         show_listening_activity: false,
         created_at: "2026-11-12T00:00:00Z",
         updated_at: "2026-11-12T00:00:00Z",
+      });
+    }
+    if (url.pathname === "/v1/auth/users") {
+      return json(route, {
+        items: [
+          {
+            id: "00000000-0000-4000-8000-000000000002",
+            email: "listener@example.com",
+            status: "active",
+            email_verified: true,
+            roles: ["listener"],
+            created_at: "2026-11-12T00:00:00Z",
+            updated_at: "2026-11-12T00:00:00Z",
+            last_login_at: null,
+          },
+        ],
+        page: { limit: 50, offset: 0, total: 1 },
+      });
+    }
+    if (
+      url.pathname === "/v1/moderation/creators" ||
+      url.pathname === "/v1/moderation/releases" ||
+      url.pathname === "/v1/moderation/comment-reports"
+    ) {
+      return json(route, {
+        items: [],
+        page: { limit: 50, offset: 0, total: 0 },
       });
     }
     if (url.pathname === "/v1/playlists") {

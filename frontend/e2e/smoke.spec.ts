@@ -47,3 +47,23 @@ test("protected library redirects to login and resumes after authentication", as
     ),
   ).toBe(true);
 });
+
+test("administrator can open the protected administration workspace", async ({
+  page,
+}) => {
+  await mockGateway(page, { roles: ["listener", "admin"] });
+  await page.goto("/admin");
+
+  await page.getByLabel("Email").fill("admin@example.com");
+  await page.getByLabel("Password").fill("correct-horse-battery-staple");
+  await page.getByRole("button", { name: "Sign in" }).click();
+
+  await expect(page).toHaveURL(/\/admin$/);
+  await expect(
+    page.getByRole("heading", { name: "Administration", exact: true }),
+  ).toBeVisible();
+  await expect(page.getByText("listener@example.com")).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "Administration" }),
+  ).toBeVisible();
+});
