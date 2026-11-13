@@ -34,6 +34,8 @@ const (
 	defaultAssetReadyTopic = "media.asset.ready.v1"
 	defaultOutboxPoll      = time.Second
 	defaultOutboxBatch     = 100
+	defaultJamendoAPIURL   = "https://api.jamendo.com/v3.0"
+	defaultJamendoTimeout  = 15 * time.Second
 )
 
 type EventsConfig struct {
@@ -41,6 +43,12 @@ type EventsConfig struct {
 	AssetReadyTopic string
 	OutboxInterval  time.Duration
 	OutboxBatch     int
+}
+
+type JamendoConfig struct {
+	ClientID string
+	APIURL   string
+	Timeout  time.Duration
 }
 
 type Config struct {
@@ -52,6 +60,7 @@ type Config struct {
 	Identity       identity.Config
 	Origins        []string
 	Events         EventsConfig
+	Jamendo        *JamendoConfig
 }
 
 func Load() (Config, error) {
@@ -83,6 +92,10 @@ func Load() (Config, error) {
 	if err != nil {
 		return Config{}, err
 	}
+	jamendoConfig, err := loadJamendoConfig()
+	if err != nil {
+		return Config{}, err
+	}
 	return Config{
 		HTTPAddress: net.JoinHostPort(envOrDefault("MEDIA_HTTP_HOST", defaultHTTPHost), httpPort),
 		GRPCAddress: net.JoinHostPort(envOrDefault("MEDIA_GRPC_HOST", defaultGRPCHost), grpcPort),
@@ -100,7 +113,33 @@ func Load() (Config, error) {
 		},
 		Origins: origins,
 		Events:  eventsConfig,
+		Jamendo: jamendoConfig,
 	}, nil
+}
+
+func loadJamendoConfig() (*JamendoConfig, error) {
+	clientID := strings.TrimSpace(os.Getenv("MEDIA_JAMENDO_CLIENT_ID"))
+	if clientID == "" {
+		return nil, nil
+	}
+	if len(clientID) > 128 || strings.ContainsAny(clientID, " \t\r\n") {
+		return nil, fmt.Errorf("invalid MEDIA_JAMENDO_CLIENT_ID")
+	}
+	apiURL := envOrDefault("MEDIA_JAMENDO_API_URL", defaultJamendoAPIURL)
+	parsed, err := url.Parse(apiURL)
+	if err != nil || parsed.Scheme != "https" || parsed.Host == "" ||
+		parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" {
+		return nil, fmt.Errorf("MEDIA_JAMENDO_API_URL must be an HTTPS URL without credentials, query, or fragment")
+	}
+	timeout := defaultJamendoTimeout
+	if raw := os.Getenv("MEDIA_JAMENDO_TIMEOUT"); raw != "" {
+		parsedTimeout, parseErr := time.ParseDuration(raw)
+		if parseErr != nil || parsedTimeout <= 0 || parsedTimeout > time.Minute {
+			return nil, fmt.Errorf("invalid MEDIA_JAMENDO_TIMEOUT %q: expected a duration up to 1m", raw)
+		}
+		timeout = parsedTimeout
+	}
+	return &JamendoConfig{ClientID: clientID, APIURL: apiURL, Timeout: timeout}, nil
 }
 
 func loadEventsConfig() (EventsConfig, error) {

@@ -32,6 +32,9 @@ func TestLoadUsesMediaDependencies(t *testing.T) {
 	t.Setenv("KAFKA_MEDIA_ASSET_READY_TOPIC", "media-ready-test")
 	t.Setenv("MEDIA_OUTBOX_POLL_INTERVAL", "2s")
 	t.Setenv("MEDIA_OUTBOX_BATCH_SIZE", "25")
+	t.Setenv("MEDIA_JAMENDO_CLIENT_ID", "test-client-id")
+	t.Setenv("MEDIA_JAMENDO_API_URL", "https://api.example.test/v3.0")
+	t.Setenv("MEDIA_JAMENDO_TIMEOUT", "3s")
 
 	config, err := Load()
 	if err != nil {
@@ -65,6 +68,45 @@ func TestLoadUsesMediaDependencies(t *testing.T) {
 	if len(config.Events.Brokers) != 2 || config.Events.AssetReadyTopic != "media-ready-test" ||
 		config.Events.OutboxInterval != 2*time.Second || config.Events.OutboxBatch != 25 {
 		t.Errorf("Events = %+v", config.Events)
+	}
+	if config.Jamendo == nil || config.Jamendo.ClientID != "test-client-id" ||
+		config.Jamendo.APIURL != "https://api.example.test/v3.0" ||
+		config.Jamendo.Timeout != 3*time.Second {
+		t.Errorf("Jamendo = %+v", config.Jamendo)
+	}
+}
+
+func TestLoadDisablesJamendoWithoutClientID(t *testing.T) {
+	setRequiredEnvironment(t)
+	config, err := Load()
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+	if config.Jamendo != nil {
+		t.Errorf("Jamendo = %+v, want nil", config.Jamendo)
+	}
+}
+
+func TestLoadRejectsInvalidJamendoConfiguration(t *testing.T) {
+	tests := []struct {
+		name  string
+		key   string
+		value string
+	}{
+		{"client ID with whitespace", "MEDIA_JAMENDO_CLIENT_ID", "invalid id"},
+		{"insecure API URL", "MEDIA_JAMENDO_API_URL", "http://api.jamendo.com/v3.0"},
+		{"invalid timeout", "MEDIA_JAMENDO_TIMEOUT", "0s"},
+		{"excessive timeout", "MEDIA_JAMENDO_TIMEOUT", "2m"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			setRequiredEnvironment(t)
+			t.Setenv("MEDIA_JAMENDO_CLIENT_ID", "test-client-id")
+			t.Setenv(test.key, test.value)
+			if _, err := Load(); err == nil {
+				t.Fatal("Load() error = nil")
+			}
+		})
 	}
 }
 
@@ -109,4 +151,7 @@ func setRequiredEnvironment(t *testing.T) {
 	t.Setenv("MINIO_ROOT_USER", "minio_user")
 	t.Setenv("MINIO_ROOT_PASSWORD", "minio_secret")
 	t.Setenv("MINIO_USE_SSL", "false")
+	t.Setenv("MEDIA_JAMENDO_CLIENT_ID", "")
+	t.Setenv("MEDIA_JAMENDO_API_URL", "")
+	t.Setenv("MEDIA_JAMENDO_TIMEOUT", "")
 }
