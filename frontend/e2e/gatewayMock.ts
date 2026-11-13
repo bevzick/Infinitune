@@ -57,6 +57,18 @@ type GatewayCreatorAccount = {
   updated_at: string;
 };
 
+type GatewayTrackRight = {
+  id: string;
+  release_track_id: string;
+  territory_code: string;
+  rights_type: "streaming" | "download" | "distribution";
+  valid_from: string;
+  valid_until: string | null;
+  granted_by_user_id: string;
+  created_at: string;
+  updated_at: string;
+};
+
 export async function mockGateway(
   page: Page,
   options: { roles?: string[]; emptyCreatorAccounts?: boolean } = {},
@@ -66,6 +78,7 @@ export async function mockGateway(
   let creatorAccounts: GatewayCreatorAccount[] = options.emptyCreatorAccounts
     ? []
     : [defaultCreatorAccount()];
+  let trackRights: GatewayTrackRight[] = [];
   await page.route("http://localhost:8000/v1/**", async (route) => {
     const request = route.request();
     const url = new URL(request.url());
@@ -171,6 +184,50 @@ export async function mockGateway(
     }
     if (url.pathname === `/v1/releases/${releaseId}`) {
       return json(route, draftRelease(true));
+    }
+    const releaseTrackRights = url.pathname.match(
+      /^\/v1\/release-tracks\/([^/]+)\/rights$/,
+    );
+    if (releaseTrackRights && request.method() === "PUT") {
+      const input = request.postDataJSON() as Pick<
+        GatewayTrackRight,
+        "territory_code" | "rights_type" | "valid_from" | "valid_until"
+      >;
+      const stored: GatewayTrackRight = {
+        id: `00000000-0000-4000-8000-0000000005${
+          input.rights_type === "streaming" ? "31" : "32"
+        }`,
+        release_track_id: releaseTrackRights[1],
+        ...input,
+        granted_by_user_id: "00000000-0000-4000-8000-000000000001",
+        created_at: "2026-11-13T00:00:00Z",
+        updated_at: "2026-11-13T00:00:00Z",
+      };
+      trackRights = [
+        ...trackRights.filter(
+          (right) =>
+            right.release_track_id !== stored.release_track_id ||
+            right.territory_code !== stored.territory_code ||
+            right.rights_type !== stored.rights_type,
+        ),
+        stored,
+      ];
+      return json(route, stored);
+    }
+    if (releaseTrackRights) {
+      return json(
+        route,
+        trackRights.filter(
+          (right) => right.release_track_id === releaseTrackRights[1],
+        ),
+      );
+    }
+    const deletedRight = url.pathname.match(/^\/v1\/track-rights\/([^/]+)$/);
+    if (deletedRight && request.method() === "DELETE") {
+      const exists = trackRights.some(({ id }) => id === deletedRight[1]);
+      if (!exists) return apiError(route, 404, "track_rights_not_found");
+      trackRights = trackRights.filter(({ id }) => id !== deletedRight[1]);
+      return route.fulfill({ status: 204 });
     }
     if (url.pathname === "/v1/media/sources/jamendo/tracks") {
       return json(route, {

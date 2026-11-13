@@ -2,6 +2,8 @@ import { expect, test } from "@playwright/test";
 
 import { mockGateway } from "./gatewayMock";
 
+const releaseTrackIdForTest = "00000000-0000-4000-8000-000000000502";
+
 test("listener can discover and search the public catalog", async ({
   page,
 }) => {
@@ -147,6 +149,72 @@ test("creator builds a release draft with its initial tracks", async ({
       },
     ],
   });
+});
+
+test("creator grants and revokes worldwide track rights", async ({ page }) => {
+  const requests = await mockGateway(page);
+  await page.goto("/creator/releases");
+
+  await page.getByLabel("Email").fill("creator@example.com");
+  await page.getByLabel("Password").fill("correct-horse-battery-staple");
+  await page.getByRole("button", { name: "Sign in" }).click();
+
+  await expect(page).toHaveURL(/\/creator\/releases$/);
+  await page.getByRole("button", { name: "Manage rights" }).click();
+  const streaming = page.getByRole("checkbox", { name: "Streaming" });
+  const distribution = page.getByRole("checkbox", { name: "Distribution" });
+  await expect(streaming).not.toBeChecked();
+  await expect(distribution).not.toBeChecked();
+
+  await distribution.click();
+  await expect(distribution).toBeChecked();
+  await streaming.click();
+  await expect(streaming).toBeChecked();
+  await streaming.click();
+  await expect(streaming).not.toBeChecked();
+  await expect(distribution).toBeChecked();
+
+  const rightRequests = requests.filter((request) =>
+    new URL(request.url()).pathname.endsWith(
+      `/release-tracks/${releaseTrackIdForTest}/rights`,
+    ),
+  );
+  expect(rightRequests.some((request) => request.method() === "GET")).toBe(
+    true,
+  );
+  const storedRights = rightRequests.filter(
+    (request) => request.method() === "PUT",
+  );
+  expect(storedRights.map((request) => request.postDataJSON())).toEqual([
+    {
+      territory_code: "001",
+      rights_type: "distribution",
+      valid_from: "2026-11-13",
+      valid_until: null,
+    },
+    {
+      territory_code: "001",
+      rights_type: "streaming",
+      valid_from: "2026-11-13",
+      valid_until: null,
+    },
+  ]);
+  const deleteRequest = requests.find(
+    (request) =>
+      request.method() === "DELETE" &&
+      new URL(request.url()).pathname.endsWith(
+        "/track-rights/00000000-0000-4000-8000-000000000531",
+      ),
+  );
+  expect(deleteRequest?.headers().authorization).toBe(
+    "Bearer e2e-access-token",
+  );
+  expect(
+    rightRequests.every(
+      (request) =>
+        request.headers().authorization === "Bearer e2e-access-token",
+    ),
+  ).toBe(true);
 });
 
 test("creator creates an account and submits it for verification", async ({
