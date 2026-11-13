@@ -5,6 +5,8 @@ set -euo pipefail
 loki_url="${LOKI_URL:-http://127.0.0.1:${LOKI_PORT:-3100}}"
 alloy_url="${ALLOY_URL:-http://127.0.0.1:${ALLOY_PORT:-12345}}"
 grafana_url="${GRAFANA_URL:-http://127.0.0.1:${GRAFANA_PORT:-3000}}"
+grafana_user="${GRAFANA_ADMIN_USER:-admin}"
+grafana_password="${GRAFANA_ADMIN_PASSWORD:-admin}"
 compose_project="${COMPOSE_PROJECT_NAME:-infinitune}"
 
 if ! command -v curl >/dev/null 2>&1; then
@@ -42,6 +44,26 @@ if ! grep --quiet '"database"[[:space:]]*:[[:space:]]*"ok"' <<<"$grafana_health"
     echo "Grafana health response does not report a healthy database" >&2
     exit 1
 fi
+
+echo "Checking provisioned Grafana dashboard..."
+dashboard_response="$(curl --fail --silent --show-error \
+    --user "$grafana_user:$grafana_password" \
+    "$grafana_url/api/dashboards/uid/infinitune-service-logs")"
+if ! grep --quiet '"uid"[[:space:]]*:[[:space:]]*"infinitune-service-logs"' <<<"$dashboard_response"; then
+    echo "Infinitune service logs dashboard is not provisioned" >&2
+    exit 1
+fi
+
+echo "Checking provisioned Grafana alert rules..."
+alert_response="$(curl --fail --silent --show-error \
+    --user "$grafana_user:$grafana_password" \
+    "$grafana_url/api/v1/provisioning/alert-rules")"
+for alert_uid in infinitune-http-5xx-burst infinitune-service-panic infinitune-grpc-failure-burst; do
+    if ! grep --quiet "\"uid\"[[:space:]]*:[[:space:]]*\"$alert_uid\"" <<<"$alert_response"; then
+        echo "Grafana alert rule $alert_uid is not provisioned" >&2
+        exit 1
+    fi
+done
 
 echo "Checking centralized Docker logs..."
 query_response="$(curl --fail --silent --show-error --get \

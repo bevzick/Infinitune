@@ -48,6 +48,9 @@ services:
       GF_PLUGINS_PREINSTALL_DISABLED: "true"
     volumes:
       - ./infra/grafana/provisioning/datasources/infinitune.yml:/etc/grafana/provisioning/datasources/infinitune.yml:ro
+      - ./infra/grafana/provisioning/dashboards/infinitune.yml:/etc/grafana/provisioning/dashboards/infinitune.yml:ro
+      - ./infra/grafana/provisioning/alerting/log-alerts.yml:/etc/grafana/provisioning/alerting/log-alerts.yml:ro
+      - ./infra/grafana/dashboards:/var/lib/grafana/dashboards:ro
       - grafana_data:/var/lib/grafana
     ports:
       - "127.0.0.1:${GRAFANA_PORT:-3000}:3000"

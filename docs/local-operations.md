@@ -75,7 +75,20 @@ service ports remain inside the Compose network.
 Grafana Alloy discovers Docker containers that belong to the current Compose
 project and forwards their stdout and stderr to Loki. Open Grafana, sign in
 with `GRAFANA_ADMIN_USER` and `GRAFANA_ADMIN_PASSWORD`, then use **Explore** and
-the provisioned Loki data source. A useful starting query is:
+the provisioned Loki data source. The **Infinitune / Infinitune Service Logs**
+dashboard is created automatically and contains:
+
+- application errors grouped by service;
+- HTTP 4xx/5xx and failed gRPC request charts;
+- correlated structured logs filtered by `request_id`;
+- a table of the most frequent error messages.
+
+The dashboard defaults to the last hour and refreshes every 30 seconds. Use
+the Compose project and service variables to restrict the displayed streams.
+Set the request ID field to the exact ID returned in the `X-Request-ID`
+response header to inspect one request across HTTP and gRPC calls.
+
+A useful Explore query is:
 
 ```logql
 {compose_project="infinitune"}
@@ -101,6 +114,12 @@ follow containers; keep this development-only configuration on a trusted host.
 To avoid duplicate ingestion after a collector restart, Docker backlog older
 than 55 minutes is discarded before it reaches Loki. Logs already stored in
 Loki remain queryable for the full seven-day retention period.
+
+Grafana also provisions alert rules for HTTP 5xx bursts, recovered HTTP
+panics, and repeated Internal/Unavailable/Unknown gRPC responses. These rules
+are visible under **Alerts & IRM → Alert rules**. They do not send external
+notifications until a contact point and notification policy are configured
+for the target environment.
 
 ## Verify the running stack
 
