@@ -248,22 +248,43 @@ export function uploadAudioFile(
         onProgress(Math.round((event.loaded / event.total) * 100));
       }
     });
-    request.addEventListener("load", () => {
+    request.addEventListener("load", () => {    
       if (request.status >= 200 && request.status < 300) {
+        const result = request.response as Partial<MediaUploadResult> | null;
+
+        if (
+          !result ||
+          typeof result.media_asset_id !== "string" ||
+          typeof result.content_track_id !== "string" ||
+          !["uploaded", "processing", "ready", "failed"].includes(
+            result.status || "",
+          )
+        ) {
+          reject(
+            new ApiError(
+              request.status,
+              "invalid_upload_response",
+              "Media service returned an invalid upload response",
+            ),
+          );
+          return;
+        }
+
+        if (result.status === "failed") {
+          reject(
+            new ApiError(
+              request.status,
+              "upload_failed",
+              "Audio processing failed",
+            ),
+          );
+          return;
+        }
+
         onProgress(100);
-        resolve(request.response as MediaUploadResult);
+        resolve(result as MediaUploadResult);
         return;
       }
-      const payload = request.response as {
-        error?: { code?: string; message?: string };
-      } | null;
-      reject(
-        new ApiError(
-          request.status,
-          payload?.error?.code || "upload_failed",
-          payload?.error?.message || "Audio upload failed",
-        ),
-      );
     });
     request.addEventListener("error", () =>
       reject(new ApiError(0, "upload_failed", "Audio upload failed")),

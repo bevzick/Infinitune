@@ -360,6 +360,11 @@ function TrackAudioManager({
             },
           })),
       );
+
+      if (result.status === "failed") {
+        throw new ApiError(200, "upload_failed", "Audio processing failed");
+      }
+
       setUploads((current) => ({
         ...current,
         [track.id]: {
@@ -450,10 +455,28 @@ function audioMimeType(file: File) {
 }
 
 function validateAudioFile(file: File) {
+  if (
+    file.name.length > 255 ||
+    file.name.includes("/") ||
+    file.name.includes("\\")
+  ) {
+    return "The audio filename must be at most 255 characters without paths.";
+  }
+
   const extension = file.name.split(".").pop()?.toLowerCase() || "";
-  if (!audioTypes[extension]) return "Choose a WAV, FLAC, MP3 or M4A file.";
-  if (file.size < 1) return "The audio file is empty.";
-  if (file.size > maximumAudioBytes) return "The audio file exceeds 500 MiB.";
+
+  if (!audioTypes[extension]) {
+    return "Choose a WAV, FLAC, MP3 or M4A file.";
+  }
+
+  if (file.size < 1) {
+    return "The audio file is empty.";
+  }
+
+  if (file.size > maximumAudioBytes) {
+    return "The audio file exceeds 500 MiB.";
+  }
+
   return "";
 }
 
