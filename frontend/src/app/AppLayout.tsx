@@ -25,6 +25,10 @@ const catalogNavigation: NavigationItem[] = [
   { to: "/albums", label: "Albums", icon: "album" },
 ];
 
+const creatorNavigation: NavigationItem[] = [
+  { to: "/creator/import", label: "Import music", icon: "album" },
+];
+
 export function AppLayout() {
   const session = useSession();
   const navigate = useNavigate();
@@ -68,6 +72,12 @@ export function AppLayout() {
           <span className="sidebar-label">Browse music</span>
           <Navigation items={catalogNavigation} />
         </div>
+        {session.status === "authenticated" ? (
+          <div className="sidebar-section">
+            <span className="sidebar-label">Creator studio</span>
+            <Navigation items={creatorNavigation} />
+          </div>
+        ) : null}
         <div className="sidebar-note">
           <span className="status-dot" aria-hidden="true" />
           <span>Music services online</span>
@@ -149,7 +159,10 @@ export function AppLayout() {
 
       <PlayerControls />
       <nav className="mobile-nav" aria-label="Mobile navigation">
-        {primaryNavigation.map((item) => (
+        {(session.status === "authenticated"
+          ? [...primaryNavigation, ...creatorNavigation]
+          : primaryNavigation
+        ).map((item) => (
           <NavigationLink item={item} key={item.to} />
         ))}
       </nav>
@@ -168,6 +181,7 @@ export function pageTitle(pathname: string) {
   if (pathname === "/library") return "Library";
   if (pathname.startsWith("/library/")) return "Playlist";
   if (pathname === "/profile") return "Profile";
+  if (pathname === "/creator/import") return "Import music";
   return "Infinitune";
 }
 

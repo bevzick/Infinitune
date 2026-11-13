@@ -41,6 +41,9 @@ const PlaylistPage = lazy(async () => ({
 const ProfilePage = lazy(async () => ({
   default: (await import("../pages/ProfilePage")).ProfilePage,
 }));
+const MusicImportPage = lazy(async () => ({
+  default: (await import("../pages/MusicImportPage")).MusicImportPage,
+}));
 const NotFoundPage = lazy(async () => ({
   default: (await import("../pages/NotFoundPage")).NotFoundPage,
 }));
@@ -83,6 +86,10 @@ export const router = createBrowserRouter([
             element: deferred(PlaylistPage, "playlist"),
           },
           { path: "profile", element: deferred(ProfilePage, "profile") },
+          {
+            path: "creator/import",
+            element: deferred(MusicImportPage, "music import"),
+          },
         ],
       },
       { path: "*", element: deferred(NotFoundPage, "page") },
