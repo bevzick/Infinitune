@@ -72,3 +72,8 @@ state transitions, retry behavior, and the isolated end-to-end test command.
 See the [local operations runbook](docs/local-operations.md) for first-time
 configuration, stack health checks, migration commands, failure diagnosis, and
 data-preserving recovery steps.
+
+The local observability stack stores container logs in Loki through Grafana
+Alloy and provisions both Loki and Prometheus in Grafana. By default, Grafana
+is available at <http://localhost:3000>; detailed queries and retention behavior
+are documented in the runbook.

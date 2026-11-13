@@ -63,9 +63,44 @@ The default host endpoints are:
 | Kong | <http://127.0.0.1:8000> | API gateway |
 | PostgreSQL | `127.0.0.1:5432` | local database access |
 | Prometheus | <http://127.0.0.1:9091> | metrics and alert rules |
+| Grafana | <http://127.0.0.1:3000> | centralized log search and metrics exploration |
+| Loki | <http://127.0.0.1:3100> | local log storage API |
+| Alloy | <http://127.0.0.1:12345> | log collector status and diagnostics |
 
 Only loopback addresses are published. Redis, Kafka, MinIO, and application
 service ports remain inside the Compose network.
+
+### Centralized logs
+
+Grafana Alloy discovers Docker containers that belong to the current Compose
+project and forwards their stdout and stderr to Loki. Open Grafana, sign in
+with `GRAFANA_ADMIN_USER` and `GRAFANA_ADMIN_PASSWORD`, then use **Explore** and
+the provisioned Loki data source. A useful starting query is:
+
+```logql
+{compose_project="infinitune"}
+```
+
+Narrow the result to one service with, for example:
+
+```logql
+{compose_project="infinitune", service="media-service"}
+```
+
+Verify all three logging components and a real Loki query from the command
+line with:
+
+```bash
+make logging-smoke
+```
+
+Local logs are retained for seven days. The Loki, Alloy, and Grafana state is
+stored in named volumes and is therefore preserved by `make down`, but removed
+by `make down-volumes`. Alloy reads the local Docker socket to discover and
+follow containers; keep this development-only configuration on a trusted host.
+To avoid duplicate ingestion after a collector restart, Docker backlog older
+than 55 minutes is discarded before it reaches Loki. Logs already stored in
+Loki remain queryable for the full seven-day retention period.
 
 ## Verify the running stack
 
