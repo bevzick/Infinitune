@@ -7,9 +7,10 @@ auth_database=${POSTGRES_AUTH_DB:-auth_db}
 response_file=$(mktemp)
 headers_file=$(mktemp)
 audio_file=$(mktemp --suffix=.wav)
+cover_file=$(mktemp --suffix=.png)
 
 cleanup() {
-    rm -f "$response_file" "$headers_file" "$audio_file"
+    rm -f "$response_file" "$headers_file" "$audio_file" "$cover_file"
 }
 trap cleanup EXIT
 
@@ -137,13 +138,49 @@ request 201 POST /v1/releases \
 release_id=$(jq --exit-status --raw-output '.id' "$response_file")
 release_track_id=$(jq --exit-status --raw-output '.tracks[0].id' "$response_file")
 
-request 200 PUT "/v1/releases/$release_id" \
-    "$(jq --null-input --compact-output --arg title "$track_title" \
-        --arg release_date "$release_date" --arg track_id "$release_track_id" \
-        '{title: $title, release_type: "single", release_date: $release_date,
-          cover_object_key: "system-smoke/cover.jpg",
-          tracks: [{id: $track_id, title: $title, track_number: 1,
-                    disc_number: 1, explicit: false}]}')" "$creator_token"
+# Exercise the real cover ingest path; never bypass private MinIO by writing
+# a fictitious cover_object_key into release metadata.
+echo "Generating and uploading a private PNG cover..."
+python3 - "$cover_file" <<'PYPNG'
+import struct
+import sys
+import zlib
+
+
+def chunk(kind, payload):
+    return (struct.pack(">I", len(payload)) + kind + payload +
+            struct.pack(">I", zlib.crc32(kind + payload) & 0xffffffff))
+
+
+width = height = 16
+raw = b"".join(b"\x00" + b"\x22\x66\xaa" * width for _ in range(height))
+image = (b"\x89PNG\r\n\x1a\n" +
+         chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0)) +
+         chunk(b"IDAT", zlib.compress(raw)) + chunk(b"IEND", b""))
+with open(sys.argv[1], "wb") as output:
+    output.write(image)
+PYPNG
+cover_size=$(wc -c < "$cover_file" | tr -d ' ')
+cover_key=$(cat /proc/sys/kernel/random/uuid)
+request 201 POST "/v1/releases/$release_id/cover-uploads" \
+    "$(jq -nc --arg key "$cover_key" --argjson size "$cover_size" \
+      '{idempotency_key:$key,original_name:"system-smoke.png",mime_type:"image/png",size_bytes:$size}')" \
+    "$creator_token"
+cover_upload_url=$(jq -er '.upload_url' "$response_file")
+cover_status=$(curl --silent --show-error --connect-timeout 5 --max-time 60 \
+    --output "$response_file" --write-out '%{http_code}' --request PUT \
+    --header "Authorization: Bearer $creator_token" \
+    --header 'Content-Type: image/png' --data-binary "@$cover_file" \
+    "$gateway_url$cover_upload_url")
+if [[ "$cover_status" != 201 ]]; then
+    echo "Cover PUT returned HTTP $cover_status, expected 201" >&2
+    cat "$response_file" >&2
+    exit 1
+fi
+jq -e --arg id "$release_id" '.release_id == $id and .status == "completed"' \
+    "$response_file" >/dev/null
+request 200 GET "/v1/releases/$release_id" "" "$creator_token"
+jq -e '.cover_object_key | type == "string" and length > 0' "$response_file" >/dev/null
 
 for rights_type in streaming distribution; do
     request 200 PUT "/v1/release-tracks/$release_track_id/rights" \
@@ -267,5 +304,12 @@ fi
 grep -qi '^Accept-Ranges: bytes' "$headers_file"
 grep -qi '^Content-Range: bytes 0-1023/' "$headers_file"
 grep -qi '^X-Audio-Quality: high' "$headers_file"
+
+if [[ "${VERIFY_CREATOR_LISTENER_JOURNEY:-0}" == "1" ]]; then
+    # This file is sourced deliberately: it reuses the real release/track IDs
+    # and the request/login helpers above, instead of creating a second fixture.
+    # shellcheck source=scripts/creator-listener-assertions.sh
+    source scripts/creator-listener-assertions.sh
+fi
 
 echo "Content publication and media playback smoke test passed"
