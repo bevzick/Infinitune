@@ -18,6 +18,7 @@ const primaryNavigation: NavigationItem[] = [
   { to: "/", label: "Discover", icon: "home", end: true },
   { to: "/search", label: "Search", icon: "search" },
   { to: "/library", label: "Library", icon: "library" },
+  { to: "/history", label: "History", icon: "history" },
 ];
 
 const catalogNavigation: NavigationItem[] = [
@@ -190,6 +191,7 @@ export function pageTitle(pathname: string) {
   if (pathname.startsWith("/albums/")) return "Album";
   if (pathname.startsWith("/tracks/")) return "Track";
   if (pathname === "/library") return "Library";
+  if (pathname === "/history") return "Listening history";
   if (pathname.startsWith("/library/")) return "Playlist";
   if (pathname === "/profile") return "Profile";
   if (pathname === "/creator/import") return "Import music";

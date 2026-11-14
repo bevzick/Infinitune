@@ -49,6 +49,7 @@ describe("AppLayout accessibility", () => {
     expect(pageTitle("/albums")).toBe("Albums");
     expect(pageTitle("/albums/album-id")).toBe("Album");
     expect(pageTitle("/library/playlist-id")).toBe("Playlist");
+    expect(pageTitle("/history")).toBe("Listening history");
     expect(pageTitle("/missing")).toBe("Infinitune");
   });
 });
