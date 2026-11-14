@@ -1,0 +1,80 @@
+name: Backend checks
+
+on:
+  pull_request:
+    paths:
+      - "services/**"
+      - "tools/kafka-replay/**"
+      - ".github/workflows/backend.yml"
+  push:
+    branches:
+      - develop
+    paths:
+      - "services/**"
+      - "tools/kafka-replay/**"
+      - ".github/workflows/backend.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backend-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  module:
+    name: ${{ matrix.name }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: auth-service
+            path: services/auth-service
+          - name: catalog-service
+            path: services/catalog-service
+          - name: comment-service
+            path: services/comment-service
+          - name: content-service
+            path: services/content-service
+          - name: history-service
+            path: services/history-service
+          - name: interaction-service
+            path: services/interaction-service
+          - name: media-service
+            path: services/media-service
+          - name: playlist-service
+            path: services/playlist-service
+          - name: recommendation-service
+            path: services/recommendation-service
+          - name: user-service
+            path: services/user-service
+          - name: kafka-replay
+            path: tools/kafka-replay
+
+    defaults:
+      run:
+        working-directory: ${{ matrix.path }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: ${{ matrix.path }}/go.mod
+          cache-dependency-path: ${{ matrix.path }}/go.sum
+
+      - name: Verify dependencies
+        run: go mod verify
+
+      - name: Run static analysis
+        run: go vet ./...
+
+      - name: Run unit tests with race detector
+        run: go test -race -count=1 ./...
+
+      - name: Build packages and commands
+        run: go build ./...
+

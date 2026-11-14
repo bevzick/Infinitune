@@ -1,0 +1,194 @@
+# Kafka event flow
+
+Kafka is used for asynchronous domain notifications. Synchronous operations that need an
+immediate result continue to use REST or gRPC.
+
+```text
+Browser/player
+      |
+      | POST listening event
+      v
+History service ---- gRPC validation ----> Catalog service
+      |
+      | one PostgreSQL transaction
+      +--> history.listening_events
+      +--> history.event_outbox
+                  |
+                  | retrying outbox dispatcher
+                  v
+        history.listening.recorded.v1  ┐
+                                       ├─ Kafka, key = user_id
+        history.listening.cleared.v1   ┘
+                  |
+         +--------+------------------+
+         |                           |
+         v                           v
+Recommendation consumer       Future analytics consumer
+(invalidates stale runs)       (aggregates, trends)
+
+Content approval ---- gRPC publish ----> Catalog service
+                                         |
+                                         | catalog.event_outbox
+                                         v
+                       catalog.release.published.v1 ┐
+                                                    ├─ Kafka, key = source_release_id
+                       catalog.release.archived.v1  ┘
+                                         |
+                         +---------------+----------------+
+                         v               v                v
+                    Recommendation   Playlist       Future search index
+
+Like/unlike/follow -----> Interaction service
+                                  |
+                                  | same PostgreSQL transaction
+                                  +--> preference table
+                                  +--> interaction.event_outbox
+                                                |
+                                                v
+                              interaction.preference.changed.v1
+                              Kafka, key = user_id
+                                                |
+                                                v
+                                   Recommendation consumer
+                                   (invalidates that user's stale runs)
+
+Audio processing -----> Media service
+                              |
+                              | same PostgreSQL transaction
+                              +--> media asset status = ready
+                              +--> media.event_outbox
+                                           |
+                                           v
+                              media.asset.ready.v1
+                              Kafka, key = media_asset_id
+                                           |
+                                           v
+                              Content consumer
+                              (updates local readiness projection)
+
+Moderator approval -----> Content service
+                                |
+                                | same PostgreSQL transaction
+                                +--> release status = approved
+                                +--> content.event_outbox
+                                             |
+                                             v
+                              content.release.approved.v1
+                              Kafka, key = release_id
+                                             |
+                                             v
+                              Catalog consumer
+                              (records publication authorization)
+```
+
+## Delivery contract
+
+- Implemented events are `history.listening.recorded.v1` and
+  `history.listening.cleared.v1`, `catalog.release.published.v1`,
+  `catalog.release.archived.v1`, `interaction.preference.changed.v1`, and
+  `media.asset.ready.v1`, and `content.release.approved.v1`.
+- Recording/deleting history and creating the corresponding outbox row happen atomically in
+  History PostgreSQL.
+- Delivery is **at least once**. A crash after Kafka accepts an event but before the outbox row
+  is marked published can produce a duplicate.
+- `id` is the stable idempotency key. Every consumer must deduplicate it or make handling idempotent.
+- History and Interaction records are partitioned by `user_id`; Media readiness is partitioned by
+  `media_asset_id`, so changes for the same aggregate reach the same partition.
+  Consumers must still tolerate duplicates and late events because retries can change arrival order.
+- Event schemas are versioned in the event type. Breaking changes require a new version/topic.
+- Kafka being unavailable does not reject a valid listening event; the outbox dispatcher retries.
+- A clear event is emitted only when at least one row was deleted. `before` is absent for a full
+  clear and contains the exclusive deletion cutoff for a partial clear.
+- Consumers that persist listening signals must apply clear events as deletion watermarks and
+  ignore a late recorded event when it falls inside an already cleared range. Recommendation does
+  not copy raw history and only invalidates cached runs; its next calculation reads current History.
+- Catalog lifecycle payloads contain canonical artist, optional album, and track identifiers.
+  Publication/archive changes and their outbox rows share one Catalog transaction. Repeated gRPC
+  commands reuse the same `aggregate_id + event_type` outbox identity and do not emit duplicates.
+- Catalog topics are a change feed, not a complete snapshot. A new search/index consumer must first
+  bootstrap current published metadata through a dedicated Catalog contract and then apply events;
+  `occurred_at` resolves late publish/archive delivery for the same release.
+- Recommendation consumes Catalog lifecycle events in a separate consumer group. Publication
+  expires every run generated before the release became visible; archive expires only older runs
+  containing one of the archived track IDs. Runs generated after the event already read the new
+  Catalog state and remain valid.
+- Track and album likes and artist follows emit a preference event only when the stored state
+  actually changes. Comment likes are excluded. The preference mutation and its outbox row are
+  atomic, and Recommendation expires only that user's runs older than `occurred_at`.
+- Media publishes readiness only after variant metadata and the asset's `ready` status have been
+  committed with the outbox row. The payload identifies the source upload, Content/Catalog track,
+  duration, and generated audio profiles without exposing storage object keys.
+- Content consumes retained readiness events from the beginning for a new consumer group and keeps
+  an idempotent projection ordered by `occurred_at`. Submission and publication read the local
+  projection first; Media gRPC remains a compatibility fallback for assets created before the
+  event flow was deployed or older than Kafka retention.
+- Content emits release approval only for a newly recorded `approved` moderation decision. The
+  review, release status transition, and outbox message are atomic; idempotent review retries reuse
+  the existing review and do not enqueue duplicate approval events.
+- Catalog consumes retained approval events into an idempotent projection. A new release cannot be
+  published through gRPC until its approval has been observed; an already-published release remains
+  idempotently readable even if it predates the projection.
+- Consumers send malformed or unsupported events to `platform.events.dead-letter.v1`, preserving
+  the original key, value, and headers and appending source topic/partition/offset, consumer group,
+  failure reason, and failure time. The source offset is committed only after Kafka accepts the
+  dead-letter record; a failed dead-letter write is retried without dropping the source event.
+- Transient handler failures remain on the source partition and are retried rather than sent to the
+  dead-letter topic. The development dead-letter topic retains records for 30 days so operators can
+  diagnose and explicitly replay corrected events.
+
+Commands and permission checks remain synchronous. Kafka should not replace Catalog validation,
+authentication, playback authorization, or user-facing writes that require an immediate response.
+
+The Compose broker is a single-node development setup with plaintext traffic. Production requires
+multiple brokers, replication, TLS/SASL, monitoring, quotas, and an explicit retention/privacy policy.
+
+## Operational metrics
+
+History, Interaction, Media, Catalog, Content, and Recommendation expose Prometheus-compatible
+Kafka metrics at `GET /metrics` on their existing HTTP port. The endpoint reports outbox claims,
+successful publications, Kafka publication failures, repository/marking failures, successfully
+handled consumer events, handler failures, dead-letter deliveries, dead-letter publication failures,
+and Unix timestamps of the latest successful outbox publication and consumer handling. Counter
+resets are expected when a service restarts. Production monitoring should alert on growing failure
+counters and on stale success timestamps while the corresponding service is receiving traffic.
+The local Compose stack runs Prometheus at `http://127.0.0.1:9091` by default, scrapes all six
+Kafka-enabled services every 15 seconds, retains samples for 15 days, and loads warning/critical
+rules for outbox, consumer, and dead-letter failures. Override the host port with `PROMETHEUS_PORT`.
+
+## Dead-letter replay
+
+The `kafka-replay` tool restores the original topic, partition, key, payload, and headers from a
+dead-letter record. It requires an explicit destination allowlist and runs in preview mode unless
+`--execute` is present. Preview mode starts at the beginning of the retained dead-letter topic and
+does not commit offsets:
+
+```bash
+docker compose -f compose.yml -f compose.kafka.yml --profile tools run --rm --build kafka-replay \
+  --original-topics history.listening.recorded.v1 \
+  --max-events 20
+```
+
+After correcting the event source or deploying compatible consumer code, execute the reviewed
+batch with a unique, auditable consumer group:
+
+```bash
+docker compose -f compose.yml -f compose.kafka.yml --profile tools run --rm --build kafka-replay \
+  --original-topics history.listening.recorded.v1 \
+  --consumer-group dlq-replay-20261112-01 \
+  --max-events 20 \
+  --execute
+```
+
+Execution stops before publishing a record whose original topic is not allowlisted or whose DLQ
+metadata is malformed. The DLQ offset is committed only after the restored record is acknowledged
+by Kafka. Delivery is therefore at least once: a process failure after publication but before the
+offset commit can replay the same record again. Reusing the same consumer group resumes after the
+last committed record; use a new group only when intentionally replaying the retained batch again.
+
+Run `make kafka-events-test-integration` to verify both invalid-event routing into the dead-letter
+topic and restoration into the original topic against the Compose Kafka broker. The tests use
+unique temporary topics, delete them afterward, and are excluded from ordinary unit-test runs.
+
+Start the full local stack with `make up`. The Makefile includes `compose.kafka.yml`; the
+`kafka-init` service creates all implemented History, Catalog, Interaction, Media, Content, and
+dead-letter topics idempotently before producers start.

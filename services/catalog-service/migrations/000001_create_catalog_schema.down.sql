@@ -1,0 +1,12 @@
+DROP TABLE catalog.track_moods;
+DROP TABLE catalog.moods;
+DROP TABLE catalog.track_genres;
+DROP TABLE catalog.genres;
+DROP TABLE catalog.track_artists;
+DROP TABLE catalog.tracks;
+DROP TABLE catalog.album_artists;
+DROP TABLE catalog.albums;
+DROP TABLE catalog.artists;
+DROP TYPE catalog.artist_role;
+DROP TYPE catalog.album_type;
+DROP SCHEMA catalog;

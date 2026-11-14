@@ -1,0 +1,137 @@
+.interaction-button {
+  min-height: 2.55rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  padding: 0.65rem 0.9rem;
+  border: 1px solid var(--app-line);
+  border-radius: 0.75rem;
+  color: var(--app-muted);
+  background: color-mix(in srgb, var(--app-panel) 84%, transparent);
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 750;
+  transition:
+    color 150ms ease,
+    border-color 150ms ease,
+    background 150ms ease,
+    transform 150ms ease;
+
+  &:hover:not(:disabled) {
+    color: var(--app-text);
+    border-color: color-mix(in srgb, var(--app-accent) 48%, var(--app-line));
+    transform: translateY(-1px);
+  }
+
+  &:disabled {
+    cursor: wait;
+    opacity: 0.48;
+  }
+}
+
+.interaction-button-compact {
+  width: 2.35rem;
+  min-height: 2.35rem;
+  padding: 0;
+  border-radius: 50%;
+}
+
+.interaction-button-active {
+  color: var(--app-accent);
+  border-color: color-mix(in srgb, var(--app-accent) 42%, var(--app-line));
+  background: var(--app-accent-soft);
+}
+
+.track-row {
+  grid-template-columns:
+    2rem 3rem minmax(10rem, 1fr) minmax(8rem, auto) auto auto
+    3rem;
+
+  time {
+    grid-column: -1;
+  }
+}
+
+.track-row-with-actions {
+  grid-template-columns:
+    2rem 3rem minmax(10rem, 1fr) minmax(8rem, auto) auto auto auto
+    3rem;
+}
+
+.album-card-shell,
+.artist-card-shell {
+  position: relative;
+  min-width: 0;
+
+  > .interaction-button {
+    position: absolute;
+    z-index: 2;
+    top: 0.55rem;
+    right: 0.55rem;
+    color: rgba(255, 255, 255, 0.86);
+    border-color: rgba(255, 255, 255, 0.2);
+    background: rgba(19, 13, 35, 0.54);
+    box-shadow: 0 0.35rem 1rem rgba(8, 5, 18, 0.18);
+    backdrop-filter: blur(12px);
+  }
+
+  > .interaction-button-active {
+    color: #e5b5ff;
+    border-color: rgba(218, 154, 255, 0.56);
+    background: rgba(76, 33, 112, 0.72);
+  }
+}
+
+.album-card-shell .album-card,
+.artist-card-shell .artist-card {
+  height: 100%;
+}
+
+.detail-actions > .interaction-button {
+  min-height: 2.9rem;
+  padding-inline: 1.1rem;
+  color: var(--app-text);
+  background: color-mix(in srgb, var(--app-panel) 78%, transparent);
+  backdrop-filter: blur(12px);
+}
+
+.player-tools > .interaction-button {
+  flex: 0 0 auto;
+  border: 0;
+  background: transparent;
+}
+
+@media (max-width: 700px) {
+  .track-row,
+  .track-row-with-actions {
+    grid-template-columns: 2.8rem minmax(0, 1fr) auto;
+
+    .track-index,
+    .track-tags,
+    .explicit-mark,
+    time {
+      display: none;
+    }
+
+    .interaction-button {
+      grid-column: 3;
+    }
+
+    .track-actions {
+      grid-column: 2 / -1;
+    }
+  }
+}
+
+@media (max-width: 520px) {
+  .detail-actions > .interaction-button {
+    width: 100%;
+  }
+
+  .artist-card-shell > .interaction-button,
+  .album-card-shell > .interaction-button {
+    top: 0.4rem;
+    right: 0.4rem;
+  }
+}

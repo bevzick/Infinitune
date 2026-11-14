@@ -1,0 +1,409 @@
+_format_version: "3.0"
+_transform: true
+
+plugins:
+  - name: cors
+    config:
+      origins:
+        - http://localhost:5173
+      methods:
+        - GET
+        - POST
+        - PUT
+        - PATCH
+        - DELETE
+        - OPTIONS
+      headers:
+        - Accept
+        - Authorization
+        - Content-Type
+        - X-Requested-With
+        - X-CSRF-Token
+      exposed_headers:
+        - Content-Length
+        - Content-Range
+        - Accept-Ranges
+      credentials: true
+      max_age: 3600
+      preflight_continue: false
+
+consumers:
+  - username: auth-service
+    jwt_secrets:
+      - key: "__AUTH_JWT_ISSUER__"
+        algorithm: EdDSA
+        secret: unused
+        rsa_public_key: |
+          __AUTH_JWT_PUBLIC_KEY__
+
+services:
+  - name: auth-service
+    url: http://auth-service:8080
+    routes:
+      - name: auth-public
+        paths:
+          - ~/v1/auth/(?:register|login|refresh|logout)$
+        methods:
+          - POST
+          - OPTIONS
+        regex_priority: 100
+        strip_path: false
+
+      - name: auth-keys
+        paths:
+          - ~/v1/auth/jwks$
+        methods:
+          - GET
+          - OPTIONS
+        regex_priority: 100
+        strip_path: false
+
+      - name: auth-protected
+        paths:
+          - ~/v1/auth(?:/|$)
+        strip_path: false
+        plugins:
+          - name: jwt
+            config:
+              key_claim_name: iss
+              claims_to_verify:
+                - exp
+              run_on_preflight: false
+
+  - name: user-service
+    url: http://user-service:8080
+    routes:
+      - name: user-public-profiles
+        paths:
+          - ~/v1/users/profiles/[0-9a-fA-F-]+$
+        methods:
+          - GET
+          - OPTIONS
+        regex_priority: 100
+        strip_path: false
+
+      - name: user-protected
+        paths:
+          - ~/v1/users/me(?:/|$)
+        regex_priority: 100
+        strip_path: false
+        plugins:
+          - name: jwt
+            config:
+              key_claim_name: iss
+              claims_to_verify:
+                - exp
+              run_on_preflight: false
+
+  - name: catalog-service
+    url: http://catalog-service:8080
+    routes:
+      - name: catalog-public
+        paths:
+          - ~/v1/catalog(?:/|$)
+        methods:
+          - GET
+          - OPTIONS
+        regex_priority: 100
+        strip_path: false
+
+  - name: media-service
+    url: http://media-service:8080
+    routes:
+      - name: media-creator-upload
+        paths:
+          - ~/v1/media/uploads/[0-9a-fA-F-]+$
+        methods:
+          - PUT
+          - OPTIONS
+        regex_priority: 110
+        strip_path: false
+        plugins:
+          - name: jwt
+            config:
+              key_claim_name: iss
+              claims_to_verify:
+                - exp
+              run_on_preflight: false
+
+      - name: media-cover-upload
+        paths:
+          - ~/v1/media/cover-uploads/[0-9a-fA-F-]+$
+        methods:
+          - PUT
+          - OPTIONS
+        regex_priority: 110
+        strip_path: false
+        plugins:
+          - name: jwt
+            config:
+              key_claim_name: iss
+              claims_to_verify:
+                - exp
+              run_on_preflight: false
+
+      - name: media-playback
+        paths:
+          - ~/v1/media/assets/[0-9a-fA-F-]+/playback$
+        methods:
+          - GET
+          - OPTIONS
+        regex_priority: 100
+        strip_path: false
+        plugins:
+          - name: jwt
+            config:
+              key_claim_name: iss
+              claims_to_verify:
+                - exp
+              run_on_preflight: false
+
+      - name: media-external-import
+        paths:
+          - ~/v1/media/imports$
+        methods:
+          - POST
+          - OPTIONS
+        regex_priority: 105
+        strip_path: false
+        plugins:
+          - name: jwt
+            config:
+              key_claim_name: iss
+              claims_to_verify:
+                - exp
+              run_on_preflight: false
+
+      - name: media-source-discovery
+        paths:
+          - ~/v1/media/sources(?:/.*)?$
+        methods:
+          - GET
+          - OPTIONS
+        regex_priority: 105
+        strip_path: false
+        plugins:
+          - name: jwt
+            config:
+              key_claim_name: iss
+              claims_to_verify:
+                - exp
+              run_on_preflight: false
+
+  - name: playlist-service
+    url: http://playlist-service:8080
+    routes:
+      - name: playlist-read
+        paths:
+          - ~/v1/playlists/[0-9a-fA-F-]+(?:/(?:tracks|resolved-tracks))?$
+        methods:
+          - GET
+        regex_priority: 100
+        strip_path: false
+
+      - name: playlist-criteria-read
+        paths:
+          - ~/v1/playlists/[0-9a-fA-F-]+/criteria$
+        methods:
+          - GET
+        regex_priority: 105
+        strip_path: false
+        plugins:
+          - name: jwt
+            config:
+              key_claim_name: iss
+              claims_to_verify:
+                - exp
+              run_on_preflight: false
+
+      - name: playlist-options
+        paths:
+          - ~/v1/playlists(?:/|$)
+        methods:
+          - OPTIONS
+        regex_priority: 110
+        strip_path: false
+
+      - name: playlist-protected
+        paths:
+          - ~/v1/playlists(?:/|$)
+        methods:
+          - GET
+          - POST
+          - PATCH
+          - PUT
+          - DELETE
+        regex_priority: 90
+        strip_path: false
+        plugins:
+          - name: jwt
+            config:
+              key_claim_name: iss
+              claims_to_verify:
+                - exp
+              run_on_preflight: false
+
+  - name: content-service
+    url: http://content-service:8080
+    routes:
+      - name: content-options
+        paths:
+          - ~/v1/(?:creators|releases|release-tracks|track-rights|moderation/(?:releases|creators|release-reviews))(?:/|$)
+        methods:
+          - OPTIONS
+        regex_priority: 110
+        strip_path: false
+
+      - name: content-protected
+        paths:
+          - ~/v1/(?:creators|releases|release-tracks|track-rights|moderation/(?:releases|creators|release-reviews))(?:/|$)
+        methods:
+          - GET
+          - POST
+          - PATCH
+          - PUT
+          - DELETE
+        regex_priority: 100
+        strip_path: false
+        plugins:
+          - name: jwt
+            config:
+              key_claim_name: iss
+              claims_to_verify:
+                - exp
+              run_on_preflight: false
+
+  - name: interaction-service
+    url: http://interaction-service:8080
+    routes:
+      - name: interaction-options
+        paths:
+          - ~/v1/interactions(?:/|$)
+        methods:
+          - OPTIONS
+        regex_priority: 110
+        strip_path: false
+
+      - name: interaction-protected
+        paths:
+          - ~/v1/interactions/(?:(?:tracks|albums|comments)/likes|artists/follows|(?:tracks|albums|comments)/[0-9a-fA-F-]+/like|artists/[0-9a-fA-F-]+/follow)$
+        methods:
+          - GET
+          - PUT
+          - DELETE
+        regex_priority: 100
+        strip_path: false
+        plugins:
+          - name: jwt
+            config:
+              key_claim_name: iss
+              claims_to_verify:
+                - exp
+              run_on_preflight: false
+
+  - name: comment-service
+    url: http://comment-service:8080
+    routes:
+      - name: comment-public-list
+        paths:
+          - ~/v1/tracks/[0-9a-fA-F-]+/comments$
+        methods:
+          - GET
+          - OPTIONS
+        regex_priority: 120
+        strip_path: false
+
+      - name: comment-options
+        paths:
+          - ~/v1/(?:comments|moderation/(?:comment-reports|comment-actions))(?:/|$)
+        methods:
+          - OPTIONS
+        regex_priority: 110
+        strip_path: false
+
+      - name: comment-protected
+        paths:
+          - ~/v1/comments(?:/|$)
+        methods:
+          - POST
+          - PATCH
+          - DELETE
+        regex_priority: 100
+        strip_path: false
+        plugins:
+          - name: jwt
+            config:
+              key_claim_name: iss
+              claims_to_verify:
+                - exp
+              run_on_preflight: false
+
+      - name: comment-moderation-protected
+        paths:
+          - ~/v1/moderation/(?:comment-reports|comment-actions)(?:/|$)
+        methods:
+          - GET
+          - POST
+        regex_priority: 100
+        strip_path: false
+        plugins:
+          - name: jwt
+            config:
+              key_claim_name: iss
+              claims_to_verify:
+                - exp
+              run_on_preflight: false
+
+  - name: history-service
+    url: http://history-service:8080
+    routes:
+      - name: history-options
+        paths:
+          - ~/v1/history(?:/|$)
+        methods:
+          - OPTIONS
+        regex_priority: 110
+        strip_path: false
+
+      - name: history-protected
+        paths:
+          - ~/v1/history/events$
+        methods:
+          - GET
+          - POST
+          - DELETE
+        regex_priority: 100
+        strip_path: false
+        plugins:
+          - name: jwt
+            config:
+              key_claim_name: iss
+              claims_to_verify:
+                - exp
+              run_on_preflight: false
+
+  - name: recommendation-service
+    url: http://recommendation-service:8080
+    routes:
+      - name: recommendation-options
+        paths:
+          - ~/v1/recommendations$
+        methods:
+          - OPTIONS
+        regex_priority: 110
+        strip_path: false
+
+      - name: recommendation-protected
+        paths:
+          - ~/v1/recommendations$
+        methods:
+          - GET
+        regex_priority: 100
+        strip_path: false
+        plugins:
+          - name: jwt
+            config:
+              key_claim_name: iss
+              claims_to_verify:
+                - exp
+              run_on_preflight: false

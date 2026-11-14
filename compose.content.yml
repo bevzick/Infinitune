@@ -1,0 +1,163 @@
+services:
+  content-service:
+    build:
+      context: ./services/content-service
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      auth-service:
+        condition: service_healthy
+      user-service:
+        condition: service_healthy
+      catalog-service:
+        condition: service_healthy
+      media-service:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+    environment:
+      CONTENT_HTTP_HOST: 0.0.0.0
+      CONTENT_HTTP_PORT: 8080
+      CONTENT_GRPC_HOST: 0.0.0.0
+      CONTENT_GRPC_PORT: 9090
+      CONTENT_ALLOWED_ORIGINS: ${CONTENT_ALLOWED_ORIGINS:-http://localhost:5173}
+      CONTENT_AUTH_JWKS_URL: ${CONTENT_AUTH_JWKS_URL:-http://auth-service:8080/v1/auth/jwks}
+      USER_GRPC_HOST: user-service
+      USER_GRPC_PORT: 9090
+      MEDIA_GRPC_HOST: media-service
+      MEDIA_GRPC_PORT: 9090
+      CATALOG_GRPC_HOST: catalog-service
+      CATALOG_GRPC_PORT: 9090
+      AUTH_JWT_ISSUER: ${AUTH_JWT_ISSUER:-infinitune-auth}
+      AUTH_JWT_AUDIENCE: ${AUTH_JWT_AUDIENCE:-infinitune-api}
+      AUTH_JWT_KEY_ID: ${AUTH_JWT_KEY_ID:-auth-key-1}
+      POSTGRES_HOST: ${POSTGRES_HOST:-postgres}
+      POSTGRES_PORT: ${POSTGRES_PORT:-5432}
+      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER is required}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_CONTENT_DB: ${POSTGRES_CONTENT_DB:-content_db}
+      KAFKA_BROKERS: ${KAFKA_BROKERS:-kafka:9092}
+      KAFKA_MEDIA_ASSET_READY_TOPIC: ${KAFKA_MEDIA_ASSET_READY_TOPIC:-media.asset.ready.v1}
+      KAFKA_CONTENT_MEDIA_GROUP: ${KAFKA_CONTENT_MEDIA_GROUP:-content-media-v1}
+      KAFKA_CONTENT_RELEASE_APPROVED_TOPIC: ${KAFKA_CONTENT_RELEASE_APPROVED_TOPIC:-content.release.approved.v1}
+      KAFKA_DEAD_LETTER_TOPIC: ${KAFKA_DEAD_LETTER_TOPIC:-platform.events.dead-letter.v1}
+      CONTENT_OUTBOX_POLL_INTERVAL: ${CONTENT_OUTBOX_POLL_INTERVAL:-1s}
+      CONTENT_OUTBOX_BATCH_SIZE: ${CONTENT_OUTBOX_BATCH_SIZE:-100}
+    expose:
+      - "8080"
+      - "9090"
+    networks:
+      - backend
+
+  content-db-init:
+    image: postgres:18.6-bookworm
+    profiles: ["tools"]
+    restart: "no"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PGHOST: ${POSTGRES_HOST:-postgres}
+      PGPORT: ${POSTGRES_PORT:-5432}
+      PGUSER: ${POSTGRES_USER:?POSTGRES_USER is required}
+      PGPASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_CONTENT_DB: ${POSTGRES_CONTENT_DB:-content_db}
+    entrypoint:
+      - /bin/sh
+      - -ec
+    command:
+      - |
+        case "$$POSTGRES_CONTENT_DB" in
+          ""|*[!a-zA-Z0-9_]*)
+            echo "POSTGRES_CONTENT_DB must contain only letters, digits, and underscores" >&2
+            exit 1
+            ;;
+        esac
+
+        if [ "$$(psql --dbname=postgres --tuples-only --no-align --command="SELECT 1 FROM pg_database WHERE datname = '$$POSTGRES_CONTENT_DB'")" = "1" ]; then
+          echo "Database $$POSTGRES_CONTENT_DB already exists"
+        else
+          createdb --maintenance-db=postgres "$$POSTGRES_CONTENT_DB"
+          echo "Created database $$POSTGRES_CONTENT_DB"
+        fi
+    networks:
+      - backend
+
+  content-migrate:
+    image: migrate/migrate:v4.20.1
+    profiles: ["tools"]
+    depends_on:
+      content-db-init:
+        condition: service_completed_successfully
+    environment:
+      POSTGRES_HOST: ${POSTGRES_HOST:-postgres}
+      POSTGRES_PORT: ${POSTGRES_PORT:-5432}
+      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER is required}
+      PGPASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_CONTENT_DB: ${POSTGRES_CONTENT_DB:-content_db}
+    entrypoint:
+      - /bin/sh
+      - -ec
+      - |
+        case "$$POSTGRES_USER" in
+          ""|*[!a-zA-Z0-9_]*)
+            echo "POSTGRES_USER must contain only letters, digits, and underscores" >&2
+            exit 1
+            ;;
+        esac
+
+        case "$$POSTGRES_CONTENT_DB" in
+          ""|*[!a-zA-Z0-9_]*)
+            echo "POSTGRES_CONTENT_DB must contain only letters, digits, and underscores" >&2
+            exit 1
+            ;;
+        esac
+
+        case "$$POSTGRES_HOST:$$POSTGRES_PORT" in
+          ""|*[!a-zA-Z0-9_.:-]*)
+            echo "POSTGRES_HOST and POSTGRES_PORT contain unsupported characters" >&2
+            exit 1
+            ;;
+        esac
+
+        exec /migrate \
+          -path=/migrations \
+          -database="postgres://$$POSTGRES_USER@$$POSTGRES_HOST:$$POSTGRES_PORT/$$POSTGRES_CONTENT_DB?sslmode=disable" \
+          "$$@"
+      - --
+    command: ["version"]
+    volumes:
+      - ./services/content-service/migrations:/migrations:ro
+    networks:
+      - backend
+
+  content-integration-test:
+    build:
+      context: ./services/content-service
+      dockerfile: Dockerfile
+      target: source
+    profiles: ["tools"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      content-service:
+        condition: service_healthy
+    environment:
+      INFINITUNE_INTEGRATION_TESTS: "1"
+      POSTGRES_HOST: ${POSTGRES_HOST:-postgres}
+      POSTGRES_PORT: ${POSTGRES_PORT:-5432}
+      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER is required}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_CONTENT_DB: ${POSTGRES_CONTENT_DB:-content_db}
+    entrypoint:
+      - go
+      - test
+      - -tags=integration
+      - -count=1
+    command:
+      - ./internal/schema
+      - ./internal/repository/postgres
+    networks:
+      - backend

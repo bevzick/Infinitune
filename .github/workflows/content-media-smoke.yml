@@ -1,0 +1,82 @@
+name: Content publication and media playback
+
+on:
+  pull_request:
+    paths:
+      - "services/auth-service/**"
+      - "services/user-service/**"
+      - "services/catalog-service/**"
+      - "services/content-service/**"
+      - "services/media-service/**"
+      - "infra/kong/**"
+      - "infra/minio/**"
+      - "scripts/content-media-smoke.sh"
+      - "compose*.yml"
+      - "Makefile"
+      - ".github/workflows/content-media-smoke.yml"
+  push:
+    branches:
+      - develop
+    paths:
+      - "services/auth-service/**"
+      - "services/user-service/**"
+      - "services/catalog-service/**"
+      - "services/content-service/**"
+      - "services/media-service/**"
+      - "infra/kong/**"
+      - "infra/minio/**"
+      - "scripts/content-media-smoke.sh"
+      - "compose*.yml"
+      - "Makefile"
+      - ".github/workflows/content-media-smoke.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: content-media-smoke-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  smoke:
+    name: Published media journey through Kong
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      COMPOSE_PROJECT_NAME: infinitune-content-media-${{ github.run_id }}-${{ github.run_attempt }}
+      COMPOSE_OVERRIDE: -f compose.system-test.yml
+      MINIO_ROOT_PASSWORD: ci_minio_password
+      MINIO_ROOT_USER: ci_minio
+      POSTGRES_DB: ci_platform
+      POSTGRES_PASSWORD: ci_postgres_password
+      POSTGRES_USER: ci_user
+      SYSTEM_TEST_GATEWAY_PORT: 18001
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Generate ephemeral JWT signing keys
+        shell: bash
+        run: |
+          private_key=$(openssl genpkey -algorithm Ed25519 -outform DER | base64 -w0)
+          public_key=$(printf '%s' "$private_key" | base64 -d | openssl pkey -inform DER -pubout -outform DER | base64 -w0)
+          echo "::add-mask::$private_key"
+          echo "::add-mask::$public_key"
+          echo "AUTH_JWT_PRIVATE_KEY_BASE64=$private_key" >> "$GITHUB_ENV"
+          echo "AUTH_JWT_PUBLIC_KEY_BASE64=$public_key" >> "$GITHUB_ENV"
+
+      - name: Validate Compose configuration
+        run: make config
+
+      - name: Run content publication and media playback journey
+        run: make content-media-smoke
+
+      - name: Show relevant service logs on failure
+        if: failure()
+        run: make content-media-smoke-logs
+
+      - name: Remove containers and volumes
+        if: always()
+        run: make down-volumes

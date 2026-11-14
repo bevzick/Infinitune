@@ -1,0 +1,57 @@
+syntax = "proto3";
+
+package infinitune.catalog.v1;
+
+option go_package = "github.com/bevzick/Infinitune/services/recommendation-service/api/catalog/v1;catalogv1";
+
+// Consumer-owned subset of the Catalog service contract.
+service CatalogService {
+  rpc GetTracks(GetTracksRequest) returns (GetTracksResponse);
+  rpc ValidateTrackIds(ValidateTrackIdsRequest) returns (ValidateTrackIdsResponse);
+  rpc FilterTracks(FilterTracksRequest) returns (FilterTracksResponse);
+}
+
+message GetTracksRequest { repeated string track_ids = 1; }
+message GetTracksResponse { repeated Track tracks = 1; }
+message ValidateTrackIdsRequest { repeated string track_ids = 1; }
+message ValidateTrackIdsResponse {
+  repeated string valid_track_ids = 1;
+  repeated string missing_track_ids = 2;
+}
+
+enum TrackSort {
+  TRACK_SORT_UNSPECIFIED = 0;
+  TRACK_SORT_NEWEST = 1;
+  TRACK_SORT_OLDEST = 2;
+  TRACK_SORT_TITLE_ASC = 3;
+  TRACK_SORT_TITLE_DESC = 4;
+}
+
+message FilterTracksRequest {
+  string title = 1;
+  string artist_id = 2;
+  string album_id = 3;
+  string genre_id = 4;
+  string mood_id = 5;
+  optional int32 release_year = 6;
+  optional bool explicit = 7;
+  TrackSort sort = 8;
+  int32 limit = 9;
+  int32 offset = 10;
+}
+message FilterTracksResponse { repeated Track tracks = 1; }
+
+message Track {
+  string id = 1;
+  string album_id = 2;
+  bool explicit = 7;
+  string content_id = 10;
+  repeated ArtistCredit artists = 11;
+  repeated Genre genres = 12;
+  repeated TrackMood moods = 13;
+}
+message ArtistCredit { Artist artist = 1; int32 role = 2; int32 position = 3; }
+message Artist { string id = 1; }
+message Genre { string id = 1; }
+message TrackMood { Mood mood = 1; double weight = 2; }
+message Mood { string id = 1; }

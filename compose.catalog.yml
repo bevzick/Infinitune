@@ -1,0 +1,188 @@
+services:
+  catalog-service:
+    build:
+      context: ./services/catalog-service
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+    environment:
+      CATALOG_HTTP_HOST: 0.0.0.0
+      CATALOG_HTTP_PORT: 8080
+      CATALOG_GRPC_HOST: 0.0.0.0
+      CATALOG_GRPC_PORT: 9090
+      CATALOG_ALLOWED_ORIGINS: ${CATALOG_ALLOWED_ORIGINS:-http://localhost:5173}
+      POSTGRES_HOST: ${POSTGRES_HOST:-postgres}
+      POSTGRES_PORT: ${POSTGRES_PORT:-5432}
+      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER is required}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_CATALOG_DB: ${POSTGRES_CATALOG_DB:-catalog_db}
+      KAFKA_BROKERS: ${KAFKA_BROKERS:-kafka:9092}
+      KAFKA_CATALOG_PUBLISHED_TOPIC: ${KAFKA_CATALOG_PUBLISHED_TOPIC:-catalog.release.published.v1}
+      KAFKA_CATALOG_ARCHIVED_TOPIC: ${KAFKA_CATALOG_ARCHIVED_TOPIC:-catalog.release.archived.v1}
+      KAFKA_CONTENT_RELEASE_APPROVED_TOPIC: ${KAFKA_CONTENT_RELEASE_APPROVED_TOPIC:-content.release.approved.v1}
+      KAFKA_DEAD_LETTER_TOPIC: ${KAFKA_DEAD_LETTER_TOPIC:-platform.events.dead-letter.v1}
+      KAFKA_CATALOG_CONTENT_GROUP: ${KAFKA_CATALOG_CONTENT_GROUP:-catalog-content-v1}
+      CATALOG_OUTBOX_POLL_INTERVAL: ${CATALOG_OUTBOX_POLL_INTERVAL:-1s}
+      CATALOG_OUTBOX_BATCH_SIZE: ${CATALOG_OUTBOX_BATCH_SIZE:-100}
+    expose:
+      - "8080"
+      - "9090"
+    networks:
+      - backend
+
+  catalog-db-init:
+    image: postgres:18.6-bookworm
+    profiles: ["tools"]
+    restart: "no"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PGHOST: ${POSTGRES_HOST:-postgres}
+      PGPORT: ${POSTGRES_PORT:-5432}
+      PGUSER: ${POSTGRES_USER:?POSTGRES_USER is required}
+      PGPASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_CATALOG_DB: ${POSTGRES_CATALOG_DB:-catalog_db}
+    entrypoint:
+      - /bin/sh
+      - -ec
+    command:
+      - |
+        case "$$POSTGRES_CATALOG_DB" in
+          ""|*[!a-zA-Z0-9_]*)
+            echo "POSTGRES_CATALOG_DB must contain only letters, digits, and underscores" >&2
+            exit 1
+            ;;
+        esac
+
+        if [ "$$(psql --dbname=postgres --tuples-only --no-align --command="SELECT 1 FROM pg_database WHERE datname = '$$POSTGRES_CATALOG_DB'")" = "1" ]; then
+          echo "Database $$POSTGRES_CATALOG_DB already exists"
+        else
+          createdb --maintenance-db=postgres "$$POSTGRES_CATALOG_DB"
+          echo "Created database $$POSTGRES_CATALOG_DB"
+        fi
+    networks:
+      - backend
+
+  catalog-migrate:
+    image: migrate/migrate:v4.20.1
+    profiles: ["tools"]
+    depends_on:
+      catalog-db-init:
+        condition: service_completed_successfully
+    environment:
+      POSTGRES_HOST: ${POSTGRES_HOST:-postgres}
+      POSTGRES_PORT: ${POSTGRES_PORT:-5432}
+      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER is required}
+      PGPASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_CATALOG_DB: ${POSTGRES_CATALOG_DB:-catalog_db}
+    entrypoint:
+      - /bin/sh
+      - -ec
+      - |
+        case "$$POSTGRES_USER" in
+          ""|*[!a-zA-Z0-9_]*)
+            echo "POSTGRES_USER must contain only letters, digits, and underscores" >&2
+            exit 1
+            ;;
+        esac
+
+        case "$$POSTGRES_CATALOG_DB" in
+          ""|*[!a-zA-Z0-9_]*)
+            echo "POSTGRES_CATALOG_DB must contain only letters, digits, and underscores" >&2
+            exit 1
+            ;;
+        esac
+
+        case "$$POSTGRES_HOST:$$POSTGRES_PORT" in
+          ""|*[!a-zA-Z0-9_.:-]*)
+            echo "POSTGRES_HOST and POSTGRES_PORT contain unsupported characters" >&2
+            exit 1
+            ;;
+        esac
+
+        exec /migrate \
+          -path=/migrations \
+          -database="postgres://$$POSTGRES_USER@$$POSTGRES_HOST:$$POSTGRES_PORT/$$POSTGRES_CATALOG_DB?sslmode=disable" \
+          "$$@"
+      - --
+    command: ["version"]
+    volumes:
+      - ./services/catalog-service/migrations:/migrations:ro
+    networks:
+      - backend
+
+  catalog-seed:
+    image: postgres:18.6-bookworm
+    profiles: ["tools"]
+    restart: "no"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      POSTGRES_HOST: ${POSTGRES_HOST:-postgres}
+      POSTGRES_PORT: ${POSTGRES_PORT:-5432}
+      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER is required}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_CATALOG_DB: ${POSTGRES_CATALOG_DB:-catalog_db}
+    entrypoint:
+      - /bin/sh
+      - -ec
+    command:
+      - |
+        case "$$POSTGRES_CATALOG_DB" in
+          ""|*[!a-zA-Z0-9_]*)
+            echo "POSTGRES_CATALOG_DB must contain only letters, digits, and underscores" >&2
+            exit 1
+            ;;
+        esac
+
+        export PGPASSWORD="$$POSTGRES_PASSWORD"
+        exec psql \
+          --host="$$POSTGRES_HOST" \
+          --port="$$POSTGRES_PORT" \
+          --username="$$POSTGRES_USER" \
+          --dbname="$$POSTGRES_CATALOG_DB" \
+          --set=ON_ERROR_STOP=1 \
+          --single-transaction \
+          --file=/seeds/development.sql
+    volumes:
+      - ./services/catalog-service/seeds:/seeds:ro
+    networks:
+      - backend
+
+  catalog-integration-test:
+    build:
+      context: ./services/catalog-service
+      dockerfile: Dockerfile
+      target: source
+    profiles: ["tools"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      catalog-service:
+        condition: service_healthy
+    environment:
+      INFINITUNE_INTEGRATION_TESTS: "1"
+      CATALOG_GRPC_TEST_TARGET: catalog-service:9090
+      POSTGRES_HOST: ${POSTGRES_HOST:-postgres}
+      POSTGRES_PORT: ${POSTGRES_PORT:-5432}
+      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER is required}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_CATALOG_DB: ${POSTGRES_CATALOG_DB:-catalog_db}
+    entrypoint:
+      - go
+      - test
+      - -tags=integration
+      - -count=1
+    command:
+      - ./internal/schema
+      - ./internal/repository/postgres
+      - ./internal/grpcapi
+      - ./internal/seed
+    networks:
+      - backend

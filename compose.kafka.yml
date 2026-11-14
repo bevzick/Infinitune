@@ -1,0 +1,194 @@
+services:
+  kafka:
+    image: apache/kafka:4.4.0
+    restart: unless-stopped
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_NUM_PARTITIONS: 3
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - /opt/kafka/bin/kafka-topics.sh --bootstrap-server 127.0.0.1:9092 --list >/dev/null 2>&1
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    networks:
+      - backend
+
+  kafka-init:
+    image: apache/kafka:4.4.0
+    restart: "no"
+    depends_on:
+      kafka:
+        condition: service_healthy
+    environment:
+      KAFKA_HISTORY_TOPIC: ${KAFKA_HISTORY_TOPIC:-history.listening.recorded.v1}
+      KAFKA_HISTORY_CLEARED_TOPIC: ${KAFKA_HISTORY_CLEARED_TOPIC:-history.listening.cleared.v1}
+      KAFKA_CATALOG_PUBLISHED_TOPIC: ${KAFKA_CATALOG_PUBLISHED_TOPIC:-catalog.release.published.v1}
+      KAFKA_CATALOG_ARCHIVED_TOPIC: ${KAFKA_CATALOG_ARCHIVED_TOPIC:-catalog.release.archived.v1}
+      KAFKA_INTERACTION_PREFERENCE_TOPIC: ${KAFKA_INTERACTION_PREFERENCE_TOPIC:-interaction.preference.changed.v1}
+      KAFKA_MEDIA_ASSET_READY_TOPIC: ${KAFKA_MEDIA_ASSET_READY_TOPIC:-media.asset.ready.v1}
+      KAFKA_CONTENT_RELEASE_APPROVED_TOPIC: ${KAFKA_CONTENT_RELEASE_APPROVED_TOPIC:-content.release.approved.v1}
+      KAFKA_DEAD_LETTER_TOPIC: ${KAFKA_DEAD_LETTER_TOPIC:-platform.events.dead-letter.v1}
+    entrypoint:
+      - /bin/bash
+      - -ec
+    command:
+      - |
+        /opt/kafka/bin/kafka-topics.sh \
+          --bootstrap-server kafka:9092 \
+          --create \
+          --if-not-exists \
+          --topic "$$KAFKA_HISTORY_TOPIC" \
+          --partitions 3 \
+          --replication-factor 1 \
+          --config cleanup.policy=delete \
+          --config retention.ms=604800000
+
+        /opt/kafka/bin/kafka-topics.sh \
+          --bootstrap-server kafka:9092 \
+          --create \
+          --if-not-exists \
+          --topic "$$KAFKA_DEAD_LETTER_TOPIC" \
+          --partitions 3 \
+          --replication-factor 1 \
+          --config cleanup.policy=delete \
+          --config retention.ms=2592000000
+
+        /opt/kafka/bin/kafka-topics.sh \
+          --bootstrap-server kafka:9092 \
+          --create \
+          --if-not-exists \
+          --topic "$$KAFKA_INTERACTION_PREFERENCE_TOPIC" \
+          --partitions 3 \
+          --replication-factor 1 \
+          --config cleanup.policy=delete \
+          --config retention.ms=604800000
+
+        /opt/kafka/bin/kafka-topics.sh \
+          --bootstrap-server kafka:9092 \
+          --create \
+          --if-not-exists \
+          --topic "$$KAFKA_MEDIA_ASSET_READY_TOPIC" \
+          --partitions 3 \
+          --replication-factor 1 \
+          --config cleanup.policy=delete \
+          --config retention.ms=604800000
+
+        /opt/kafka/bin/kafka-topics.sh \
+          --bootstrap-server kafka:9092 \
+          --create \
+          --if-not-exists \
+          --topic "$$KAFKA_CONTENT_RELEASE_APPROVED_TOPIC" \
+          --partitions 3 \
+          --replication-factor 1 \
+          --config cleanup.policy=delete \
+          --config retention.ms=604800000
+
+        /opt/kafka/bin/kafka-topics.sh \
+          --bootstrap-server kafka:9092 \
+          --create \
+          --if-not-exists \
+          --topic "$$KAFKA_CATALOG_PUBLISHED_TOPIC" \
+          --partitions 3 \
+          --replication-factor 1 \
+          --config cleanup.policy=delete \
+          --config retention.ms=604800000
+
+        /opt/kafka/bin/kafka-topics.sh \
+          --bootstrap-server kafka:9092 \
+          --create \
+          --if-not-exists \
+          --topic "$$KAFKA_CATALOG_ARCHIVED_TOPIC" \
+          --partitions 3 \
+          --replication-factor 1 \
+          --config cleanup.policy=delete \
+          --config retention.ms=604800000
+
+        /opt/kafka/bin/kafka-topics.sh \
+          --bootstrap-server kafka:9092 \
+          --create \
+          --if-not-exists \
+          --topic "$$KAFKA_HISTORY_CLEARED_TOPIC" \
+          --partitions 3 \
+          --replication-factor 1 \
+          --config cleanup.policy=delete \
+          --config retention.ms=604800000
+    networks:
+      - backend
+
+  kafka-replay:
+    build:
+      context: ./tools/kafka-replay
+      dockerfile: Dockerfile
+    profiles: ["tools"]
+    depends_on:
+      kafka:
+        condition: service_healthy
+    environment:
+      KAFKA_BROKERS: ${KAFKA_BROKERS:-kafka:9092}
+      KAFKA_DEAD_LETTER_TOPIC: ${KAFKA_DEAD_LETTER_TOPIC:-platform.events.dead-letter.v1}
+      KAFKA_REPLAY_GROUP: ${KAFKA_REPLAY_GROUP:-}
+      KAFKA_REPLAY_MAX_EVENTS: ${KAFKA_REPLAY_MAX_EVENTS:-100}
+    networks:
+      - backend
+
+  kafka-replay-integration-test:
+    build:
+      context: ./tools/kafka-replay
+      dockerfile: Dockerfile
+      target: source
+    profiles: ["tools"]
+    depends_on:
+      kafka:
+        condition: service_healthy
+    environment:
+      INFINITUNE_INTEGRATION_TESTS: "1"
+      KAFKA_BROKERS: ${KAFKA_BROKERS:-kafka:9092}
+    entrypoint:
+      - go
+      - test
+      - -tags=integration
+      - -count=1
+      - -run=TestReplayPublishesAndCommitsDeadLetterRecord
+      - ./...
+    networks:
+      - backend
+
+  kafka-consumer-integration-test:
+    build:
+      context: ./services/content-service
+      dockerfile: Dockerfile
+      target: source
+    profiles: ["tools"]
+    depends_on:
+      kafka:
+        condition: service_healthy
+    environment:
+      INFINITUNE_INTEGRATION_TESTS: "1"
+      KAFKA_BROKERS: ${KAFKA_BROKERS:-kafka:9092}
+    entrypoint:
+      - go
+      - test
+      - -tags=integration
+      - -count=1
+      - -run=TestConsumerRoutesInvalidEventToDeadLetterTopic
+      - ./internal/events/kafka
+    networks:
+      - backend
+
+volumes:
+  kafka_data:

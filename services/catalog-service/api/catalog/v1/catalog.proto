@@ -1,0 +1,337 @@
+syntax = "proto3";
+
+package infinitune.catalog.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/bevzick/Infinitune/services/catalog-service/api/catalog/v1;catalogv1";
+
+service CatalogService {
+  // Atomically publishes metadata approved by Content. Repeating the same
+  // source release and payload returns the existing catalog identifiers.
+  rpc PublishRelease(PublishReleaseRequest) returns (PublishReleaseResponse);
+
+  // Hides a published release from discovery while preserving its identifiers.
+  rpc ArchiveRelease(ArchiveReleaseRequest) returns (ArchiveReleaseResponse);
+
+  // Creates, updates, publishes, or withdraws lyrics after Content has made a
+  // separate lyrics-rights decision. Audio rights do not imply lyrics rights.
+  rpc PutTrackLyrics(PutTrackLyricsRequest) returns (PutTrackLyricsResponse);
+
+  // Atomically replaces ordered timing lines for synchronized lyrics.
+  rpc ReplaceTrackLyricsLines(ReplaceTrackLyricsLinesRequest) returns (ReplaceTrackLyricsLinesResponse);
+
+  // Returns tracks in request order. Fails with NOT_FOUND if any ID is missing.
+  rpc GetTracks(GetTracksRequest) returns (GetTracksResponse);
+
+  // Separates requested IDs into ordered valid and missing collections.
+  rpc ValidateTrackIds(ValidateTrackIdsRequest) returns (ValidateTrackIdsResponse);
+
+  // Separates requested album IDs into ordered available and missing collections.
+  rpc ValidateAlbumIds(ValidateAlbumIdsRequest) returns (ValidateAlbumIdsResponse);
+
+  // Separates requested artist IDs into ordered valid and missing collections.
+  rpc ValidateArtistIds(ValidateArtistIdsRequest) returns (ValidateArtistIdsResponse);
+
+  // Applies the supported hard filters with stable pagination and sorting.
+  rpc FilterTracks(FilterTracksRequest) returns (FilterTracksResponse);
+
+  // Evaluates a validated flat AND/OR rule set for a dynamic playlist.
+  rpc EvaluateTrackFilters(EvaluateTrackFiltersRequest) returns (EvaluateTrackFiltersResponse);
+}
+
+message PublishReleaseRequest {
+  string source_release_id = 1;
+  PublishArtist artist = 2;
+  optional PublishAlbum album = 3;
+  repeated PublishTrack tracks = 4;
+}
+
+message PublishArtist {
+  string id = 1;
+  string name = 2;
+}
+
+message PublishAlbum {
+  string id = 1;
+  string title = 2;
+  string album_type = 3;
+  Date release_date = 4;
+  string cover_url = 5;
+}
+
+message PublishTrack {
+  string id = 1;
+  string content_track_id = 2;
+  string title = 3;
+  int32 duration_ms = 4;
+  int32 track_number = 5;
+  int32 disc_number = 6;
+  bool explicit = 7;
+  Date release_date = 8;
+  string media_asset_id = 9;
+}
+
+message PublishReleaseResponse {
+  string artist_id = 1;
+  string album_id = 2;
+  repeated PublishedTrack tracks = 3;
+  google.protobuf.Timestamp published_at = 4;
+}
+
+message PublishedTrack {
+  string content_track_id = 1;
+  string catalog_track_id = 2;
+}
+
+message GetTracksRequest {
+  repeated string track_ids = 1;
+}
+
+message GetTracksResponse {
+  repeated Track tracks = 1;
+}
+
+message ValidateTrackIdsRequest {
+  repeated string track_ids = 1;
+}
+
+message ValidateTrackIdsResponse {
+  repeated string valid_track_ids = 1;
+  repeated string missing_track_ids = 2;
+}
+
+message ValidateAlbumIdsRequest {
+  repeated string album_ids = 1;
+}
+
+message ValidateAlbumIdsResponse {
+  repeated string valid_album_ids = 1;
+  repeated string missing_album_ids = 2;
+}
+
+message ValidateArtistIdsRequest {
+  repeated string artist_ids = 1;
+}
+
+message ValidateArtistIdsResponse {
+  repeated string valid_artist_ids = 1;
+  repeated string missing_artist_ids = 2;
+}
+
+enum TrackSort {
+  TRACK_SORT_UNSPECIFIED = 0;
+  TRACK_SORT_NEWEST = 1;
+  TRACK_SORT_OLDEST = 2;
+  TRACK_SORT_TITLE_ASC = 3;
+  TRACK_SORT_TITLE_DESC = 4;
+}
+
+message FilterTracksRequest {
+  string title = 1;
+  string artist_id = 2;
+  string album_id = 3;
+  string genre_id = 4;
+  string mood_id = 5;
+  optional int32 release_year = 6;
+  optional bool explicit = 7;
+  TrackSort sort = 8;
+  int32 limit = 9;
+  int32 offset = 10;
+}
+
+message FilterTracksResponse {
+  repeated Track tracks = 1;
+  Page page = 2;
+}
+
+enum FilterLogic {
+  FILTER_LOGIC_UNSPECIFIED = 0;
+  FILTER_LOGIC_AND = 1;
+  FILTER_LOGIC_OR = 2;
+}
+
+enum TrackFilterField {
+  TRACK_FILTER_FIELD_UNSPECIFIED = 0;
+  TRACK_FILTER_FIELD_TITLE = 1;
+  TRACK_FILTER_FIELD_ARTIST_ID = 2;
+  TRACK_FILTER_FIELD_ALBUM_ID = 3;
+  TRACK_FILTER_FIELD_GENRE_ID = 4;
+  TRACK_FILTER_FIELD_MOOD_ID = 5;
+  TRACK_FILTER_FIELD_RELEASE_YEAR = 6;
+  TRACK_FILTER_FIELD_DURATION_MS = 7;
+  TRACK_FILTER_FIELD_EXPLICIT = 8;
+}
+
+enum TrackFilterOperator {
+  TRACK_FILTER_OPERATOR_UNSPECIFIED = 0;
+  TRACK_FILTER_OPERATOR_EQUALS = 1;
+  TRACK_FILTER_OPERATOR_CONTAINS = 2;
+  TRACK_FILTER_OPERATOR_IN = 3;
+  TRACK_FILTER_OPERATOR_GREATER_THAN = 4;
+  TRACK_FILTER_OPERATOR_GREATER_THAN_OR_EQUAL = 5;
+  TRACK_FILTER_OPERATOR_LESS_THAN = 6;
+  TRACK_FILTER_OPERATOR_LESS_THAN_OR_EQUAL = 7;
+  TRACK_FILTER_OPERATOR_BETWEEN = 8;
+}
+
+message UUIDList {
+  repeated string values = 1;
+}
+
+message IntegerRange {
+  int32 minimum = 1;
+  int32 maximum = 2;
+}
+
+message TrackFilterValue {
+  oneof kind {
+    string text = 1;
+    string uuid = 2;
+    UUIDList uuid_list = 3;
+    int32 integer = 4;
+    IntegerRange integer_range = 5;
+    bool boolean = 6;
+  }
+}
+
+message TrackFilter {
+  TrackFilterField field = 1;
+  TrackFilterOperator operator = 2;
+  TrackFilterValue value = 3;
+}
+
+message EvaluateTrackFiltersRequest {
+  FilterLogic logic = 1;
+  repeated TrackFilter filters = 2;
+  TrackSort sort = 3;
+  int32 limit = 4;
+  int32 offset = 5;
+}
+
+message EvaluateTrackFiltersResponse {
+  repeated Track tracks = 1;
+  Page page = 2;
+}
+
+message Page {
+  int32 limit = 1;
+  int32 offset = 2;
+  int64 total = 3;
+}
+
+message Track {
+  string id = 1;
+  string album_id = 2;
+  string title = 3;
+  int32 duration_ms = 4;
+  int32 track_number = 5;
+  int32 disc_number = 6;
+  bool explicit = 7;
+  Date release_date = 8;
+  string media_asset_id = 9;
+  string content_id = 10;
+  repeated ArtistCredit artists = 11;
+  repeated Genre genres = 12;
+  repeated TrackMood moods = 13;
+  google.protobuf.Timestamp created_at = 14;
+  google.protobuf.Timestamp updated_at = 15;
+}
+
+message Date {
+  int32 year = 1;
+  int32 month = 2;
+  int32 day = 3;
+}
+
+message ArtistCredit {
+  Artist artist = 1;
+  ArtistRole role = 2;
+  int32 position = 3;
+}
+
+message Artist {
+  string id = 1;
+  string name = 2;
+  string image_url = 3;
+}
+
+enum ArtistRole {
+  ARTIST_ROLE_UNSPECIFIED = 0;
+  ARTIST_ROLE_PRIMARY = 1;
+  ARTIST_ROLE_FEATURED = 2;
+  ARTIST_ROLE_PRODUCER = 3;
+  ARTIST_ROLE_COMPOSER = 4;
+}
+
+message Genre {
+  string id = 1;
+  string name = 2;
+  string slug = 3;
+}
+
+message TrackMood {
+  Mood mood = 1;
+  double weight = 2;
+}
+
+message Mood {
+  string id = 1;
+  string name = 2;
+  string slug = 3;
+}
+
+message ArchiveReleaseRequest {
+  string source_release_id = 1;
+}
+
+message ArchiveReleaseResponse {
+  google.protobuf.Timestamp archived_at = 1;
+}
+
+message PutTrackLyricsRequest {
+  string id = 1;
+  string track_id = 2;
+  string lyrics_type = 3;
+  string language = 4;
+  string content = 5;
+  string source_type = 6;
+  string source_name = 7;
+  string copyright_notice = 8;
+  bool official = 9;
+  bool rights_authorized = 10;
+  bool published = 11;
+}
+
+message PutTrackLyricsResponse {
+  string id = 1;
+  string track_id = 2;
+  string lyrics_type = 3;
+  string language = 4;
+  string content = 5;
+  string source_type = 6;
+  string source_name = 7;
+  string copyright_notice = 8;
+  bool official = 9;
+  bool rights_authorized = 10;
+  bool published = 11;
+  google.protobuf.Timestamp created_at = 12;
+  google.protobuf.Timestamp updated_at = 13;
+}
+
+message LyricsLine {
+  int32 line_number = 1;
+  int32 start_ms = 2;
+  int32 end_ms = 3;
+  string text = 4;
+}
+
+message ReplaceTrackLyricsLinesRequest {
+  string lyrics_id = 1;
+  repeated LyricsLine lines = 2;
+}
+
+message ReplaceTrackLyricsLinesResponse {
+  string lyrics_id = 1;
+  repeated LyricsLine lines = 2;
+}

@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+package infinitune.comment.v1;
+
+option go_package = "github.com/bevzick/Infinitune/services/comment-service/api/comment/v1;commentv1";
+
+service CommentService {
+  // Separates published, publicly visible comments from missing or unavailable IDs.
+  rpc ValidateCommentIds(ValidateCommentIdsRequest) returns (ValidateCommentIdsResponse);
+}
+
+message ValidateCommentIdsRequest {
+  repeated string comment_ids = 1;
+}
+
+message ValidateCommentIdsResponse {
+  repeated string valid_comment_ids = 1;
+  repeated string missing_comment_ids = 2;
+}

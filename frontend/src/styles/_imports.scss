@@ -1,0 +1,346 @@
+@use "mixins" as *;
+
+.music-import-page {
+  display: grid;
+  gap: 1.5rem;
+}
+
+.music-import-hero {
+  min-height: 13rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 2rem;
+  padding: clamp(1.5rem, 4vw, 3rem);
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--app-accent) 24%, transparent);
+  border-radius: 1.35rem;
+  background:
+    radial-gradient(
+      circle at 78% 20%,
+      rgba(222, 123, 255, 0.3),
+      transparent 26%
+    ),
+    linear-gradient(125deg, #422c70, #344678 68%, #213c69);
+  box-shadow: var(--app-shadow);
+
+  h1 {
+    max-width: 42rem;
+    margin: 0.35rem 0 0.55rem;
+    color: #fff;
+    font-size: clamp(2rem, 4.5vw, 3.5rem);
+    line-height: 1.02;
+  }
+
+  p {
+    max-width: 42rem;
+    margin: 0;
+    color: rgba(255, 255, 255, 0.72);
+  }
+}
+
+.music-import-mark {
+  width: clamp(6rem, 14vw, 10rem);
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 2rem;
+  color: white;
+  background:
+    repeating-radial-gradient(
+      circle,
+      transparent 0 1rem,
+      rgba(255, 255, 255, 0.18) 1.05rem 1.12rem
+    ),
+    linear-gradient(145deg, #b759e5, #5868dd);
+  font-size: clamp(2rem, 5vw, 4rem);
+  box-shadow: 0 1rem 3rem rgba(11, 4, 35, 0.3);
+  transform: rotate(-8deg);
+}
+
+.music-import-form,
+.music-source-results,
+.music-import-notice,
+.music-import-state {
+  border: 1px solid var(--app-line);
+  border-radius: 1rem;
+  background: var(--app-panel);
+}
+
+.music-import-form {
+  display: grid;
+  grid-template-columns: minmax(14rem, 0.75fr) minmax(18rem, 1.25fr);
+  gap: 1.25rem 2rem;
+  padding: clamp(1.25rem, 3vw, 2rem);
+
+  > label {
+    display: grid;
+    align-content: end;
+    gap: 0.55rem;
+    color: var(--app-muted);
+    font-size: 0.78rem;
+    font-weight: 700;
+  }
+
+  select,
+  input {
+    width: 100%;
+    min-height: 3rem;
+    border: 1px solid var(--app-line);
+    border-radius: 0.75rem;
+    outline: none;
+    color: var(--app-text);
+    background: var(--app-input);
+  }
+
+  select {
+    padding: 0 0.85rem;
+  }
+
+  input {
+    padding: 0 1rem 0 2.65rem;
+  }
+}
+
+.music-import-step {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+
+  > span {
+    width: 2.25rem;
+    height: 2.25rem;
+    display: grid;
+    place-items: center;
+    flex: 0 0 auto;
+    border-radius: 50%;
+    color: white;
+    background: var(--app-accent-strong);
+    font-weight: 800;
+  }
+
+  div {
+    display: grid;
+    gap: 0.15rem;
+  }
+
+  small {
+    color: var(--app-muted);
+  }
+}
+
+.music-source-tabs {
+  display: flex;
+  align-items: end;
+  gap: 0.55rem;
+  margin: 0;
+  padding: 0;
+  border: 0;
+
+  label {
+    position: relative;
+    flex: 1;
+    cursor: pointer;
+  }
+
+  input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  span {
+    @include interactive-surface;
+    min-height: 3rem;
+    display: grid;
+    place-items: center;
+    border-radius: 0.75rem;
+    font-weight: 750;
+  }
+
+  :where(input:checked) + span {
+    border-color: var(--app-accent);
+    background: var(--app-accent-soft);
+  }
+
+  :where(input:focus-visible) + span {
+    @include focus-ring;
+  }
+}
+
+.music-import-search {
+  position: relative;
+  display: flex;
+  gap: 0.55rem;
+
+  .ui-icon {
+    position: absolute;
+    top: 50%;
+    left: 0.85rem;
+    color: var(--app-muted);
+    transform: translateY(-50%);
+  }
+
+  button {
+    min-width: 9rem;
+    padding: 0 1rem;
+    border: 0;
+    border-radius: 0.75rem;
+    color: white;
+    background: linear-gradient(135deg, #c36aff, var(--app-accent-strong));
+    cursor: pointer;
+    font-weight: 800;
+  }
+}
+
+.music-import-error,
+.music-import-success {
+  margin: 0;
+  padding: 0.9rem 1rem;
+  border-radius: 0.75rem;
+}
+
+.music-import-error {
+  color: var(--app-danger);
+  background: color-mix(in srgb, var(--app-danger) 9%, transparent);
+}
+
+.music-import-success {
+  color: var(--app-text);
+  background: color-mix(in srgb, #54d7a1 13%, var(--app-panel));
+}
+
+.music-source-results {
+  padding: clamp(1.2rem, 3vw, 2rem);
+}
+
+.music-source-results-heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+
+  h2 {
+    margin: 0.2rem 0 0;
+  }
+
+  > span {
+    color: var(--app-muted);
+    font-size: 0.78rem;
+  }
+}
+
+.music-source-list {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.music-source-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.85rem;
+  border: 1px solid var(--app-line);
+  border-radius: 0.85rem;
+  background: var(--app-bg-elevated);
+
+  > button {
+    padding: 0.75rem 1rem;
+    border: 0;
+    border-radius: 0.7rem;
+    color: white;
+    background: var(--app-accent-strong);
+    cursor: pointer;
+    font-weight: 800;
+  }
+}
+
+.music-source-art {
+  width: 4.3rem;
+  height: 4.3rem;
+  display: grid;
+  place-items: center;
+  border-radius: 0.75rem;
+  color: rgba(255, 255, 255, 0.76);
+  background:
+    repeating-radial-gradient(
+      circle at 38% 62%,
+      transparent 0 0.55rem,
+      rgba(255, 255, 255, 0.28) 0.6rem 0.66rem
+    ),
+    linear-gradient(135deg, #287f91, #7c2ae4 72%);
+  font-size: 1.65rem;
+}
+
+.music-source-copy {
+  min-width: 0;
+  display: grid;
+  gap: 0.18rem;
+
+  > span,
+  small {
+    overflow: hidden;
+    color: var(--app-muted);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  a {
+    width: fit-content;
+    color: var(--app-accent);
+    font-size: 0.75rem;
+  }
+}
+
+.music-import-notice,
+.music-import-state {
+  padding: 1.35rem;
+}
+
+.music-import-notice p {
+  margin: 0.35rem 0 0;
+  color: var(--app-muted);
+}
+
+.music-import-state {
+  min-height: 14rem;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 1rem;
+  text-align: center;
+}
+
+@media (max-width: 760px) {
+  .music-import-hero {
+    min-height: auto;
+  }
+
+  .music-import-mark {
+    display: none;
+  }
+
+  .music-import-form {
+    grid-template-columns: 1fr;
+  }
+
+  .music-import-search {
+    flex-direction: column;
+
+    button {
+      min-height: 3rem;
+    }
+  }
+
+  .music-source-card {
+    grid-template-columns: auto minmax(0, 1fr);
+
+    > button {
+      grid-column: 1 / -1;
+    }
+  }
+}
