@@ -248,7 +248,7 @@ export function uploadAudioFile(
         onProgress(Math.round((event.loaded / event.total) * 100));
       }
     });
-    request.addEventListener("load", () => {    
+    request.addEventListener("load", () => {
       if (request.status >= 200 && request.status < 300) {
         const result = request.response as Partial<MediaUploadResult> | null;
 
@@ -285,6 +285,18 @@ export function uploadAudioFile(
         resolve(result as MediaUploadResult);
         return;
       }
+
+      const payload = request.response as {
+        error?: { code?: string; message?: string };
+      } | null;
+      reject(
+        new ApiError(
+          request.status,
+          payload?.error?.code || "upload_failed",
+          payload?.error?.message ||
+            `Audio upload failed with status ${request.status}`,
+        ),
+      );
     });
     request.addEventListener("error", () =>
       reject(new ApiError(0, "upload_failed", "Audio upload failed")),

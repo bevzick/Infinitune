@@ -7,6 +7,7 @@ import {
   listDraftReleases,
   submitCreatorVerification,
   updateRelease,
+  uploadAudioFile,
 } from "./creatorReleaseApi";
 
 afterEach(() => vi.unstubAllGlobals());
@@ -119,6 +120,69 @@ describe("creator release API", () => {
       size_bytes: 1024,
     });
   });
+
+  it.each([
+    {
+      caseName: "structured error payload",
+      response: {
+        error: {
+          code: "ingest_unavailable",
+          message: "Media storage temporarily unavailable",
+        },
+      },
+      expectedCode: "ingest_unavailable",
+      expectedMessage: "Media storage temporarily unavailable",
+    },
+    {
+      caseName: "missing error payload",
+      response: null,
+      expectedCode: "upload_failed",
+      expectedMessage: "Audio upload failed with status 503",
+    },
+  ])(
+    "rejects HTTP upload failures with $caseName",
+    async ({ response, expectedCode, expectedMessage }) => {
+      class FailedUploadRequest {
+        status = 503;
+        response = response;
+        responseType = "";
+        withCredentials = false;
+        upload = { addEventListener: vi.fn() };
+        open = vi.fn();
+        setRequestHeader = vi.fn();
+        private loadListener?: () => void;
+
+        addEventListener(type: string, listener: () => void) {
+          if (type === "load") this.loadListener = listener;
+        }
+
+        send() {
+          this.loadListener?.();
+        }
+      }
+
+      vi.stubGlobal("XMLHttpRequest", FailedUploadRequest);
+      const onProgress = vi.fn();
+      const file = new File(["audio"], "night-signal.mp3", {
+        type: "audio/mpeg",
+      });
+
+      await expect(
+        uploadAudioFile(
+          "access-token",
+          "/v1/media/uploads/upload-1",
+          file,
+          "audio/mpeg",
+          onProgress,
+        ),
+      ).rejects.toMatchObject({
+        status: 503,
+        code: expectedCode,
+        message: expectedMessage,
+      });
+      expect(onProgress).not.toHaveBeenCalled();
+    },
+  );
 });
 
 function jsonResponse(body: unknown) {
