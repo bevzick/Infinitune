@@ -34,3 +34,11 @@ account verification, draft, cover/audio ingest, rights, readiness, submission,
 independent review, publication, delayed Catalog visibility, and playback requests.
 The mock does not run FFmpeg, Kafka, PostgreSQL, or MinIO; actual service-to-service
 publication and playback still require an isolated system smoke test.
+
+The `commentReporting.spec.ts` scenarios use `commentReportingGateway.ts`, a
+stateful test-only mock shared by anonymous, comment author, reporter, and
+moderator browser contexts. They verify public comment visibility, own edits
+and deletion, replies, likes with rollback, report submission, moderator
+hide/resolve actions, and the resulting absence of hidden comments from public
+lists. Permission failures are mocked to match backend contracts. Browser mocks
+are not a substitute for real-service comment and moderation integration tests.
