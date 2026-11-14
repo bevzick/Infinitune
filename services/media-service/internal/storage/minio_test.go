@@ -12,11 +12,12 @@ import (
 )
 
 type bucketClientStub struct {
-	exists bool
-	err    error
-	bucket string
-	key    string
-	data   []byte
+	exists  bool
+	err     error
+	bucket  string
+	key     string
+	data    []byte
+	options minio.PutObjectOptions
 }
 
 func (stub *bucketClientStub) PutObject(
@@ -25,8 +26,9 @@ func (stub *bucketClientStub) PutObject(
 	key string,
 	reader io.Reader,
 	_ int64,
-	_ minio.PutObjectOptions,
+	opts minio.PutObjectOptions,
 ) (minio.UploadInfo, error) {
+	stub.options = opts
 	stub.bucket = bucket
 	stub.key = key
 	stub.data, _ = io.ReadAll(reader)
@@ -106,5 +108,15 @@ func TestDeleteRemovesObjectFromConfiguredBucket(t *testing.T) {
 	}
 	if stub.bucket != "media" || stub.key != "creator/source.wav" {
 		t.Fatalf("RemoveObject() = bucket %q, key %q", stub.bucket, stub.key)
+	}
+}
+
+func TestCoverPutIfAbsentUsesConditionalWrite(t *testing.T) {
+	stub := &bucketClientStub{}
+	if err := NewClient(stub, "media").PutIfAbsent(context.Background(), "creator-content/a/cover.png", bytes.NewReader([]byte("img")), 3, "image/png"); err != nil {
+		t.Fatal(err)
+	}
+	if stub.options.Header().Get("If-None-Match") != "*" || stub.options.ContentType != "image/png" {
+		t.Fatalf("missing immutable write condition: %+v", stub.options.Header())
 	}
 }

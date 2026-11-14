@@ -57,6 +57,7 @@ type Dependencies struct {
 	Objects  ObjectStorage
 	Media    Playback
 	Ingest   UploadIngest
+	Covers   CoverUploadIngest
 	Imports  ExternalImport
 	Sources  SourceDiscovery
 	Tokens   IdentityVerifier
@@ -77,6 +78,7 @@ func NewRouter(dependencies Dependencies) http.Handler {
 	protected.Use(authenticate(dependencies.Tokens, dependencies.Logger))
 	protected.GET("/assets/:media_asset_id/playback", playback(dependencies))
 	protected.PUT("/uploads/:upload_id", ingestUpload(dependencies.Ingest, dependencies.Logger))
+	protected.PUT("/cover-uploads/:upload_id", ingestCoverUpload(dependencies.Covers, dependencies.Logger))
 	protected.POST("/imports", importExternal(dependencies.Imports, dependencies.Logger))
 	protected.GET("/sources/providers", listSourceProviders(dependencies.Sources))
 	protected.GET("/sources/:provider/tracks", discoverSourceTracks(dependencies.Sources, dependencies.Logger))

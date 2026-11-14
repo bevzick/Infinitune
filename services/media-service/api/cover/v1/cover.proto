@@ -1,0 +1,17 @@
+syntax = "proto3";
+package infinitune.content.cover.v1;
+import "google/protobuf/struct.proto";
+
+// Private content/media RPC. Uses the standard Struct wire message so the
+// protocol does not require editing pre-existing generated ContentService code.
+// GetSession request: {upload_id, user_id}. Responses contain the session's
+// immutable object_key, release_id, requested_by_user_id, mime_type, size_bytes,
+// and status. Keys must never be returned to browsers.
+// Transition request: {upload_id, target_status}; target_status is uploading
+// or failed. Complete request: {upload_id}; atomically marks the session
+// completed and assigns its key to content.releases.cover_object_key.
+service CoverUploadService {
+  rpc GetSession(google.protobuf.Struct) returns (google.protobuf.Struct);
+  rpc Transition(google.protobuf.Struct) returns (google.protobuf.Struct);
+  rpc Complete(google.protobuf.Struct) returns (google.protobuf.Struct);
+}

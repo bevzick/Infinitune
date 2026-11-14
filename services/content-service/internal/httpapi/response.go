@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net/http"
 
+	"github.com/bevzick/Infinitune/services/content-service/internal/coverupload"
 	"github.com/bevzick/Infinitune/services/content-service/internal/creator"
 	"github.com/bevzick/Infinitune/services/content-service/internal/moderation"
 	"github.com/bevzick/Infinitune/services/content-service/internal/publication"
@@ -44,6 +45,16 @@ func decodeJSON(c *gin.Context, destination any) error {
 }
 func writeDomainError(c *gin.Context, logger *slog.Logger, err error) {
 	switch {
+	case errors.Is(err, coverupload.ErrInvalid):
+		writeError(c, http.StatusUnprocessableEntity, "invalid_cover_upload", err.Error())
+	case errors.Is(err, coverupload.ErrNotFound):
+		writeError(c, http.StatusNotFound, "release_not_found", "Release or cover upload was not found")
+	case errors.Is(err, coverupload.ErrIdempotencyConflict):
+		writeError(c, http.StatusConflict, "cover_upload_idempotency_conflict", err.Error())
+	case errors.Is(err, coverupload.ErrReleaseLocked):
+		writeError(c, http.StatusConflict, "release_cover_locked", "Release does not accept cover uploads")
+	case errors.Is(err, coverupload.ErrConflict), errors.Is(err, coverupload.ErrInvalidTransition):
+		writeError(c, http.StatusConflict, "cover_upload_conflict", "Cover upload session changed concurrently")
 	case errors.Is(err, upload.ErrInvalid):
 		writeError(c, http.StatusUnprocessableEntity, "invalid_upload_session", err.Error())
 	case errors.Is(err, upload.ErrNotFound):

@@ -18,6 +18,7 @@ import (
 	"github.com/bevzick/Infinitune/services/media-service/internal/config"
 	content_client "github.com/bevzick/Infinitune/services/media-service/internal/content"
 	"github.com/bevzick/Infinitune/services/media-service/internal/correlation"
+	"github.com/bevzick/Infinitune/services/media-service/internal/coveringest"
 	"github.com/bevzick/Infinitune/services/media-service/internal/database"
 	"github.com/bevzick/Infinitune/services/media-service/internal/events"
 	event_kafka "github.com/bevzick/Infinitune/services/media-service/internal/events/kafka"
@@ -108,6 +109,7 @@ func main() {
 		contentClient,
 		mediaRepository, objectStorage,
 	)
+	coverService := coveringest.NewService(content_client.NewCoverClient(contentConnection), objectStorage)
 	archiveProvider, err := internet_archive.New(internet_archive.Config{
 		MetadataURL: cfg.InternetArchive.MetadataURL,
 		DownloadURL: cfg.InternetArchive.DownloadURL,
@@ -168,6 +170,7 @@ func main() {
 			Objects:  objectStorage,
 			Media:    metadataService,
 			Ingest:   ingestService,
+			Covers:   coverService,
 			Imports:  externalImportService,
 			Sources:  providers,
 			Tokens:   tokenVerifier,
