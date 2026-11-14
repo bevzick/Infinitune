@@ -74,6 +74,21 @@ when configured, Jamendo. Creators can select a draft release track and use
 discovery API examples, license constraints, processing behavior, and
 troubleshooting.
 
+## Deployment and release acceptance
+
+Use the [release and acceptance guide](docs/release-acceptance.md) for
+configuration, supported scope, migration, administrator setup, validation and
+the final acceptance checklist. The full real-service system check is:
+
+```bash
+make creator-listener-smoke
+```
+
+The wrapper runs in a **disposable** Compose project. Do not interpret green
+frontend mocks alone as proof that the full system works. Back up both the
+service databases **and** private media; see the
+[backup and recovery runbook](docs/backup-and-recovery.md).
+
 ## Local operations
 
 See the [local operations runbook](docs/local-operations.md) for first-time

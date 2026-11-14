@@ -2,6 +2,9 @@
 
 This runbook covers the containerized development stack: initial startup,
 health verification, migrations, diagnostics, and safe local recovery.
+For final acceptance criteria, see [release acceptance](release-acceptance.md);
+for database/media backup and restore rehearsals, see
+[backup and recovery](backup-and-recovery.md).
 
 ## Prerequisites
 
@@ -137,6 +140,35 @@ are visible under **Alerts & IRM → Alert rules**. They do not send external
 notifications until a contact point and notification policy are configured
 for the target environment.
 
+
+### Isolated creator-to-listener acceptance journey
+
+`make creator-listener-smoke` launches an independent Docker Compose project with
+its own PostgreSQL, Redis, Kafka, MinIO and domain services. It exercises **real**
+Content/Media cover and WAV ingest, media processing, independent moderation,
+Kafka publication, Catalog visibility, byte-range playback, likes, playlists,
+comments/reports/moderation, history idempotency and privacy, and refreshed
+recommendations. It does **not** use browser gateway mocks.
+
+```bash
+make creator-listener-smoke
+```
+
+Requirements: configured local `.env`, Docker Engine with Compose v2.24+,
+`make`, `curl`, `jq` and `python3`. The test listens on loopback port `18115`
+by default (override with `SYSTEM_TEST_GATEWAY_PORT`); it does not publish
+PostgreSQL. Ensure the port is free before running. The shell wrapper generates
+a unique `COMPOSE_PROJECT_NAME` and **automatically removes only that disposable
+project and its volumes**, even on failure. Never set `COMPOSE_PROJECT_NAME`
+manually to the development project for this test. This is destructive **only**
+to the newly generated smoke project, not to your existing Infinitune volumes.
+
+When diagnosing a failing run, inspect the terminal's reported API error. To
+retain containers for further debugging, use the internal Make target only with
+a manually chosen, uniquely named `infinitune-creator-listener-*` project and
+`COMPOSE_OVERRIDE='-f compose.system-test.yml'`. Never run `down-volumes`
+against the main development stack.
+
 ## Verify the running stack
 
 Run the basic infrastructure and gateway checks after the containers become
@@ -259,4 +291,6 @@ Use the least destructive recovery that addresses the failure:
 
 The last option removes all local PostgreSQL databases, Redis state, Kafka
 topics, MinIO objects, and Prometheus history. It is not a routine restart and
-cannot be undone without an external backup.
+cannot be undone without an external backup. A PostgreSQL-only dump is not
+sufficient for media recovery: preserve the private MinIO bucket too. See
+[backup and recovery](backup-and-recovery.md) before any destructive operation.

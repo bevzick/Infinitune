@@ -1,6 +1,6 @@
 .DEFAULT_GOAL := help
 
-.PHONY: help config ps up stop down down-volumes restart logs logs-ci smoke logging-smoke system-smoke-up system-smoke system-smoke-logs content-media-smoke-up content-media-smoke content-media-smoke-logs kafka-events-test-integration frontend-install frontend-dev frontend-build frontend-typecheck frontend-lint frontend-test media-storage-init media-storage-test media-test media-test-integration media-migrate-up media-migrate-version media-seed playlist-test playlist-test-integration playlist-migrate-up playlist-migrate-version content-test content-test-integration content-migrate-up content-migrate-version interaction-test interaction-test-integration interaction-migrate-up interaction-migrate-version comment-test comment-test-integration comment-migrate-up comment-migrate-version history-test history-test-integration history-migrate-up history-migrate-version recommendation-test recommendation-test-integration recommendation-migrate-up recommendation-migrate-version auth-test auth-test-integration auth-migrate-up auth-migrate-version auth-bootstrap-admin user-test user-test-integration user-migrate-up user-migrate-version catalog-test catalog-test-integration catalog-migrate-up catalog-migrate-version catalog-seed
+.PHONY: help config ps up stop down down-volumes restart logs logs-ci smoke logging-smoke system-smoke-up system-smoke system-smoke-logs content-media-smoke-up content-media-smoke content-media-smoke-logs kafka-events-test-integration creator-listener-smoke _creator-listener-smoke-stack frontend-install frontend-dev frontend-build frontend-typecheck frontend-lint frontend-test media-storage-init media-storage-test media-test media-test-integration media-migrate-up media-migrate-version media-seed playlist-test playlist-test-integration playlist-migrate-up playlist-migrate-version content-test content-test-integration content-migrate-up content-migrate-version interaction-test interaction-test-integration interaction-migrate-up interaction-migrate-version comment-test comment-test-integration comment-migrate-up comment-migrate-version history-test history-test-integration history-migrate-up history-migrate-version recommendation-test recommendation-test-integration recommendation-migrate-up recommendation-migrate-version auth-test auth-test-integration auth-migrate-up auth-migrate-version auth-bootstrap-admin user-test user-test-integration user-migrate-up user-migrate-version catalog-test catalog-test-integration catalog-migrate-up catalog-migrate-version catalog-seed
 
 COMPOSE_OVERRIDE ?=
 COMPOSE := docker compose -f compose.yml -f compose.kafka.yml -f compose.observability.yml -f compose.logging.yml -f compose.auth.yml -f compose.user.yml -f compose.catalog.yml -f compose.media.yml -f compose.media-service.yml -f compose.playlist.yml -f compose.content.yml -f compose.interaction.yml -f compose.comment.yml -f compose.history.yml -f compose.recommendation.yml -f compose.frontend.yml $(COMPOSE_OVERRIDE)
@@ -27,6 +27,7 @@ help:
 	@echo "  system-smoke-logs - Print logs for services used by the system smoke test"
 	@echo "  content-media-smoke - Verify content publication and media playback through Kong"
 	@echo "  content-media-smoke-logs - Print logs for the content and media smoke test"
+	@echo "  creator-listener-smoke - Verify a complete real-service journey in disposable Compose"
 	@echo "  kafka-events-test-integration - Verify DLQ routing and replay against Kafka"
 	@echo "  frontend-install   - Install locked frontend dependencies"
 	@echo "  frontend-dev       - Start the frontend development server"
@@ -141,6 +142,18 @@ content-media-smoke: content-media-smoke-up
 
 content-media-smoke-logs:
 	@$(COMPOSE) logs --no-color auth-service user-service catalog-service media-service content-service kafka kong
+
+# Public entry point creates and removes a uniquely named isolated project.
+creator-listener-smoke:
+	@bash scripts/run-creator-listener-smoke.sh
+
+# Internal target: never run this against the main development project.
+_creator-listener-smoke-stack:
+	@case "$${COMPOSE_PROJECT_NAME:-}" in infinitune-creator-listener-*) ;; *) echo "Refusing non-isolated system smoke" >&2; exit 1;; esac
+	@$(MAKE) auth-migrate-up user-migrate-up catalog-migrate-up media-migrate-up playlist-migrate-up content-migrate-up interaction-migrate-up comment-migrate-up history-migrate-up recommendation-migrate-up media-storage-init
+	@$(COMPOSE) up --detach --wait postgres redis kafka kafka-init minio
+	@$(COMPOSE) up --detach --wait --wait-timeout 240 --build auth-service
+	@$(COMPOSE) up --detach --wait --wait-timeout 240 --build user-service catalog-service media-service playlist-service interaction-service comment-service history-service content-service recommendation-service kong
 
 kafka-events-test-integration:
 	@$(COMPOSE) --profile tools run --rm --build kafka-consumer-integration-test

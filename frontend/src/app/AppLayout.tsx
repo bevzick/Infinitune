@@ -1,4 +1,4 @@
-import { type FormEvent, useState } from "react";
+import { type FormEvent, useEffect, useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 
 import { PlayerControls } from "../features/player/PlayerControls";
@@ -6,6 +6,7 @@ import { useSession } from "../features/session/SessionContext";
 import { ThemeToggle } from "../features/theme/ThemeToggle";
 import { useDocumentTitle } from "../shared/hooks/useDocumentTitle";
 import { Icon, type IconName } from "../shared/ui/Icon";
+import { MobileNavigation } from "./MobileNavigation";
 
 type NavigationItem = {
   to: string;
@@ -37,6 +38,18 @@ export function AppLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const [logoutError, setLogoutError] = useState("");
+  const [isOnline, setIsOnline] = useState(() => navigator.onLine);
+
+  useEffect(() => {
+    const onOnline = () => setIsOnline(true);
+    const onOffline = () => setIsOnline(false);
+    window.addEventListener("online", onOnline);
+    window.addEventListener("offline", onOffline);
+    return () => {
+      window.removeEventListener("online", onOnline);
+      window.removeEventListener("offline", onOffline);
+    };
+  }, []);
   const isAdmin = session.identity?.roles.includes("admin") ?? false;
   useDocumentTitle(pageTitle(location.pathname));
 
@@ -159,6 +172,12 @@ export function AppLayout() {
             )}
           </div>
         </header>
+        {!isOnline ? (
+          <p className="network-banner" role="status">
+            You are offline. Some music and account actions may be unavailable.
+            Reconnect to continue.
+          </p>
+        ) : null}
         {logoutError ? (
           <p className="session-banner" role="alert">
             {logoutError}
@@ -170,14 +189,10 @@ export function AppLayout() {
       </div>
 
       <PlayerControls />
-      <nav className="mobile-nav" aria-label="Mobile navigation">
-        {(session.status === "authenticated"
-          ? [...primaryNavigation, ...creatorNavigation]
-          : primaryNavigation
-        ).map((item) => (
-          <NavigationLink item={item} key={item.to} />
-        ))}
-      </nav>
+      <MobileNavigation
+        authenticated={session.status === "authenticated"}
+        isAdmin={isAdmin}
+      />
     </div>
   );
 }
@@ -195,7 +210,7 @@ export function pageTitle(pathname: string) {
   if (pathname.startsWith("/library/")) return "Playlist";
   if (pathname === "/profile") return "Profile";
   if (pathname === "/creator/import") return "Import music";
-  if (pathname === "/creator/releases") return "Release drafts";
+  if (pathname === "/creator/releases") return "Creator releases";
   if (pathname === "/creator/accounts") return "Creator accounts";
   if (pathname === "/admin") return "Administration";
   return "Infinitune";

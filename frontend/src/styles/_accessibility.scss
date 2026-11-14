@@ -47,6 +47,7 @@
   }
 
   .nav-link,
+  .mobile-more-trigger,
   .playlist-card,
   .interaction-button,
   .auth-submit,
@@ -54,6 +55,14 @@
   .setting-toggle i,
   .setting-toggle i::after {
     transition: none;
+  }
+
+  .feedback-message,
+  .route-loading-mark,
+  .catalog-skeleton i::after,
+  .catalog-skeleton b::after,
+  .catalog-skeleton em::after {
+    animation: none;
   }
 }
 

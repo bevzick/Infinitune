@@ -66,11 +66,29 @@ async function sendRequest(path: string, options: ApiRequestOptions) {
     headers.set("Content-Type", "application/json");
   }
 
-  const response = await fetch(`${gatewayUrl}${path}`, {
-    ...init,
-    headers,
-    credentials: "include",
-  });
+  let response: Response;
+  try {
+    response = await fetch(`${gatewayUrl}${path}`, {
+      ...init,
+      headers,
+      credentials: "include",
+    });
+  } catch (error) {
+    // Canceled requests are normal during navigation. Do not show them as network failures.
+    if (
+      error &&
+      typeof error === "object" &&
+      "name" in error &&
+      error.name === "AbortError"
+    ) {
+      throw error;
+    }
+    throw new ApiError(
+      0,
+      "network_unavailable",
+      "Cannot reach Infinitune. Check your connection and try again.",
+    );
+  }
 
   if (!response.ok) {
     const payload = await readJson<ApiErrorPayload>(response);

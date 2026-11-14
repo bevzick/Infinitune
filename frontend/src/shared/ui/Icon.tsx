@@ -9,6 +9,7 @@ export type IconName =
   | "home"
   | "library"
   | "lyrics"
+  | "menu"
   | "moon"
   | "next"
   | "pause"
@@ -41,6 +42,7 @@ export function Icon({ name, size = 20 }: { name: IconName; size?: number }) {
 }
 
 const paths: Record<IconName, React.ReactNode> = {
+  menu: <path d="M4 6h16M4 12h16M4 18h16" />,
   admin: (
     <>
       <path d="M12 3 4.5 6v5.2c0 4.6 3.1 8.2 7.5 9.8 4.4-1.6 7.5-5.2 7.5-9.8V6Z" />
