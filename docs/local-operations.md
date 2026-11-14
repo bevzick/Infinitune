@@ -2,6 +2,9 @@
 
 This runbook covers the containerized development stack: initial startup,
 health verification, migrations, diagnostics, and safe local recovery.
+For final acceptance criteria, see [release acceptance](release-acceptance.md);
+for database/media backup and restore rehearsals, see
+[backup and recovery](backup-and-recovery.md).
 
 ## Prerequisites
 
@@ -288,4 +291,6 @@ Use the least destructive recovery that addresses the failure:
 
 The last option removes all local PostgreSQL databases, Redis state, Kafka
 topics, MinIO objects, and Prometheus history. It is not a routine restart and
-cannot be undone without an external backup.
+cannot be undone without an external backup. A PostgreSQL-only dump is not
+sufficient for media recovery: preserve the private MinIO bucket too. See
+[backup and recovery](backup-and-recovery.md) before any destructive operation.

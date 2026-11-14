@@ -92,31 +92,41 @@ release_id=$(jq --raw-output '.id' <<<"$release_response")
 release_track_id=$(jq --raw-output '.tracks[0].id' <<<"$release_response")
 ```
 
-Set the cover object key while preserving every existing track in the update:
+Upload the cover through the **Content-issued upload session**. This keeps
+object keys private and avoids accepting arbitrary object keys from browsers.
+JPEG, PNG and WebP are allowed up to **10 MiB**; the declared MIME and byte
+size must match the actual image. The example assumes `cover.webp` is a valid
+WebP file:
 
 ```bash
-curl --fail-with-body --silent \
-  --request PUT "$GATEWAY_URL/v1/releases/$release_id" \
+cover_file=cover.webp
+cover_size=$(wc -c <"$cover_file" | tr -d ' ')
+cover_idempotency_key=$(cat /proc/sys/kernel/random/uuid)
+
+cover_session=$(curl --fail-with-body --silent \
+  --request POST "$GATEWAY_URL/v1/releases/$release_id/cover-uploads" \
   --header "Authorization: Bearer $CREATOR_TOKEN" \
   --header 'Content-Type: application/json' \
   --data "{
-    \"title\":\"Example Single\",
-    \"release_type\":\"single\",
-    \"release_date\":\"$release_date\",
-    \"cover_object_key\":\"creator-content/covers/example.jpg\",
-    \"tracks\":[{
-      \"id\":\"$release_track_id\",
-      \"title\":\"Example Single\",
-      \"track_number\":1,
-      \"disc_number\":1,
-      \"explicit\":false
-    }]
-  }"
+    \"idempotency_key\":\"$cover_idempotency_key\",
+    \"original_name\":\"cover.webp\",
+    \"mime_type\":\"image/webp\",
+    \"size_bytes\":$cover_size
+  }")
+cover_upload_url=$(jq --raw-output '.upload_url' <<<"$cover_session")
+
+curl --fail-with-body --silent \
+  --request PUT "$GATEWAY_URL$cover_upload_url" \
+  --header "Authorization: Bearer $CREATOR_TOKEN" \
+  --header 'Content-Type: image/webp' \
+  --data-binary "@$cover_file"
 ```
 
-The current backend stores the cover key as release metadata. A public cover
-binary upload endpoint is not yet exposed, so production clients must obtain
-the private object key from a separately authorized cover-ingest flow.
+After successful ingest, Content atomically updates the release's cover key.
+You may confirm that the response from `GET /v1/releases/$release_id` has a
+non-empty `cover_object_key`, but **do not** construct or send a key yourself.
+For MIME, pixel dimension, idempotency and cleanup rules, see
+[cover upload sessions](#cover-upload-sessions-creator) below.
 
 ### 3. Declare track rights
 
