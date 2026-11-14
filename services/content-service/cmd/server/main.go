@@ -20,6 +20,7 @@ import (
 	content_catalog "github.com/bevzick/Infinitune/services/content-service/internal/catalog"
 	"github.com/bevzick/Infinitune/services/content-service/internal/config"
 	"github.com/bevzick/Infinitune/services/content-service/internal/correlation"
+	"github.com/bevzick/Infinitune/services/content-service/internal/coverupload"
 	"github.com/bevzick/Infinitune/services/content-service/internal/creator"
 	"github.com/bevzick/Infinitune/services/content-service/internal/database"
 	"github.com/bevzick/Infinitune/services/content-service/internal/events"
@@ -138,6 +139,9 @@ func main() {
 	releaseService := release.NewService(
 		postgres_repository.NewReleaseRepository(databasePool), memberService, catalogClient,
 	)
+	coverUploadService := coverupload.NewService(
+		postgres_repository.NewCoverUploadRepository(databasePool), memberService,
+	)
 	uploadService := upload.NewService(
 		postgres_repository.NewUploadRepository(databasePool), memberService,
 	)
@@ -152,6 +156,7 @@ func main() {
 			Database: databasePool, Tokens: tokenVerifier, Creators: creatorService,
 			Members: memberService, Rights: rightsService,
 			Uploads:      uploadService,
+			CoverUploads: coverUploadService,
 			Submissions:  submissionService,
 			Moderation:   moderationService,
 			Publications: publicationService,

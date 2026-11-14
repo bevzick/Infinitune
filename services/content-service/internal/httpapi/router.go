@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/bevzick/Infinitune/services/content-service/internal/coverupload"
 	"github.com/bevzick/Infinitune/services/content-service/internal/creator"
 	"github.com/bevzick/Infinitune/services/content-service/internal/identity"
 	"github.com/bevzick/Infinitune/services/content-service/internal/moderation"
@@ -46,6 +47,9 @@ type TrackRights interface {
 type UploadSessions interface {
 	CreateSession(context.Context, uuid.UUID, upload.CreateInput) (upload.Session, error)
 }
+type CoverUploadSessions interface {
+	CreateSession(context.Context, uuid.UUID, coverupload.CreateInput) (coverupload.Session, error)
+}
 type ReleaseSubmissions interface {
 	Submit(context.Context, uuid.UUID, uuid.UUID) (release.Release, error)
 }
@@ -72,6 +76,7 @@ type Dependencies struct {
 	Members      CreatorMembers
 	Rights       TrackRights
 	Uploads      UploadSessions
+	CoverUploads CoverUploadSessions
 	Submissions  ReleaseSubmissions
 	Moderation   ReleaseModeration
 	Publications ReleasePublications
@@ -106,6 +111,7 @@ func NewRouter(dependencies Dependencies) http.Handler {
 	content.PUT("/release-tracks/:release_track_id/rights", setTrackRights(dependencies.Rights, dependencies.Logger))
 	content.GET("/release-tracks/:release_track_id/rights", listTrackRights(dependencies.Rights, dependencies.Logger))
 	content.POST("/release-tracks/:release_track_id/uploads", createUploadSession(dependencies.Uploads, dependencies.Logger))
+	content.POST("/releases/:release_id/cover-uploads", createCoverUploadSession(dependencies.CoverUploads, dependencies.Logger))
 	content.DELETE("/track-rights/:right_id", deleteTrackRights(dependencies.Rights, dependencies.Logger))
 	content.POST("/releases", createRelease(dependencies.Releases, dependencies.Logger))
 	content.GET("/releases", listReleases(dependencies.Releases, dependencies.Logger))
