@@ -173,6 +173,50 @@ The upload returns before asynchronous FFmpeg processing finishes. Reusing an
 idempotency key with different metadata returns
 `409 upload_idempotency_conflict`.
 
+### Readiness before submission
+
+An authenticated creator-account member may request a read-only readiness snapshot:
+
+```http
+GET /v1/releases/{release_id}/readiness
+```
+
+HTTP `200` returns `release_id`, `status`, `ready_for_submission` and an `issues`
+array. Each issue has a stable `code` and human-readable `message`; track
+issues also contain `track_id`. For example:
+
+```json
+{
+  "release_id": "00000000-0000-4000-8000-000000000101",
+  "status": "draft",
+  "ready_for_submission": false,
+  "issues": [
+    {"code": "cover_missing", "message": "cover artwork is required"},
+    {"code": "streaming_rights_missing", "message": "worldwide streaming rights are required", "track_id": "00000000-0000-4000-8000-000000000102"}
+  ]
+}
+```
+
+The check evaluates creator verification, member publication permission,
+release lifecycle status and metadata, cover presence, track list, worldwide
+streaming and distribution rights at the release date, and associated ready
+media assets. Issues may include `creator_unverified`,
+`publish_permission_required`, `release_status_ineligible`,
+`metadata_incomplete`, `cover_missing`, `tracks_missing`,
+`streaming_rights_missing`, `distribution_rights_missing`,
+`media_missing` and `media_not_ready`.
+
+Only members with `creator.account.read` permission can inspect readiness;
+other authenticated users receive `403 forbidden`. HTTP `404` means that the
+release is missing. A temporary Media Service failure returns HTTP `503` with `media_unavailable`
+instead of claiming that the release is ready or that an
+asset is missing. Inconsistent Media association is a server error.
+
+This response is a **snapshot**, not permission to publish: POST submission
+rechecks rights, media and lifecycle state, and may return `409` after a
+concurrent update. The caller must still have `creator.content.publish` and
+a verified creator account.
+
 ### 5. Submit and moderate the release
 
 Submit only after the media asset becomes ready. Until then, the endpoint

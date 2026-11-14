@@ -63,17 +63,16 @@ func (service *Service) Submit(
 		candidate.Release.Status != release.StatusChangesRequested {
 		return release.Release{}, ErrConflict
 	}
-	if candidate.Release.CoverObjectKey == nil ||
-		strings.TrimSpace(*candidate.Release.CoverObjectKey) == "" {
-		return release.Release{}, &ReadinessError{Reason: "cover artwork is required"}
+	issues, err := service.contentIssues(ctx, candidate, false)
+	if err != nil {
+		return release.Release{}, err
 	}
-	if len(candidate.Tracks) == 0 {
-		return release.Release{}, &ReadinessError{Reason: "at least one track is required"}
-	}
-	for _, track := range candidate.Tracks {
-		if err = service.checkTrack(ctx, track); err != nil {
-			return release.Release{}, err
+	if len(issues) > 0 {
+		readiness := &ReadinessError{Reason: issues[0].Message}
+		if issues[0].TrackID != nil {
+			readiness.TrackID = *issues[0].TrackID
 		}
+		return release.Release{}, readiness
 	}
 	result, err := service.store.SubmitRelease(ctx, releaseID)
 	if err != nil {
@@ -82,12 +81,65 @@ func (service *Service) Submit(
 	return result, nil
 }
 
-func (service *Service) checkTrack(ctx context.Context, track Track) error {
+// contentIssues is shared by the read-only readiness report and Submit. Submit
+// stops on the first blocker, retaining its existing error semantics. Readiness
+// collects independent problems across tracks for actionable UI feedback.
+func (service *Service) contentIssues(
+	ctx context.Context, candidate Candidate, collectAll bool,
+) ([]ReadinessIssue, error) {
+	issues := make([]ReadinessIssue, 0)
+	if strings.TrimSpace(candidate.Release.Title) == "" ||
+		candidate.Release.ReleaseDate.IsZero() || !validReleaseType(candidate.Release.Type) {
+		issues = append(issues, ReadinessIssue{
+			Code: "metadata_incomplete", Message: "release title, type and date are required",
+		})
+		if !collectAll {
+			return issues, nil
+		}
+	}
+	if candidate.Release.CoverObjectKey == nil ||
+		strings.TrimSpace(*candidate.Release.CoverObjectKey) == "" {
+		issues = append(issues, ReadinessIssue{
+			Code: "cover_missing", Message: "cover artwork is required",
+		})
+		if !collectAll {
+			return issues, nil
+		}
+	}
+	if len(candidate.Tracks) == 0 {
+		return append(issues, ReadinessIssue{
+			Code: "tracks_missing", Message: "at least one track is required",
+		}), nil
+	}
+	for _, track := range candidate.Tracks {
+		trackIssues, err := service.inspectTrack(ctx, track, collectAll)
+		if err != nil {
+			return nil, err
+		}
+		issues = append(issues, trackIssues...)
+		if !collectAll && len(issues) > 0 {
+			return issues, nil
+		}
+	}
+	return issues, nil
+}
+
+func (service *Service) inspectTrack(
+	ctx context.Context, track Track, collectAll bool,
+) ([]ReadinessIssue, error) {
+	issues := make([]ReadinessIssue, 0)
+	add := func(code, message string) {
+		trackID := track.ID
+		issues = append(issues, ReadinessIssue{Code: code, Message: message, TrackID: &trackID})
+	}
 	if !track.HasWorldwideStreaming {
-		return &ReadinessError{TrackID: track.ID, Reason: "worldwide streaming rights are required"}
+		add("streaming_rights_missing", "worldwide streaming rights are required")
 	}
 	if !track.HasWorldwideDistribution {
-		return &ReadinessError{TrackID: track.ID, Reason: "worldwide distribution rights are required"}
+		add("distribution_rights_missing", "worldwide distribution rights are required")
+	}
+	if len(issues) > 0 && !collectAll {
+		return issues, nil
 	}
 	var asset contentmedia.Asset
 	var err error
@@ -97,23 +149,24 @@ func (service *Service) checkTrack(ctx context.Context, track Track) error {
 		asset, err = service.media.AssetByTrack(ctx, track.ID)
 	}
 	if errors.Is(err, contentmedia.ErrNotFound) {
-		return &ReadinessError{TrackID: track.ID, Reason: "processed media asset is required"}
+		add("media_missing", "processed media asset is required")
+		return issues, nil
 	}
 	if errors.Is(err, contentmedia.ErrUnavailable) {
-		return fmt.Errorf("check track %s media: %w", track.ID, ErrMediaUnavailable)
+		return nil, fmt.Errorf("check track %s media: %w", track.ID, ErrMediaUnavailable)
 	}
 	if err != nil {
-		return fmt.Errorf("check track %s media: %w: %v", track.ID, ErrMediaUnavailable, err)
+		return nil, fmt.Errorf("check track %s media: %w: %v", track.ID, ErrMediaUnavailable, err)
 	}
 	if asset.ContentTrackID != track.ID ||
 		(track.CompletedUploadID != nil && asset.SourceUploadID != *track.CompletedUploadID) ||
 		(track.CompletedUploadID == nil && asset.SourceUploadID != uuid.Nil) {
-		return fmt.Errorf("track %s: %w", track.ID, ErrInconsistentMedia)
+		return nil, fmt.Errorf("track %s: %w", track.ID, ErrInconsistentMedia)
 	}
 	if asset.Status != contentmedia.StatusReady {
-		return &ReadinessError{TrackID: track.ID, Reason: "media processing must be ready"}
+		add("media_not_ready", "media processing must be ready")
 	}
-	return nil
+	return issues, nil
 }
 
 func (service *Service) authorize(

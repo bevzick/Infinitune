@@ -19,7 +19,8 @@ func TestServiceSubmitsCompleteRelease(t *testing.T) {
 	store := &storeStub{candidate: Candidate{
 		Release: release.Release{
 			ID: releaseID, CreatorID: creatorID, Status: release.StatusDraft,
-			CoverObjectKey: &cover,
+			CoverObjectKey: &cover, Title: "Night Signal", Type: release.TypeSingle,
+			ReleaseDate: time.Date(2027, 1, 15, 0, 0, 0, 0, time.UTC),
 		},
 		Tracks: []Track{{
 			ID: trackID, CompletedUploadID: &uploadID,
@@ -66,7 +67,8 @@ func TestServiceSubmitsReleaseWithExternalMedia(t *testing.T) {
 	store := &storeStub{candidate: Candidate{
 		Release: release.Release{
 			ID: uuid.New(), CreatorID: uuid.New(), Status: release.StatusDraft,
-			CoverObjectKey: &cover,
+			CoverObjectKey: &cover, Title: "Night Signal", Type: release.TypeSingle,
+			ReleaseDate: time.Date(2027, 1, 15, 0, 0, 0, 0, time.UTC),
 		},
 		Tracks: []Track{{
 			ID: trackID, HasWorldwideStreaming: true, HasWorldwideDistribution: true,
@@ -91,7 +93,8 @@ func TestServiceResubmitsReleaseAfterRequestedChanges(t *testing.T) {
 	store := &storeStub{candidate: Candidate{
 		Release: release.Release{
 			ID: releaseID, CreatorID: uuid.New(), Status: release.StatusChangesRequested,
-			CoverObjectKey: &cover,
+			CoverObjectKey: &cover, Title: "Night Signal", Type: release.TypeSingle,
+			ReleaseDate: time.Date(2027, 1, 15, 0, 0, 0, 0, time.UTC),
 		},
 		Tracks: []Track{{
 			ID: trackID, CompletedUploadID: &uploadID,
@@ -116,7 +119,8 @@ func TestServiceRejectsIncompleteRelease(t *testing.T) {
 	base := Candidate{
 		Release: release.Release{
 			ID: uuid.New(), CreatorID: uuid.New(), Status: release.StatusDraft,
-			CoverObjectKey: &cover,
+			CoverObjectKey: &cover, Title: "Night Signal", Type: release.TypeSingle,
+			ReleaseDate: time.Date(2027, 1, 15, 0, 0, 0, 0, time.UTC),
 		},
 		Tracks: []Track{{
 			ID: trackID, CompletedUploadID: &uploadID,

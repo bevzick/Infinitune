@@ -13,6 +13,7 @@ import (
 	"github.com/bevzick/Infinitune/services/content-service/internal/moderation"
 	"github.com/bevzick/Infinitune/services/content-service/internal/release"
 	"github.com/bevzick/Infinitune/services/content-service/internal/rights"
+	"github.com/bevzick/Infinitune/services/content-service/internal/submission"
 	"github.com/bevzick/Infinitune/services/content-service/internal/upload"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -53,6 +54,9 @@ type CoverUploadSessions interface {
 type ReleaseSubmissions interface {
 	Submit(context.Context, uuid.UUID, uuid.UUID) (release.Release, error)
 }
+type ReleaseReadiness interface {
+	Readiness(context.Context, uuid.UUID, uuid.UUID) (submission.ReadinessReport, error)
+}
 type ReleaseModeration interface {
 	Review(context.Context, creator.Actor, moderation.Input) (moderation.Review, error)
 	List(context.Context, creator.Actor, moderation.PageRequest) (moderation.Page, error)
@@ -78,6 +82,7 @@ type Dependencies struct {
 	Uploads      UploadSessions
 	CoverUploads CoverUploadSessions
 	Submissions  ReleaseSubmissions
+	Readiness    ReleaseReadiness
 	Moderation   ReleaseModeration
 	Publications ReleasePublications
 	Releases     Releases
@@ -119,6 +124,7 @@ func NewRouter(dependencies Dependencies) http.Handler {
 	content.PUT("/releases/:release_id", updateRelease(dependencies.Releases, dependencies.Logger))
 	content.POST("/releases/:release_id/withdrawals", withdrawRelease(dependencies.Releases, dependencies.Logger))
 	content.DELETE("/releases/:release_id", archiveRelease(dependencies.Releases, dependencies.Logger))
+	content.GET("/releases/:release_id/readiness", getReleaseReadiness(dependencies.Readiness, dependencies.Logger))
 	content.POST("/releases/:release_id/submissions", submitRelease(dependencies.Submissions, dependencies.Logger))
 	content.POST("/releases/:release_id/moderation-reviews", reviewRelease(dependencies.Moderation, dependencies.Logger))
 	content.POST("/releases/:release_id/publications", publishRelease(dependencies.Publications, dependencies.Logger))

@@ -159,6 +159,7 @@ func main() {
 			Uploads:      uploadService,
 			CoverUploads: coverUploadService,
 			Submissions:  submissionService,
+			Readiness:    submissionService,
 			Moderation:   moderationService,
 			Publications: publicationService,
 			Releases:     releaseService,
