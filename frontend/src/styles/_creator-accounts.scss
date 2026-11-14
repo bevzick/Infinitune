@@ -252,3 +252,144 @@
     grid-template-columns: 1fr;
   }
 }
+
+.creator-account-members-toggle {
+  grid-column: 1 / -1;
+  min-height: 2.5rem;
+  border: 1px solid var(--app-line);
+  border-radius: 0.7rem;
+  background: var(--app-input);
+  color: var(--app-text);
+  cursor: pointer;
+  font-weight: 750;
+}
+
+.creator-members-manager {
+  grid-column: 1 / -1;
+  display: grid;
+  min-width: 0;
+  gap: 0.9rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--app-line);
+
+  > header {
+    display: flex;
+    justify-content: space-between;
+    align-items: start;
+    gap: 0.75rem;
+
+    h3,
+    p {
+      margin: 0;
+    }
+    p {
+      margin-top: 0.3rem;
+      color: var(--app-muted);
+      font-size: 0.85rem;
+    }
+  }
+
+  button {
+    min-height: 2.4rem;
+    padding: 0.35rem 0.75rem;
+    border: 1px solid var(--app-line);
+    border-radius: 0.6rem;
+    background: var(--app-input);
+    color: var(--app-text);
+    cursor: pointer;
+  }
+
+  button:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+}
+
+.creator-members-list {
+  display: grid;
+  gap: 0.65rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+
+  > li {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.75rem;
+    border-radius: 0.65rem;
+    background: var(--app-input);
+  }
+}
+
+.creator-member-identity {
+  display: grid;
+  gap: 0.25rem;
+  min-width: 0;
+
+  strong,
+  small {
+    overflow-wrap: anywhere;
+  }
+  small {
+    color: var(--app-muted);
+  }
+}
+
+.creator-member-role {
+  color: var(--app-muted);
+  font-weight: 700;
+}
+
+.creator-member-actions,
+.creator-member-confirm {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.5rem;
+}
+
+.creator-member-actions label,
+.creator-members-add label {
+  display: grid;
+  gap: 0.3rem;
+  font-size: 0.8rem;
+  font-weight: 750;
+}
+
+.creator-members-manager select,
+.creator-members-manager input {
+  min-height: 2.4rem;
+  min-width: 0;
+  padding: 0 0.6rem;
+  border: 1px solid var(--app-line);
+  border-radius: 0.55rem;
+  background: var(--app-panel);
+  color: var(--app-text);
+}
+
+.creator-members-add {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(7rem, 0.5fr) auto;
+  align-items: end;
+  gap: 0.65rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid var(--app-line);
+
+  h4 {
+    grid-column: 1 / -1;
+    margin: 0;
+  }
+}
+
+@media (max-width: 800px) {
+  .creator-members-list > li,
+  .creator-members-manager > header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .creator-members-add {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

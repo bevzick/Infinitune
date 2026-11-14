@@ -11,8 +11,18 @@ const creatorApi = vi.hoisted(() => ({
 }));
 
 vi.mock("../features/creator/creatorReleaseApi", () => creatorApi);
+const membersApi = vi.hoisted(() => ({
+  listCreatorMembers: vi.fn(),
+  addCreatorMember: vi.fn(),
+  changeCreatorMemberRole: vi.fn(),
+  removeCreatorMember: vi.fn(),
+}));
+vi.mock("../features/creator/creatorMembersApi", () => membersApi);
 vi.mock("../features/session/SessionContext", () => ({
-  useSession: () => ({ accessToken: "access-token" }),
+  useSession: () => ({
+    accessToken: "access-token",
+    identity: { userId: "00000000-0000-4000-8000-000000000001" },
+  }),
 }));
 
 const account = {
@@ -26,6 +36,13 @@ describe("CreatorAccountsPage", () => {
   beforeEach(() => {
     creatorApi.listCreatorAccounts.mockResolvedValue([]);
     creatorApi.createCreatorAccount.mockResolvedValue(account);
+    membersApi.listCreatorMembers.mockResolvedValue([
+      {
+        user_id: "00000000-0000-4000-8000-000000000001",
+        role: "owner",
+        created_at: "2026-11-13T00:00:00Z",
+      },
+    ]);
     creatorApi.submitCreatorVerification.mockResolvedValue({
       ...account,
       verification_status: "pending",
@@ -63,5 +80,26 @@ describe("CreatorAccountsPage", () => {
     );
     expect(await screen.findByText("Pending review")).toBeInTheDocument();
     expect(screen.getByText("Awaiting moderator review")).toBeInTheDocument();
+  });
+
+  it("opens creator member management from the account card", async () => {
+    const user = userEvent.setup();
+    creatorApi.listCreatorAccounts.mockResolvedValue([account]);
+    render(<CreatorAccountsPage />);
+    await user.click(
+      await screen.findByRole("button", { name: "Manage members" }),
+    );
+    expect(
+      await screen.findByRole("heading", { name: "Team members" }),
+    ).toBeInTheDocument();
+    expect(membersApi.listCreatorMembers).toHaveBeenCalledWith(
+      "access-token",
+      "creator-1",
+      expect.any(AbortSignal),
+    );
+    await user.click(screen.getByRole("button", { name: "Close members" }));
+    expect(
+      screen.queryByRole("heading", { name: "Team members" }),
+    ).not.toBeInTheDocument();
   });
 });

@@ -1,6 +1,8 @@
 import { type FormEvent, useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
+import { CreatorMembersManager } from "../features/creator/CreatorMembersManager";
+
 import {
   type CreatorAccount,
   createCreatorAccount,
@@ -24,7 +26,7 @@ const statusLabels: Record<CreatorAccount["verification_status"], string> = {
 };
 
 export function CreatorAccountsPage() {
-  const { accessToken } = useSession();
+  const { accessToken, identity } = useSession();
   const [accounts, setAccounts] = useState<CreatorAccount[]>([]);
   const [status, setStatus] = useState<"loading" | "ready" | "error">(
     "loading",
@@ -33,6 +35,7 @@ export function CreatorAccountsPage() {
   const [notice, setNotice] = useState("");
   const [showCreate, setShowCreate] = useState(false);
   const [submittingId, setSubmittingId] = useState("");
+  const [membersAccountId, setMembersAccountId] = useState("");
 
   const load = useCallback(
     async (signal?: AbortSignal) => {
@@ -160,6 +163,28 @@ export function CreatorAccountsPage() {
                 busy={submittingId === account.id}
                 onSubmit={() => void submitVerification(account)}
               />
+              <button
+                className="creator-account-members-toggle"
+                type="button"
+                aria-expanded={membersAccountId === account.id}
+                onClick={() =>
+                  setMembersAccountId((current) =>
+                    current === account.id ? "" : account.id,
+                  )
+                }
+              >
+                {membersAccountId === account.id
+                  ? "Close members"
+                  : "Manage members"}
+              </button>
+              {membersAccountId === account.id && accessToken && identity ? (
+                <CreatorMembersManager
+                  accessToken={accessToken}
+                  creatorId={account.id}
+                  creatorName={account.display_name}
+                  currentUserId={identity.userId}
+                />
+              ) : null}
             </article>
           ))
         ) : (
