@@ -155,6 +155,12 @@ export async function listDraftReleases(
   );
 }
 
+export function getRelease(accessToken: string, releaseId: string) {
+  return apiRequest<CreatorRelease>(`/v1/releases/${releaseId}`, {
+    accessToken,
+  });
+}
+
 export function createRelease(accessToken: string, input: CreateReleaseInput) {
   return apiRequest<CreatorRelease>("/v1/releases", {
     method: "POST",

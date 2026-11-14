@@ -1,6 +1,6 @@
 import { type FormEvent, useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-
+import { CoverUploadManager } from "../features/creator/CoverUploadManager";
 import {
   type CreatorAccount,
   type CreatorRelease,
@@ -8,6 +8,7 @@ import {
   createRelease,
   createTrackUploadSession,
   deleteTrackRight,
+  getRelease,
   listCreatorAccounts,
   listDraftReleases,
   listTrackRights,
@@ -29,7 +30,6 @@ type ReleaseDraft = {
   title: string;
   releaseType: ReleaseType;
   releaseDate: string;
-  coverObjectKey: string;
   tracks: TrackDraft[];
 };
 
@@ -45,6 +45,7 @@ export function CreatorReleasesPage() {
   const [editingId, setEditingId] = useState("");
   const [rightsReleaseId, setRightsReleaseId] = useState("");
   const [uploadReleaseId, setUploadReleaseId] = useState("");
+  const [coverReleaseId, setCoverReleaseId] = useState("");
   const [notice, setNotice] = useState("");
 
   const load = useCallback(
@@ -108,6 +109,7 @@ export function CreatorReleasesPage() {
             setEditingId("");
             setRightsReleaseId("");
             setUploadReleaseId("");
+            setCoverReleaseId("");
             setNotice("");
           }}
         >
@@ -153,8 +155,14 @@ export function CreatorReleasesPage() {
           releases.map((release) => (
             <article className="creator-release-card" key={release.id}>
               <div className="creator-release-card-heading">
-                <span className="creator-release-cover" aria-hidden="true">
-                  ◎
+                <span
+                  className="creator-release-cover"
+                  role="img"
+                  aria-label={
+                    release.cover_object_key ? "Cover stored" : "No cover"
+                  }
+                >
+                  {release.cover_object_key ? "✓" : "◎"}
                 </span>
                 <div>
                   <span className="eyebrow">{release.release_type}</span>
@@ -173,6 +181,7 @@ export function CreatorReleasesPage() {
                     setShowCreate(false);
                     setRightsReleaseId("");
                     setUploadReleaseId("");
+                    setCoverReleaseId("");
                     setNotice("");
                   }}
                 >
@@ -187,6 +196,7 @@ export function CreatorReleasesPage() {
                     );
                     setEditingId("");
                     setUploadReleaseId("");
+                    setCoverReleaseId("");
                     setShowCreate(false);
                     setNotice("");
                   }}
@@ -204,6 +214,7 @@ export function CreatorReleasesPage() {
                     );
                     setEditingId("");
                     setRightsReleaseId("");
+                    setCoverReleaseId("");
                     setShowCreate(false);
                     setNotice("");
                   }}
@@ -211,6 +222,24 @@ export function CreatorReleasesPage() {
                   {uploadReleaseId === release.id
                     ? "Close uploads"
                     : "Upload audio"}
+                </button>
+                <button
+                  className="creator-release-secondary-action"
+                  type="button"
+                  onClick={() => {
+                    setCoverReleaseId((current) =>
+                      current === release.id ? "" : release.id,
+                    );
+                    setEditingId("");
+                    setRightsReleaseId("");
+                    setUploadReleaseId("");
+                    setShowCreate(false);
+                    setNotice("");
+                  }}
+                >
+                  {coverReleaseId === release.id
+                    ? "Close cover"
+                    : "Manage cover"}
                 </button>
               </div>
               <ol className="creator-release-track-summary">
@@ -238,7 +267,7 @@ export function CreatorReleasesPage() {
                         title: draft.title,
                         release_type: draft.releaseType,
                         release_date: draft.releaseDate,
-                        cover_object_key: draft.coverObjectKey.trim() || null,
+                        cover_object_key: release.cover_object_key,
                         tracks: draft.tracks.map(
                           ({ key: _key, ...track }) => track,
                         ),
@@ -251,6 +280,21 @@ export function CreatorReleasesPage() {
                     );
                     setEditingId("");
                     setNotice(`Draft “${updated.title}” was updated.`);
+                  }}
+                />
+              ) : null}
+              {coverReleaseId === release.id && accessToken ? (
+                <CoverUploadManager
+                  accessToken={accessToken}
+                  releaseId={release.id}
+                  hasCover={Boolean(release.cover_object_key)}
+                  onCompleted={async () => {
+                    const updated = await getRelease(accessToken, release.id);
+                    setReleases((current) =>
+                      current.map((item) =>
+                        item.id === updated.id ? updated : item,
+                      ),
+                    );
                   }}
                 />
               ) : null}
@@ -771,22 +815,6 @@ function ReleaseEditor({
             required
           />
         </label>
-        {editing ? (
-          <label className="creator-release-cover-field">
-            Cover object key
-            <input
-              value={draft.coverObjectKey}
-              onChange={(event) => {
-                const coverObjectKey = event.currentTarget.value;
-                setDraft((current) => ({
-                  ...current,
-                  coverObjectKey,
-                }));
-              }}
-              placeholder="creator-content/covers/release.jpg"
-            />
-          </label>
-        ) : null}
       </div>
 
       <div className="creator-track-editor-heading">
@@ -921,7 +949,6 @@ function draftFrom(release?: CreatorRelease): ReleaseDraft {
     title: release?.title || "",
     releaseType: release?.release_type || "single",
     releaseDate: release?.release_date || new Date().toISOString().slice(0, 10),
-    coverObjectKey: release?.cover_object_key || "",
     tracks: release?.tracks.map((track) => ({ ...track, key: track.id })) || [
       newTrack(0),
     ],

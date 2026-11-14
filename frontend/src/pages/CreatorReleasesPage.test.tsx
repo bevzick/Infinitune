@@ -8,6 +8,7 @@ const creatorApi = vi.hoisted(() => ({
   listCreatorAccounts: vi.fn(),
   listDraftReleases: vi.fn(),
   createRelease: vi.fn(),
+  getRelease: vi.fn(),
   updateRelease: vi.fn(),
   listTrackRights: vi.fn(),
   setTrackRight: vi.fn(),
@@ -16,7 +17,13 @@ const creatorApi = vi.hoisted(() => ({
   uploadAudioFile: vi.fn(),
 }));
 
+const coverApi = vi.hoisted(() => ({
+  createCoverUploadSession: vi.fn(),
+  uploadCoverFile: vi.fn(),
+}));
+
 vi.mock("../features/creator/creatorReleaseApi", () => creatorApi);
+vi.mock("../features/creator/creatorCoverApi", () => coverApi);
 vi.mock("../features/session/SessionContext", () => ({
   useSession: () => ({ accessToken: "access-token" }),
 }));
@@ -53,6 +60,19 @@ describe("CreatorReleasesPage", () => {
       },
     ]);
     creatorApi.listDraftReleases.mockResolvedValue([release]);
+    creatorApi.getRelease.mockResolvedValue(release);
+    coverApi.createCoverUploadSession.mockResolvedValue({
+      id: "00000000-0000-4000-8000-000000000551",
+      release_id: "release-1",
+      upload_url:
+        "/v1/media/cover-uploads/00000000-0000-4000-8000-000000000551",
+      mime_type: "image/png",
+      status: "pending",
+    });
+    coverApi.uploadCoverFile.mockResolvedValue({
+      release_id: "release-1",
+      status: "completed",
+    });
     creatorApi.createRelease.mockImplementation(
       async (_token: string, input: Record<string, unknown>) => ({
         ...release,
@@ -143,6 +163,7 @@ describe("CreatorReleasesPage", () => {
     render(<CreatorReleasesPage />);
 
     await user.click(await screen.findByRole("button", { name: "Edit draft" }));
+    expect(screen.queryByLabelText("Cover object key")).not.toBeInTheDocument();
     const title = screen.getByLabelText("Release title");
     await user.clear(title);
     await user.type(title, "Signals Remastered");
@@ -153,11 +174,62 @@ describe("CreatorReleasesPage", () => {
       "release-1",
       expect.objectContaining({
         title: "Signals Remastered",
+        cover_object_key: null,
         tracks: [expect.objectContaining({ id: "track-1" })],
       }),
     );
     expect(await screen.findByRole("status")).toHaveTextContent(
       "Draft “Signals Remastered” was updated.",
+    );
+  });
+
+  it("preserves the stored cover when updating release metadata", async () => {
+    const user = userEvent.setup();
+    creatorApi.listDraftReleases.mockResolvedValue([
+      { ...release, cover_object_key: "creator-content/private/cover.png" },
+    ]);
+    render(<CreatorReleasesPage />);
+    await user.click(await screen.findByRole("button", { name: "Edit draft" }));
+    expect(screen.queryByLabelText("Cover object key")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+    expect(creatorApi.updateRelease).toHaveBeenCalledWith(
+      "access-token",
+      "release-1",
+      expect.objectContaining({
+        cover_object_key: "creator-content/private/cover.png",
+      }),
+    );
+  });
+
+  it("refreshes stored cover state after the binary upload completes", async () => {
+    const user = userEvent.setup();
+    Object.defineProperty(URL, "createObjectURL", {
+      configurable: true,
+      value: vi.fn(() => "blob:cover-preview"),
+    });
+    Object.defineProperty(URL, "revokeObjectURL", {
+      configurable: true,
+      value: vi.fn(),
+    });
+    creatorApi.getRelease.mockResolvedValue({
+      ...release,
+      cover_object_key: "creator-content/private/cover.png",
+    });
+    render(<CreatorReleasesPage />);
+    await user.click(
+      await screen.findByRole("button", { name: "Manage cover" }),
+    );
+    await user.upload(
+      screen.getByLabelText("Cover image"),
+      new File(["cover"], "cover.png", { type: "image/png" }),
+    );
+    await user.click(screen.getByRole("button", { name: "Upload cover" }));
+    expect(
+      await screen.findByRole("img", { name: "Cover stored" }),
+    ).toBeInTheDocument();
+    expect(creatorApi.getRelease).toHaveBeenCalledWith(
+      "access-token",
+      "release-1",
     );
   });
 
