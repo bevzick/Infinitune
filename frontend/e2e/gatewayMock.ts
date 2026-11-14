@@ -47,6 +47,15 @@ const artist = {
 
 const releaseId = "00000000-0000-4000-8000-000000000501";
 const releaseTrackId = "00000000-0000-4000-8000-000000000502";
+const audioUploadId = "00000000-0000-4000-8000-000000000551";
+const audioAssetId = "00000000-0000-4000-8000-000000000552";
+const corsHeaders = {
+  "access-control-allow-origin": "http://127.0.0.1:5173",
+  "access-control-allow-credentials": "true",
+  "access-control-allow-methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS",
+  "access-control-allow-headers":
+    "Accept, Authorization, Content-Type, X-Requested-With, X-CSRF-Token",
+};
 
 type GatewayCreatorAccount = {
   id: string;
@@ -69,9 +78,23 @@ type GatewayTrackRight = {
   updated_at: string;
 };
 
+type GatewayAudioUpload = {
+  id: string;
+  releaseTrackId: string;
+  idempotencyKey: string;
+  originalName: string;
+  mimeType: string;
+  sizeBytes: number;
+  status: "pending" | "completed";
+};
+
 export async function mockGateway(
   page: Page,
-  options: { roles?: string[]; emptyCreatorAccounts?: boolean } = {},
+  options: {
+    roles?: string[];
+    emptyCreatorAccounts?: boolean;
+    audioUploadFailure?: boolean;
+  } = {},
 ) {
   const requests: Request[] = [];
   let createdDraft: ReturnType<typeof draftRelease> | null = null;
@@ -79,10 +102,14 @@ export async function mockGateway(
     ? []
     : [defaultCreatorAccount()];
   let trackRights: GatewayTrackRight[] = [];
+  const audioUploads = new Map<string, GatewayAudioUpload>();
   await page.route("http://localhost:8000/v1/**", async (route) => {
     const request = route.request();
     const url = new URL(request.url());
     requests.push(request);
+    if (request.method() === "OPTIONS") {
+      return route.fulfill({ status: 204, headers: corsHeaders });
+    }
 
     if (url.pathname === "/v1/auth/login") {
       return json(route, {
@@ -184,6 +211,83 @@ export async function mockGateway(
     }
     if (url.pathname === `/v1/releases/${releaseId}`) {
       return json(route, draftRelease(true));
+    }
+    const audioSessionPath = url.pathname.match(
+      /^\/v1\/release-tracks\/([^/]+)\/uploads$/,
+    );
+    if (audioSessionPath && request.method() === "POST") {
+      const input = request.postDataJSON() as {
+        idempotency_key: string;
+        original_name: string;
+        mime_type: string;
+        size_bytes: number;
+      };
+      const existing = [...audioUploads.values()].find(
+        (item) =>
+          item.releaseTrackId === audioSessionPath[1] &&
+          item.idempotencyKey === input.idempotency_key,
+      );
+      if (
+        existing &&
+        (existing.originalName !== input.original_name ||
+          existing.mimeType !== input.mime_type ||
+          existing.sizeBytes !== input.size_bytes)
+      ) {
+        return apiError(route, 409, "upload_idempotency_conflict");
+      }
+      const session: GatewayAudioUpload = existing || {
+        id: audioUploadId,
+        releaseTrackId: audioSessionPath[1],
+        idempotencyKey: input.idempotency_key,
+        originalName: input.original_name,
+        mimeType: input.mime_type,
+        sizeBytes: input.size_bytes,
+        status: "pending",
+      };
+      audioUploads.set(session.id, session);
+      return json(
+        route,
+        {
+          id: session.id,
+          release_track_id: session.releaseTrackId,
+          upload_url: `/v1/media/uploads/${session.id}`,
+          original_name: session.originalName,
+          mime_type: session.mimeType,
+          size_bytes: session.sizeBytes,
+          status: session.status,
+          created_at: "2026-11-13T00:00:00Z",
+          updated_at: "2026-11-13T00:00:00Z",
+        },
+        201,
+      );
+    }
+    const audioUploadPath = url.pathname.match(
+      /^\/v1\/media\/uploads\/([^/]+)$/,
+    );
+    if (audioUploadPath && request.method() === "PUT") {
+      const session = audioUploads.get(audioUploadPath[1]);
+      if (!session) return apiError(route, 404, "upload_not_found");
+      const bytes = request.postDataBuffer();
+      if (
+        !bytes ||
+        bytes.length !== session.sizeBytes ||
+        request.headers()["content-type"] !== session.mimeType
+      ) {
+        return apiError(route, 422, "invalid_upload");
+      }
+      if (options.audioUploadFailure) {
+        return apiError(route, 503, "ingest_unavailable");
+      }
+      session.status = "completed";
+      return json(
+        route,
+        {
+          media_asset_id: audioAssetId,
+          content_track_id: session.releaseTrackId,
+          status: "uploaded",
+        },
+        201,
+      );
     }
     const releaseTrackRights = url.pathname.match(
       /^\/v1\/release-tracks\/([^/]+)\/rights$/,
@@ -349,6 +453,7 @@ export async function mockGateway(
 
     return route.fulfill({
       status: 404,
+      headers: corsHeaders,
       contentType: "application/json",
       body: JSON.stringify({
         error: { code: "not_mocked", message: `No mock for ${url.pathname}` },
@@ -401,6 +506,7 @@ function draftRelease(withTracks: boolean) {
 function json(route: Route, body: unknown, status = 200) {
   return route.fulfill({
     status,
+    headers: corsHeaders,
     contentType: "application/json",
     body: JSON.stringify(body),
   });
@@ -409,6 +515,7 @@ function json(route: Route, body: unknown, status = 200) {
 function apiError(route: Route, status: number, code: string) {
   return route.fulfill({
     status,
+    headers: corsHeaders,
     contentType: "application/json",
     body: JSON.stringify({ error: { code, message: code } }),
   });
