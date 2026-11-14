@@ -113,3 +113,14 @@ func mapObjectError(objectKey string, err error) error {
 	}
 	return fmt.Errorf("open object %q: %w", objectKey, err)
 }
+
+// PutIfAbsent atomically prevents overwrites, even after a retry or process
+// crash. Every cover-upload session owns an immutable private object key.
+func (client *Client) PutIfAbsent(ctx context.Context, objectKey string, reader io.Reader, size int64, contentType string) error {
+	opts := minio.PutObjectOptions{ContentType: contentType}
+	opts.SetMatchETagExcept("*")
+	if _, err := client.client.PutObject(ctx, client.bucket, objectKey, reader, size, opts); err != nil {
+		return fmt.Errorf("put immutable cover object: %w", err)
+	}
+	return nil
+}

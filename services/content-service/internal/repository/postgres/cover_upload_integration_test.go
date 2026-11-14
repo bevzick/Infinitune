@@ -49,8 +49,15 @@ func TestCoverUploadSessionPersistenceIntegration(t *testing.T) {
 	if _, err = covers.Transition(ctx, first.ID, coverupload.StatusPending, coverupload.StatusCompleted); !errors.Is(err, coverupload.ErrConflict) {
 		t.Fatalf("stale transition: %v", err)
 	}
-	completed, err := service.Transition(ctx, first.ID, coverupload.StatusCompleted)
+	completed, err := service.Complete(ctx, first.ID)
 	if err != nil || completed.Status != coverupload.StatusCompleted {
 		t.Fatalf("completed: %+v %v", completed, err)
+	}
+	var attachedKey string
+	if err := pool.QueryRow(ctx, `SELECT cover_object_key FROM content.releases WHERE id=$1`, releaseID).Scan(&attachedKey); err != nil || attachedKey != completed.ObjectKey {
+		t.Fatalf("release cover key=%q err=%v", attachedKey, err)
+	}
+	if _, err := service.Complete(ctx, first.ID); err != nil {
+		t.Fatalf("idempotent completion: %v", err)
 	}
 }

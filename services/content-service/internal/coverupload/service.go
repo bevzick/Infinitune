@@ -16,6 +16,7 @@ type Store interface {
 	Create(context.Context, Session) (Session, bool, error)
 	ByID(context.Context, uuid.UUID) (Session, error)
 	Transition(context.Context, uuid.UUID, Status, Status) (Session, error)
+	Complete(context.Context, uuid.UUID) (Session, error)
 }
 
 type Authorizer interface {
@@ -116,6 +117,19 @@ func (service *Service) Transition(ctx context.Context, uploadID uuid.UUID, stat
 	if current.Status == status {
 		return current, nil
 	}
+	// Completion must atomically attach the cover to its release.
+	if status == StatusCompleted {
+		return Session{}, ErrInvalidTransition
+	}
+	if status == StatusUploading {
+		target, err := service.store.ReleaseTarget(ctx, current.ReleaseID)
+		if err != nil {
+			return Session{}, fmt.Errorf("read cover release target: %w", err)
+		}
+		if !editableStatus(target.Status) {
+			return Session{}, ErrReleaseLocked
+		}
+	}
 	if !canTransition(current.Status, status) {
 		return Session{}, ErrInvalidTransition
 	}
@@ -124,6 +138,19 @@ func (service *Service) Transition(ctx context.Context, uploadID uuid.UUID, stat
 		return Session{}, fmt.Errorf("transition cover upload session: %w", err)
 	}
 	return updated, nil
+}
+
+// Complete marks the upload completed and assigns its object key to the
+// release in one Content-owned database transaction. Only Media calls this.
+func (service *Service) Complete(ctx context.Context, uploadID uuid.UUID) (Session, error) {
+	if uploadID == uuid.Nil {
+		return Session{}, invalidField("upload_id", "must be a UUID")
+	}
+	session, err := service.store.Complete(ctx, uploadID)
+	if err != nil {
+		return Session{}, fmt.Errorf("complete cover session: %w", err)
+	}
+	return session, nil
 }
 
 func editableStatus(status release.Status) bool {
@@ -141,7 +168,7 @@ func canTransition(current, next Status) bool {
 	case StatusPending:
 		return next == StatusUploading || next == StatusFailed
 	case StatusUploading:
-		return next == StatusCompleted || next == StatusFailed
+		return next == StatusFailed
 	case StatusFailed:
 		return next == StatusPending
 	default:

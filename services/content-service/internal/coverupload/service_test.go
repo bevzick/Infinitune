@@ -50,6 +50,24 @@ func (stub *coverStoreStub) ByID(_ context.Context, id uuid.UUID) (Session, erro
 	}
 	return Session{}, ErrNotFound
 }
+func (stub *coverStoreStub) Complete(_ context.Context, id uuid.UUID) (Session, error) {
+	session, ok := stub.sessions[id]
+	if !ok {
+		return Session{}, ErrNotFound
+	}
+	if session.Status == StatusCompleted {
+		return session, nil
+	}
+	if session.Status != StatusUploading {
+		return Session{}, ErrInvalidTransition
+	}
+	if !editableStatus(stub.target.Status) {
+		return Session{}, ErrReleaseLocked
+	}
+	session.Status = StatusCompleted
+	stub.sessions[id] = session
+	return session, nil
+}
 func (stub *coverStoreStub) Transition(_ context.Context, id uuid.UUID, previous, next Status) (Session, error) {
 	session, ok := stub.sessions[id]
 	if !ok || session.Status != previous {
@@ -208,7 +226,7 @@ func TestSessionForUserAndTransitions(t *testing.T) {
 	if err != nil || uploading.Status != StatusUploading {
 		t.Fatalf("uploading = %+v, %v", uploading, err)
 	}
-	completed, err := service.Transition(context.Background(), session.ID, StatusCompleted)
+	completed, err := service.Complete(context.Background(), session.ID)
 	if err != nil || completed.Status != StatusCompleted {
 		t.Fatalf("completed = %+v, %v", completed, err)
 	}

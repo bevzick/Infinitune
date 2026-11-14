@@ -135,3 +135,51 @@ func mapCoverUploadError(err error) error {
 }
 
 var _ coverupload.Store = (*CoverUploadRepository)(nil)
+
+// Complete updates the uploaded cover and the release atomically, preventing
+// a failed or unverified upload from making a release submission-ready.
+func (repository *CoverUploadRepository) Complete(ctx context.Context, uploadID uuid.UUID) (coverupload.Session, error) {
+	tx, err := repository.database.Begin(ctx)
+	if err != nil {
+		return coverupload.Session{}, fmt.Errorf("begin cover completion: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	current, err := scanCoverUpload(tx.QueryRow(ctx,
+		`SELECT `+coverUploadColumns+` FROM content.cover_uploads WHERE id = $1 FOR UPDATE`, uploadID))
+	if err != nil {
+		return coverupload.Session{}, mapCoverUploadError(err)
+	}
+	if current.Status == coverupload.StatusCompleted {
+		return current, tx.Commit(ctx)
+	}
+	if current.Status != coverupload.StatusUploading {
+		return coverupload.Session{}, coverupload.ErrInvalidTransition
+	}
+
+	var releaseID uuid.UUID
+	err = tx.QueryRow(ctx, `UPDATE content.releases SET cover_object_key = $2
+        WHERE id = $1 AND status IN ('draft', 'rejected', 'changes_requested')
+        RETURNING id`, current.ReleaseID, current.ObjectKey).Scan(&releaseID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return coverupload.Session{}, coverupload.ErrReleaseLocked
+	}
+	if err != nil {
+		return coverupload.Session{}, fmt.Errorf("attach uploaded cover: %w", mapCoverUploadError(err))
+	}
+
+	completed, err := scanCoverUpload(tx.QueryRow(ctx, `UPDATE content.cover_uploads
+        SET status = 'completed', updated_at = clock_timestamp()
+        WHERE id = $1 AND status = 'uploading'
+        RETURNING `+coverUploadColumns, uploadID))
+	if errors.Is(err, pgx.ErrNoRows) {
+		return coverupload.Session{}, coverupload.ErrConflict
+	}
+	if err != nil {
+		return coverupload.Session{}, fmt.Errorf("mark cover completed: %w", mapCoverUploadError(err))
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return coverupload.Session{}, fmt.Errorf("commit cover completion: %w", err)
+	}
+	return completed, nil
+}
