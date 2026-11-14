@@ -42,3 +42,11 @@ and deletion, replies, likes with rollback, report submission, moderator
 hide/resolve actions, and the resulting absence of hidden comments from public
 lists. Permission failures are mocked to match backend contracts. Browser mocks
 are not a substitute for real-service comment and moderation integration tests.
+
+The `listeningHistory.spec.ts` scenarios use `listeningHistoryGateway.ts` as a
+stateful, identity-isolated History Service mock. They exercise completed
+playback reporting, replay of the same immutable `event_id`, private listing,
+20-row cursor pagination, filters, confirmed partial/full clearing, and retry
+after a transient list error. A short playable WAV is provided only to trigger
+browser audio events; the mock does not use Kafka, PostgreSQL or Catalog gRPC
+lookups. This suite is not a substitute for real-service system smoke tests.
