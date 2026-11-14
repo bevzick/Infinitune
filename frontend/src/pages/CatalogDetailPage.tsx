@@ -1,5 +1,4 @@
 import { Link, useParams } from "react-router-dom";
-
 import {
   AlbumGrid,
   CatalogArtwork,
@@ -18,6 +17,7 @@ import {
 } from "../features/catalog/catalogApi";
 import { useCatalogItem } from "../features/catalog/useCatalogItem";
 import { useCatalogPage } from "../features/catalog/useCatalogPage";
+import { TrackComments } from "../features/comments/TrackComments";
 import { InteractionButton } from "../features/interactions/InteractionButton";
 import { usePlayer } from "../features/player/PlayerContext";
 import { Icon } from "../shared/ui/Icon";
@@ -335,6 +335,7 @@ function TrackDetail({ track }: { track: Track }) {
           </div>
         </aside>
       </div>
+      <TrackComments key={track.id} trackId={track.id} />
     </article>
   );
 }

@@ -1,0 +1,128 @@
+.track-comments {
+  min-width: 0;
+  display: grid;
+  gap: 1rem;
+  padding: clamp(1rem, 2.6vw, 1.6rem);
+  border: 1px solid var(--app-line);
+  border-radius: 1rem;
+  background: var(--app-panel);
+}
+
+.track-comment-list {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.track-comment {
+  display: grid;
+  gap: 0.6rem;
+  padding: 1rem;
+  border: 1px solid var(--app-line);
+  border-radius: 0.8rem;
+  background: var(--app-bg);
+  overflow-wrap: anywhere;
+}
+
+.track-comment-reply {
+  margin-left: clamp(0.6rem, 3vw, 2.2rem);
+  border-left: 3px solid var(--app-accent);
+}
+
+.track-comment-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.7rem;
+
+  time {
+    color: var(--app-muted);
+    font-size: 0.75rem;
+  }
+}
+
+.track-comment-parent {
+  color: var(--app-muted);
+  font-size: 0.78rem;
+}
+
+.track-comment-text {
+  margin: 0;
+  white-space: pre-wrap;
+  line-height: 1.55;
+}
+
+.track-comment-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+
+  button {
+    min-height: 2.2rem;
+    padding: 0.45rem 0.75rem;
+    border: 1px solid var(--app-line);
+    border-radius: 0.55rem;
+    background: var(--app-panel);
+    cursor: pointer;
+
+    &:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+  }
+
+  button[aria-pressed="true"] {
+    border-color: var(--app-accent);
+    color: var(--app-accent);
+    background: var(--app-accent-soft);
+  }
+}
+
+.track-comment-form {
+  display: grid;
+  gap: 0.55rem;
+
+  label {
+    font-weight: 650;
+    font-size: 0.9rem;
+  }
+
+  textarea,
+  select {
+    width: 100%;
+    min-width: 0;
+    padding: 0.75rem;
+    border: 1px solid var(--app-line);
+    border-radius: 0.6rem;
+    background: var(--app-input);
+  }
+
+  textarea {
+    min-height: 5.5rem;
+    resize: vertical;
+  }
+}
+
+.track-comments-error {
+  margin: 0;
+  color: var(--app-danger, #d84b6b);
+}
+
+.track-comments-login,
+.track-comments-more {
+  margin: 0;
+}
+
+.track-comments-more {
+  width: fit-content;
+  padding: 0.6rem 0.9rem;
+  border: 1px solid var(--app-line);
+  border-radius: 0.6rem;
+  background: var(--app-input);
+  cursor: pointer;
+}
+
+@media (max-width: 600px) {
+  .track-comment-reply {
+    margin-left: 0.5rem;
+  }
+}
