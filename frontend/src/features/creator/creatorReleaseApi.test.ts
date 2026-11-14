@@ -4,6 +4,7 @@ import {
   createCreatorAccount,
   createRelease,
   createTrackUploadSession,
+  listCreatorReleases,
   listDraftReleases,
   submitCreatorVerification,
   updateRelease,
@@ -64,6 +65,42 @@ describe("creator release API", () => {
     expect(fetchMock.mock.calls[0][0]).toContain(
       "/v1/releases?status=draft&limit=100&offset=0",
     );
+  });
+
+  it("lists releases across statuses and hydrates their tracks", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        jsonResponse({
+          items: [
+            { id: "release-1", status: "draft", tracks: [] },
+            { id: "release-2", status: "approved", tracks: [] },
+          ],
+          page: { limit: 100, offset: 0, total: 2 },
+        }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          id: "release-1",
+          status: "draft",
+          tracks: [{ id: "track-1" }],
+        }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          id: "release-2",
+          status: "approved",
+          tracks: [{ id: "track-2" }],
+        }),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+    const releases = await listCreatorReleases("token");
+    expect(releases.map(({ status }) => status)).toEqual(["draft", "approved"]);
+    expect(releases[1].tracks[0].id).toBe("track-2");
+    expect(fetchMock.mock.calls[0][0]).toContain(
+      "/v1/releases?limit=100&offset=0",
+    );
+    expect(fetchMock.mock.calls[0][0]).not.toContain("status=");
   });
 
   it("serializes create and update operations", async () => {

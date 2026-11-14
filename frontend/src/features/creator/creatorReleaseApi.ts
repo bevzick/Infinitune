@@ -42,6 +42,11 @@ export type CreatorRelease = {
   status: ReleaseStatus;
   cover_object_key: string | null;
   tracks: CreatorReleaseTrack[];
+  submitted_at?: string | null;
+  reviewed_at?: string | null;
+  published_at?: string | null;
+  archived_at?: string | null;
+  catalog_album_id?: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -148,6 +153,38 @@ export async function listDraftReleases(
   return Promise.all(
     page.items.map(({ id }) =>
       apiRequest<CreatorRelease>(`/v1/releases/${id}`, {
+        accessToken,
+        signal,
+      }),
+    ),
+  );
+}
+
+// The lifecycle studio must include pending, approved and published releases,
+// not only drafts. Fetch every page and then hydrate track lists from GET /:id.
+export async function listCreatorReleases(
+  accessToken: string,
+  signal?: AbortSignal,
+) {
+  const summaries: CreatorRelease[] = [];
+  const limit = 100;
+  for (let offset = 0; ; offset += limit) {
+    const query = new URLSearchParams({
+      limit: String(limit),
+      offset: String(offset),
+    });
+    const page = await apiRequest<ReleasePage>(`/v1/releases?${query}`, {
+      accessToken,
+      signal,
+    });
+    summaries.push(...page.items);
+    if (summaries.length >= page.page.total || page.items.length < limit) {
+      break;
+    }
+  }
+  return Promise.all(
+    summaries.map((item) =>
+      apiRequest<CreatorRelease>(`/v1/releases/${item.id}`, {
         accessToken,
         signal,
       }),

@@ -7,6 +7,7 @@ import { CreatorReleasesPage } from "./CreatorReleasesPage";
 const creatorApi = vi.hoisted(() => ({
   listCreatorAccounts: vi.fn(),
   listDraftReleases: vi.fn(),
+  listCreatorReleases: vi.fn(),
   createRelease: vi.fn(),
   getRelease: vi.fn(),
   updateRelease: vi.fn(),
@@ -59,7 +60,7 @@ describe("CreatorReleasesPage", () => {
         verification_status: "verified",
       },
     ]);
-    creatorApi.listDraftReleases.mockResolvedValue([release]);
+    creatorApi.listCreatorReleases.mockResolvedValue([release]);
     creatorApi.getRelease.mockResolvedValue(release);
     coverApi.createCoverUploadSession.mockResolvedValue({
       id: "00000000-0000-4000-8000-000000000551",
@@ -128,6 +129,23 @@ describe("CreatorReleasesPage", () => {
     vi.clearAllMocks();
   });
 
+  it("shows approved releases and prevents editing after submission", async () => {
+    creatorApi.listCreatorReleases.mockResolvedValue([
+      { ...release, status: "approved" },
+    ]);
+    render(<CreatorReleasesPage />);
+    expect(await screen.findByText("approved")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Edit draft" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Manage rights" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Manage lifecycle" }),
+    ).toBeInTheDocument();
+  });
+
   it("creates a release with its initial track", async () => {
     const user = userEvent.setup();
     render(<CreatorReleasesPage />);
@@ -185,7 +203,7 @@ describe("CreatorReleasesPage", () => {
 
   it("preserves the stored cover when updating release metadata", async () => {
     const user = userEvent.setup();
-    creatorApi.listDraftReleases.mockResolvedValue([
+    creatorApi.listCreatorReleases.mockResolvedValue([
       { ...release, cover_object_key: "creator-content/private/cover.png" },
     ]);
     render(<CreatorReleasesPage />);

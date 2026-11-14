@@ -107,7 +107,7 @@ test("creator builds a release draft with its initial tracks", async ({
 
   await expect(page).toHaveURL(/\/creator\/releases$/);
   await expect(
-    page.getByRole("heading", { name: "Release drafts" }),
+    page.getByRole("heading", { name: "Creator releases" }),
   ).toBeVisible();
   await page.getByRole("button", { name: "+ New release" }).click();
   await page.getByLabel("Release title").fill("After Midnight");

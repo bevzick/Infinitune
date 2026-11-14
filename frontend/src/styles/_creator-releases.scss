@@ -54,7 +54,7 @@
 
 .creator-release-card-heading {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) repeat(4, auto);
+  grid-template-columns: auto minmax(0, 1fr) repeat(5, auto);
   align-items: center;
   gap: 1rem;
 
@@ -620,5 +620,109 @@
     width: 100%;
     max-width: 24rem;
     accent-color: var(--app-accent-strong);
+  }
+}
+
+.creator-release-status-label {
+  display: inline-block;
+  margin-top: 0.25rem;
+  padding: 0.2rem 0.5rem;
+  border: 1px solid var(--app-line);
+  border-radius: 0.5rem;
+  color: var(--app-muted);
+  font-size: 0.8rem;
+  text-transform: capitalize;
+}
+
+.creator-release-lifecycle {
+  display: grid;
+  gap: 1rem;
+  margin-top: 1rem;
+  padding: clamp(1rem, 3vw, 1.4rem);
+  border: 1px solid var(--app-line);
+  border-radius: 0.9rem;
+  background: var(--app-bg-elevated);
+
+  > header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+
+  button {
+    @include interactive-surface;
+    padding: 0.65rem 0.9rem;
+    border-radius: 0.7rem;
+    cursor: pointer;
+
+    &:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+  }
+}
+
+.creator-readiness {
+  display: grid;
+  gap: 0.65rem;
+  padding: 1rem;
+  border: 1px solid var(--app-line);
+  border-radius: 0.8rem;
+  background: var(--app-panel);
+
+  ul {
+    margin: 0;
+    padding-left: 1.3rem;
+  }
+  li {
+    margin-top: 0.35rem;
+  }
+}
+
+.creator-release-lifecycle-description {
+  color: var(--app-muted);
+}
+
+.creator-release-timestamps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin: 0;
+
+  div {
+    display: grid;
+    gap: 0.2rem;
+  }
+  dt {
+    color: var(--app-muted);
+    font-size: 0.76rem;
+  }
+  dd {
+    margin: 0;
+    font-size: 0.85rem;
+  }
+}
+
+.creator-release-lifecycle-actions,
+.creator-release-archive-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.7rem;
+}
+
+.creator-release-lifecycle .creator-archive-warning {
+  color: var(--app-danger);
+}
+
+@media (max-width: 1000px) {
+  .creator-release-card-heading {
+    grid-template-columns: auto minmax(0, 1fr);
+
+    > button {
+      width: 100%;
+    }
   }
 }

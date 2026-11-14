@@ -339,3 +339,24 @@ avoid deleting a potentially committed cover; reconciliation may be required.
 The private CoverUploadService contract is documented in both services' copies
 of `api/cover/v1/cover.proto`, and exchanges `google.protobuf.Struct` with
 explicit field names. No generated protobuf files are edited by hand.
+
+### Creator Studio lifecycle controls
+
+The Creator Studio release list includes the user's releases across lifecycle
+statuses, not only drafts. **Manage lifecycle** displays the current status,
+submission/readiness blockers from the Content API, and submitted/reviewed/
+published/archived timestamps when present. The client never reimplements the
+server's rights, media, creator verification, or metadata readiness rules.
+
+The interface offers **Submit for review** for `draft`, `rejected`, and
+`changes_requested` releases only after a successful readiness check. During
+`pending_review`, the creator may withdraw. Approved releases may be withdrawn
+or published; published releases may be archived after explicit confirmation.
+Moderation remains an independent moderator-only workflow, not an action in
+Creator Studio. All permissions and lifecycle transitions are enforced by the
+Content Service regardless of visible buttons.
+
+Publication retries a transient `409 release_not_ready` at most twice after the
+initial attempt, allowing a short interval for Catalog event propagation. Other
+errors are shown immediately. The UI reloads canonical release details after
+each successful action and does not assume that Catalog visibility is immediate.

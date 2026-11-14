@@ -10,7 +10,7 @@ import {
   deleteTrackRight,
   getRelease,
   listCreatorAccounts,
-  listDraftReleases,
+  listCreatorReleases,
   listTrackRights,
   type ReleaseType,
   setTrackRight,
@@ -19,6 +19,7 @@ import {
   updateRelease,
   uploadAudioFile,
 } from "../features/creator/creatorReleaseApi";
+import { ReleaseLifecycleManager } from "../features/creator/ReleaseLifecycleManager";
 import { useSession } from "../features/session/SessionContext";
 import { ApiError } from "../shared/api/client";
 
@@ -46,6 +47,7 @@ export function CreatorReleasesPage() {
   const [rightsReleaseId, setRightsReleaseId] = useState("");
   const [uploadReleaseId, setUploadReleaseId] = useState("");
   const [coverReleaseId, setCoverReleaseId] = useState("");
+  const [lifecycleReleaseId, setLifecycleReleaseId] = useState("");
   const [notice, setNotice] = useState("");
 
   const load = useCallback(
@@ -56,7 +58,7 @@ export function CreatorReleasesPage() {
       try {
         const [creatorAccounts, drafts] = await Promise.all([
           listCreatorAccounts(accessToken, signal),
-          listDraftReleases(accessToken, signal),
+          listCreatorReleases(accessToken, signal),
         ]);
         setAccounts(creatorAccounts);
         setReleases(drafts);
@@ -95,11 +97,8 @@ export function CreatorReleasesPage() {
       <header className="creator-releases-heading">
         <div>
           <span className="hero-kicker">Creator studio</span>
-          <h1>Release drafts</h1>
-          <p>
-            Prepare release metadata and track positions before uploading or
-            importing audio.
-          </p>
+          <h1>Creator releases</h1>
+          <p>Prepare releases, monitor moderation and complete publication.</p>
         </div>
         <button
           type="button"
@@ -110,6 +109,7 @@ export function CreatorReleasesPage() {
             setRightsReleaseId("");
             setUploadReleaseId("");
             setCoverReleaseId("");
+            setLifecycleReleaseId("");
             setNotice("");
           }}
         >
@@ -150,7 +150,7 @@ export function CreatorReleasesPage() {
         />
       ) : null}
 
-      <section className="creator-release-list" aria-label="Draft releases">
+      <section className="creator-release-list" aria-label="Creator releases">
         {releases.length ? (
           releases.map((release) => (
             <article className="creator-release-card" key={release.id}>
@@ -166,80 +166,110 @@ export function CreatorReleasesPage() {
                 </span>
                 <div>
                   <span className="eyebrow">{release.release_type}</span>
+                  <span className="creator-release-status-label">
+                    {release.status.replaceAll("_", " ")}
+                  </span>
                   <h2>{release.title}</h2>
                   <p>
                     {release.release_date} · {release.tracks.length}{" "}
                     {trackWord(release.tracks.length)}
                   </p>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setEditingId((current) =>
-                      current === release.id ? "" : release.id,
-                    );
-                    setShowCreate(false);
-                    setRightsReleaseId("");
-                    setUploadReleaseId("");
-                    setCoverReleaseId("");
-                    setNotice("");
-                  }}
-                >
-                  {editingId === release.id ? "Close" : "Edit draft"}
-                </button>
+                {editableRelease(release.status) ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditingId((current) =>
+                        current === release.id ? "" : release.id,
+                      );
+                      setShowCreate(false);
+                      setRightsReleaseId("");
+                      setUploadReleaseId("");
+                      setCoverReleaseId("");
+                      setNotice("");
+                    }}
+                  >
+                    {editingId === release.id ? "Close" : "Edit draft"}
+                  </button>
+                ) : null}
+                {editableRelease(release.status) ? (
+                  <button
+                    className="creator-release-secondary-action"
+                    type="button"
+                    onClick={() => {
+                      setRightsReleaseId((current) =>
+                        current === release.id ? "" : release.id,
+                      );
+                      setEditingId("");
+                      setUploadReleaseId("");
+                      setCoverReleaseId("");
+                      setShowCreate(false);
+                      setNotice("");
+                    }}
+                  >
+                    {rightsReleaseId === release.id
+                      ? "Close rights"
+                      : "Manage rights"}
+                  </button>
+                ) : null}
+                {editableRelease(release.status) ? (
+                  <button
+                    className="creator-release-secondary-action"
+                    type="button"
+                    onClick={() => {
+                      setUploadReleaseId((current) =>
+                        current === release.id ? "" : release.id,
+                      );
+                      setEditingId("");
+                      setRightsReleaseId("");
+                      setCoverReleaseId("");
+                      setShowCreate(false);
+                      setNotice("");
+                    }}
+                  >
+                    {uploadReleaseId === release.id
+                      ? "Close uploads"
+                      : "Upload audio"}
+                  </button>
+                ) : null}
+                {editableRelease(release.status) ? (
+                  <button
+                    className="creator-release-secondary-action"
+                    type="button"
+                    onClick={() => {
+                      setCoverReleaseId((current) =>
+                        current === release.id ? "" : release.id,
+                      );
+                      setEditingId("");
+                      setRightsReleaseId("");
+                      setUploadReleaseId("");
+                      setShowCreate(false);
+                      setNotice("");
+                    }}
+                  >
+                    {coverReleaseId === release.id
+                      ? "Close cover"
+                      : "Manage cover"}
+                  </button>
+                ) : null}
                 <button
                   className="creator-release-secondary-action"
                   type="button"
                   onClick={() => {
-                    setRightsReleaseId((current) =>
+                    setLifecycleReleaseId((current) =>
                       current === release.id ? "" : release.id,
                     );
                     setEditingId("");
+                    setRightsReleaseId("");
                     setUploadReleaseId("");
                     setCoverReleaseId("");
                     setShowCreate(false);
                     setNotice("");
                   }}
                 >
-                  {rightsReleaseId === release.id
-                    ? "Close rights"
-                    : "Manage rights"}
-                </button>
-                <button
-                  className="creator-release-secondary-action"
-                  type="button"
-                  onClick={() => {
-                    setUploadReleaseId((current) =>
-                      current === release.id ? "" : release.id,
-                    );
-                    setEditingId("");
-                    setRightsReleaseId("");
-                    setCoverReleaseId("");
-                    setShowCreate(false);
-                    setNotice("");
-                  }}
-                >
-                  {uploadReleaseId === release.id
-                    ? "Close uploads"
-                    : "Upload audio"}
-                </button>
-                <button
-                  className="creator-release-secondary-action"
-                  type="button"
-                  onClick={() => {
-                    setCoverReleaseId((current) =>
-                      current === release.id ? "" : release.id,
-                    );
-                    setEditingId("");
-                    setRightsReleaseId("");
-                    setUploadReleaseId("");
-                    setShowCreate(false);
-                    setNotice("");
-                  }}
-                >
-                  {coverReleaseId === release.id
-                    ? "Close cover"
-                    : "Manage cover"}
+                  {lifecycleReleaseId === release.id
+                    ? "Close lifecycle"
+                    : "Manage lifecycle"}
                 </button>
               </div>
               <ol className="creator-release-track-summary">
@@ -298,6 +328,21 @@ export function CreatorReleasesPage() {
                   }}
                 />
               ) : null}
+              {lifecycleReleaseId === release.id && accessToken ? (
+                <ReleaseLifecycleManager
+                  accessToken={accessToken}
+                  release={release}
+                  onUpdated={async () => {
+                    const updated = await getRelease(accessToken, release.id);
+                    setReleases((current) =>
+                      current.map((item) =>
+                        item.id === updated.id ? updated : item,
+                      ),
+                    );
+                    return updated;
+                  }}
+                />
+              ) : null}
               {rightsReleaseId === release.id && accessToken ? (
                 <TrackRightsManager
                   accessToken={accessToken}
@@ -313,12 +358,20 @@ export function CreatorReleasesPage() {
             </article>
           ))
         ) : (
-          <CreatorReleaseNotice title="No draft releases yet">
+          <CreatorReleaseNotice title="No releases yet">
             Create the first release and define its complete initial track list.
           </CreatorReleaseNotice>
         )}
       </section>
     </section>
+  );
+}
+
+function editableRelease(status: CreatorRelease["status"]) {
+  return (
+    status === "draft" ||
+    status === "rejected" ||
+    status === "changes_requested"
   );
 }
 
