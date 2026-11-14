@@ -27,3 +27,10 @@ Pull requests that change the frontend run linting, type checking, unit tests,
 the production build, and this smoke suite through the `Frontend checks`
 GitHub Actions workflow. A failed browser run uploads its HTML report for seven
 days.
+
+The `creatorPublication.spec.ts` scenario uses a **stateful mocked gateway** shared
+by independent creator, moderator, and listener browser contexts. It covers
+account verification, draft, cover/audio ingest, rights, readiness, submission,
+independent review, publication, delayed Catalog visibility, and playback requests.
+The mock does not run FFmpeg, Kafka, PostgreSQL, or MinIO; actual service-to-service
+publication and playback still require an isolated system smoke test.
