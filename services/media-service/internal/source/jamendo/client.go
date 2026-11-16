@@ -150,6 +150,13 @@ func normalizedTrack(result trackResult) (source.Track, error) {
 	if result.AlbumName != "" {
 		metadata["album_name"] = result.AlbumName
 	}
+	genres, moods := source.ClassifyTags(result.MusicInfo.Tags.Genres)
+	if len(genres) > 0 {
+		metadata["genres"] = strings.Join(genres, ",")
+	}
+	if len(moods) > 0 {
+		metadata["moods"] = strings.Join(moods, ",")
+	}
 	return source.Track{
 		ExternalID: result.ID,
 		Title:      result.Name,
@@ -239,7 +246,7 @@ func (client *Client) tracks(ctx context.Context, parameters url.Values) (tracks
 	}
 	query.Set("client_id", client.clientID)
 	query.Set("format", "json")
-	query.Set("include", "licenses")
+	query.Set("include", "licenses+musicinfo")
 	query.Set("audioformat", "mp32")
 	query.Set("audiodlformat", "mp32")
 	endpoint.RawQuery = query.Encode()
@@ -384,4 +391,9 @@ type trackResult struct {
 	ShareURL        string `json:"shareurl"`
 	DownloadURL     string `json:"audiodownload"`
 	DownloadAllowed bool   `json:"audiodownload_allowed"`
+	MusicInfo       struct {
+		Tags struct {
+			Genres []string `json:"genres"`
+		} `json:"tags"`
+	} `json:"musicinfo"`
 }

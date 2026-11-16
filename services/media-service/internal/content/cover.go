@@ -33,6 +33,9 @@ func (c *CoverClient) Transition(ctx context.Context, uploadID uuid.UUID, next S
 func (c *CoverClient) Complete(ctx context.Context, uploadID uuid.UUID) (CoverSession, error) {
 	return c.call(ctx, "Complete", map[string]any{"upload_id": uploadID.String()})
 }
+func (c *CoverClient) Published(ctx context.Context, releaseID uuid.UUID) (CoverSession, error) {
+	return c.call(ctx, "GetPublished", map[string]any{"release_id": releaseID.String()})
+}
 func (c *CoverClient) call(parent context.Context, method string, data map[string]any) (CoverSession, error) {
 	req, err := structpb.NewStruct(data)
 	if err != nil {

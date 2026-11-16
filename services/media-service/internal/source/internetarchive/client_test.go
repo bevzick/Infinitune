@@ -40,7 +40,8 @@ func TestResolveMapsLicensedOriginalAudio(t *testing.T) {
 	}
 	if track.Metadata["item_identifier"] != "night-signals" ||
 		track.Metadata["file_name"] != "audio/track one.mp3" ||
-		track.Metadata["format"] != "VBR MP3" || track.Metadata["track_number"] != "1" {
+		track.Metadata["format"] != "VBR MP3" || track.Metadata["track_number"] != "1" ||
+		track.Metadata["genres"] != "ambient,electronic" || track.Metadata["moods"] != "relaxed" {
 		t.Errorf("Metadata = %#v", track.Metadata)
 	}
 	if err = source.ValidateTrack(track); err != nil {
@@ -213,6 +214,7 @@ func validItem() itemDocument {
 			Title: textValue{"Night Signals Album"}, Creator: textValue{"Luna Veil"},
 			LicenseURL: textValue{"http://creativecommons.org/licenses/by/4.0/"},
 			Date:       textValue{"2026-11-10"},
+			Subject:    textValue{"ambient", "electronica", "chilled"},
 		},
 		Files: []fileRecord{{
 			Name: "audio/track one.mp3", Source: "original", Format: "VBR MP3", Size: "5",

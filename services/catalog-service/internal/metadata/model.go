@@ -157,6 +157,8 @@ type TrackInput struct {
 	Artists      []TrackArtistInput
 	GenreIDs     []uuid.UUID
 	Moods        []TrackMoodInput
+	GenreSlugs   []string
+	MoodSlugs    []string
 }
 
 type LyricsType string

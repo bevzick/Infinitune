@@ -223,7 +223,7 @@ func assertTrackRequest(t *testing.T, request *http.Request, trackID string) {
 	query := request.URL.Query()
 	want := map[string]string{
 		"client_id": "client-id", "format": "json", "limit": "1", "id": trackID,
-		"include": "licenses", "audioformat": "mp32", "audiodlformat": "mp32",
+		"include": "licenses+musicinfo", "audioformat": "mp32", "audiodlformat": "mp32",
 	}
 	for key, expected := range want {
 		if actual := query.Get(key); actual != expected {

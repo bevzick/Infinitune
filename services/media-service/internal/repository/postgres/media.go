@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/bevzick/Infinitune/services/media-service/internal/events"
@@ -259,7 +260,18 @@ func (repository *MediaRepository) CompleteProcessing(
 	readyAsset.Status = media.StatusReady
 	readyAsset.DurationMS = &durationMS
 	readyAsset.Variants = variants
-	message, err := events.NewAssetReady(readyAsset, variants, occurredAt, repository.topic)
+	classification := events.Classification{}
+	var genres, moods string
+	metadataErr := tx.QueryRow(ctx, `
+		SELECT COALESCE(metadata->>'genres', ''), COALESCE(metadata->>'moods', '')
+		FROM media.asset_sources WHERE media_asset_id = $1
+	`, job.Asset.ID).Scan(&genres, &moods)
+	if metadataErr != nil && !errors.Is(metadataErr, pgx.ErrNoRows) {
+		return fmt.Errorf("read media source classification: %w", metadataErr)
+	}
+	classification.Genres = splitClassification(genres)
+	classification.Moods = splitClassification(moods)
+	message, err := events.NewAssetReady(readyAsset, variants, occurredAt, repository.topic, classification)
 	if err != nil {
 		return fmt.Errorf("encode media asset ready event: %w", err)
 	}
@@ -276,6 +288,19 @@ func (repository *MediaRepository) CompleteProcessing(
 		return fmt.Errorf("commit completed processing: %w", err)
 	}
 	return nil
+}
+
+func splitClassification(value string) []string {
+	if strings.TrimSpace(value) == "" {
+		return nil
+	}
+	result := make([]string, 0)
+	for item := range strings.SplitSeq(value, ",") {
+		if item = strings.TrimSpace(item); item != "" {
+			result = append(result, item)
+		}
+	}
+	return result
 }
 
 func (repository *MediaRepository) FailProcessing(

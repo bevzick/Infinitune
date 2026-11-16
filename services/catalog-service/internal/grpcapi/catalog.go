@@ -238,6 +238,7 @@ func publicationInput(request *catalogv1.PublishReleaseRequest) (metadata.Public
 			Artists: []metadata.TrackArtistInput{{
 				ArtistID: artistID, Role: metadata.ArtistRolePrimary, Position: 1,
 			}},
+			GenreSlugs: track.GetGenreSlugs(), MoodSlugs: track.GetMoodSlugs(),
 		})
 	}
 	return input, nil

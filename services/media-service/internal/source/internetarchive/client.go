@@ -175,6 +175,13 @@ func normalizedTrack(item itemDocument, file fileRecord, license source.License)
 	if file.Track != "" {
 		metadata["track_number"] = file.Track
 	}
+	genres, moods := source.ClassifyTags(item.Metadata.Subject)
+	if len(genres) > 0 {
+		metadata["genres"] = strings.Join(genres, ",")
+	}
+	if len(moods) > 0 {
+		metadata["moods"] = strings.Join(moods, ",")
+	}
 	return source.Track{
 		ExternalID: item.Metadata.Identifier + "/" + file.Name, Title: title, Artist: artist,
 		PageURL: "https://archive.org/details/" + url.PathEscape(item.Metadata.Identifier),
@@ -436,6 +443,7 @@ type itemMetadata struct {
 	Creator    textValue `json:"creator"`
 	LicenseURL textValue `json:"licenseurl"`
 	Date       textValue `json:"date"`
+	Subject    textValue `json:"subject"`
 }
 
 type fileRecord struct {

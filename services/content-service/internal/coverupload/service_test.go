@@ -50,6 +50,15 @@ func (stub *coverStoreStub) ByID(_ context.Context, id uuid.UUID) (Session, erro
 	}
 	return Session{}, ErrNotFound
 }
+
+func (stub *coverStoreStub) Published(_ context.Context, releaseID uuid.UUID) (Session, error) {
+	for _, session := range stub.sessions {
+		if session.ReleaseID == releaseID && session.Status == StatusCompleted {
+			return session, nil
+		}
+	}
+	return Session{}, ErrNotFound
+}
 func (stub *coverStoreStub) Complete(_ context.Context, id uuid.UUID) (Session, error) {
 	session, ok := stub.sessions[id]
 	if !ok {

@@ -16,15 +16,17 @@ import (
 const ServiceName = "infinitune.content.cover.v1.CoverUploadService"
 
 const (
-	GetSessionMethod = "/" + ServiceName + "/GetSession"
-	TransitionMethod = "/" + ServiceName + "/Transition"
-	CompleteMethod   = "/" + ServiceName + "/Complete"
+	GetSessionMethod   = "/" + ServiceName + "/GetSession"
+	TransitionMethod   = "/" + ServiceName + "/Transition"
+	CompleteMethod     = "/" + ServiceName + "/Complete"
+	GetPublishedMethod = "/" + ServiceName + "/GetPublished"
 )
 
 type Sessions interface {
 	SessionForUser(context.Context, uuid.UUID, uuid.UUID) (coverupload.Session, error)
 	Transition(context.Context, uuid.UUID, coverupload.Status) (coverupload.Session, error)
 	Complete(context.Context, uuid.UUID) (coverupload.Session, error)
+	Published(context.Context, uuid.UUID) (coverupload.Session, error)
 }
 
 type Server struct{ sessions Sessions }
@@ -37,6 +39,7 @@ func Register(registrar grpc.ServiceRegistrar, sessions Sessions) {
 			{MethodName: "GetSession", Handler: serveGetSession},
 			{MethodName: "Transition", Handler: serveTransition},
 			{MethodName: "Complete", Handler: serveComplete},
+			{MethodName: "GetPublished", Handler: serveGetPublished},
 		},
 		Metadata: "api/cover/v1/cover.proto",
 	}, &Server{sessions: sessions})
@@ -46,6 +49,13 @@ type api interface {
 	GetSession(context.Context, *structpb.Struct) (*structpb.Struct, error)
 	Transition(context.Context, *structpb.Struct) (*structpb.Struct, error)
 	Complete(context.Context, *structpb.Struct) (*structpb.Struct, error)
+	GetPublished(context.Context, *structpb.Struct) (*structpb.Struct, error)
+}
+
+func serveGetPublished(srv any, ctx context.Context, dec func(any) error, interceptor grpc.UnaryServerInterceptor) (any, error) {
+	return dispatch(srv, ctx, dec, interceptor, GetPublishedMethod, func(ctx context.Context, req *structpb.Struct) (*structpb.Struct, error) {
+		return srv.(api).GetPublished(ctx, req)
+	})
 }
 
 func serveGetSession(srv any, ctx context.Context, dec func(any) error, interceptor grpc.UnaryServerInterceptor) (any, error) {
@@ -130,6 +140,17 @@ func (s *Server) Complete(ctx context.Context, request *structpb.Struct) (*struc
 		return nil, err
 	}
 	session, err := s.sessions.Complete(ctx, uploadID)
+	if err != nil {
+		return nil, mapError(err)
+	}
+	return encode(session)
+}
+func (s *Server) GetPublished(ctx context.Context, request *structpb.Struct) (*structpb.Struct, error) {
+	releaseID, err := uuidField(request, "release_id")
+	if err != nil {
+		return nil, err
+	}
+	session, err := s.sessions.Published(ctx, releaseID)
 	if err != nil {
 		return nil, mapError(err)
 	}

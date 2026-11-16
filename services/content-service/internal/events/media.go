@@ -37,6 +37,8 @@ type assetReadyData struct {
 	CatalogTrackID *uuid.UUID     `json:"catalog_track_id"`
 	DurationMS     int            `json:"duration_ms"`
 	Variants       []audioVariant `json:"variants"`
+	Genres         []string       `json:"genres"`
+	Moods          []string       `json:"moods"`
 }
 
 type ReadyAsset struct {
@@ -46,6 +48,8 @@ type ReadyAsset struct {
 	DurationMS     int
 	EventID        uuid.UUID
 	OccurredAt     time.Time
+	Genres         []string
+	Moods          []string
 }
 
 type MediaReadinessStore interface {
@@ -76,6 +80,7 @@ func (handler *MediaHandler) Handle(ctx context.Context, payload []byte) error {
 		MediaAssetID:   event.Data.MediaAssetID,
 		ContentTrackID: *event.Data.ContentTrackID, DurationMS: event.Data.DurationMS,
 		EventID: event.ID, OccurredAt: event.OccurredAt.UTC(),
+		Genres: event.Data.Genres, Moods: event.Data.Moods,
 	}
 	if event.Data.SourceUploadID != nil {
 		asset.SourceUploadID = *event.Data.SourceUploadID

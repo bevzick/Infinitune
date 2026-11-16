@@ -25,18 +25,21 @@ func (repository *MediaReadinessRepository) UpsertReady(ctx context.Context, ass
 	}
 	_, err := repository.pool.Exec(ctx, `
 		INSERT INTO content.media_asset_readiness (
-			media_asset_id, source_upload_id, content_track_id, duration_ms, event_id, occurred_at
-		) VALUES ($1,$2,$3,$4,$5,$6)
+			media_asset_id, source_upload_id, content_track_id, duration_ms, event_id, occurred_at,
+			genres, moods
+		) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
 		ON CONFLICT (media_asset_id) DO UPDATE
 		SET source_upload_id=EXCLUDED.source_upload_id,
 		    content_track_id=EXCLUDED.content_track_id,
 		    duration_ms=EXCLUDED.duration_ms,
 		    event_id=EXCLUDED.event_id,
 		    occurred_at=EXCLUDED.occurred_at,
+		    genres=EXCLUDED.genres,
+		    moods=EXCLUDED.moods,
 		    updated_at=now()
 		WHERE EXCLUDED.occurred_at > content.media_asset_readiness.occurred_at
 	`, asset.MediaAssetID, sourceUploadID, asset.ContentTrackID,
-		asset.DurationMS, asset.EventID, asset.OccurredAt)
+		asset.DurationMS, asset.EventID, asset.OccurredAt, asset.Genres, asset.Moods)
 	if err != nil {
 		return fmt.Errorf("upsert media readiness: %w", err)
 	}
@@ -49,9 +52,9 @@ func (repository *MediaReadinessRepository) AssetByUpload(ctx context.Context, u
 	}
 	var asset contentmedia.Asset
 	err := repository.pool.QueryRow(ctx, `
-		SELECT media_asset_id, source_upload_id, content_track_id, duration_ms
+		SELECT media_asset_id, source_upload_id, content_track_id, duration_ms, genres, moods
 		FROM content.media_asset_readiness WHERE source_upload_id=$1
-	`, uploadID).Scan(&asset.ID, &asset.SourceUploadID, &asset.ContentTrackID, &asset.DurationMS)
+	`, uploadID).Scan(&asset.ID, &asset.SourceUploadID, &asset.ContentTrackID, &asset.DurationMS, &asset.Genres, &asset.Moods)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return contentmedia.Asset{}, contentmedia.ErrNotFound
 	}
@@ -72,10 +75,10 @@ func (repository *MediaReadinessRepository) AssetByTrack(
 	var asset contentmedia.Asset
 	var sourceUploadID *uuid.UUID
 	err := repository.pool.QueryRow(ctx, `
-		SELECT media_asset_id, source_upload_id, content_track_id, duration_ms
+		SELECT media_asset_id, source_upload_id, content_track_id, duration_ms, genres, moods
 		FROM content.media_asset_readiness
 		WHERE content_track_id=$1 AND source_upload_id IS NULL
-	`, trackID).Scan(&asset.ID, &sourceUploadID, &asset.ContentTrackID, &asset.DurationMS)
+	`, trackID).Scan(&asset.ID, &sourceUploadID, &asset.ContentTrackID, &asset.DurationMS, &asset.Genres, &asset.Moods)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return contentmedia.Asset{}, contentmedia.ErrNotFound
 	}

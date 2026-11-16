@@ -109,7 +109,8 @@ func main() {
 		contentClient,
 		mediaRepository, objectStorage,
 	)
-	coverService := coveringest.NewService(content_client.NewCoverClient(contentConnection), objectStorage)
+	coverClient := content_client.NewCoverClient(contentConnection)
+	coverService := coveringest.NewService(coverClient, objectStorage)
 	archiveProvider, err := internet_archive.New(internet_archive.Config{
 		MetadataURL: cfg.InternetArchive.MetadataURL,
 		DownloadURL: cfg.InternetArchive.DownloadURL,
@@ -165,17 +166,18 @@ func main() {
 	server := &http.Server{
 		Addr: cfg.HTTPAddress,
 		Handler: eventMetrics.Wrap(httpapi.NewRouter(httpapi.Dependencies{
-			Database: databasePool,
-			Storage:  objectStorage,
-			Objects:  objectStorage,
-			Media:    metadataService,
-			Ingest:   ingestService,
-			Covers:   coverService,
-			Imports:  externalImportService,
-			Sources:  providers,
-			Tokens:   tokenVerifier,
-			Origins:  cfg.Origins,
-			Logger:   logger,
+			Database:        databasePool,
+			Storage:         objectStorage,
+			Objects:         objectStorage,
+			Media:           metadataService,
+			Ingest:          ingestService,
+			Covers:          coverService,
+			PublishedCovers: coverClient,
+			Imports:         externalImportService,
+			Sources:         providers,
+			Tokens:          tokenVerifier,
+			Origins:         cfg.Origins,
+			Logger:          logger,
 		})),
 		ReadHeaderTimeout: readHeaderTimeout,
 	}

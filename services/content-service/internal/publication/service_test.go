@@ -21,7 +21,7 @@ func TestServicePublishesApprovedAlbum(t *testing.T) {
 		Release: release.Release{
 			ID: releaseID, CreatorID: creatorID, Title: "Approved Album",
 			Type: release.TypeAlbum, ReleaseDate: time.Date(2027, 3, 4, 0, 0, 0, 0, time.UTC),
-			Status: release.StatusApproved,
+			Status: release.StatusApproved, CoverObjectKey: stringPointer("private/cover.webp"),
 		},
 		CreatorName: "Artist",
 		Tracks: []Track{{Track: release.Track{
@@ -33,6 +33,7 @@ func TestServicePublishesApprovedAlbum(t *testing.T) {
 		uploadID: {
 			ID: assetID, SourceUploadID: uploadID, ContentTrackID: trackID,
 			DurationMS: 180000, Status: contentmedia.StatusReady,
+			Genres: []string{"electronic"}, Moods: []string{"focused"},
 		},
 	}}
 	catalog := &catalogStub{publishedAt: now}
@@ -48,6 +49,9 @@ func TestServicePublishesApprovedAlbum(t *testing.T) {
 		*catalog.input.AlbumID != wantAlbumID || len(catalog.input.Tracks) != 1 ||
 		catalog.input.Tracks[0].ID != wantTrackID ||
 		catalog.input.Tracks[0].MediaAssetID != assetID ||
+		catalog.input.CoverURL != "/v1/media/covers/"+releaseID.String() ||
+		len(catalog.input.Tracks[0].GenreSlugs) != 1 || catalog.input.Tracks[0].GenreSlugs[0] != "electronic" ||
+		len(catalog.input.Tracks[0].MoodSlugs) != 1 || catalog.input.Tracks[0].MoodSlugs[0] != "focused" ||
 		store.record.AlbumID == nil || *store.record.AlbumID != wantAlbumID ||
 		store.record.PublishedAt != now {
 		t.Fatalf("catalog input = %+v; record = %+v", catalog.input, store.record)
@@ -56,6 +60,8 @@ func TestServicePublishesApprovedAlbum(t *testing.T) {
 		t.Fatalf("published track = %+v", access)
 	}
 }
+
+func stringPointer(value string) *string { return &value }
 
 func TestServicePublishesSingleWithoutAlbum(t *testing.T) {
 	releaseID, trackID, uploadID := uuid.New(), uuid.New(), uuid.New()

@@ -46,6 +46,10 @@ func (f fakeSessions) Complete(_ context.Context, id uuid.UUID) (coverupload.Ses
 	s.Status = coverupload.StatusCompleted
 	return s, nil
 }
+
+func (f fakeSessions) Published(_ context.Context, _ uuid.UUID) (coverupload.Session, error) {
+	return f.session, f.err
+}
 func TestCoverRPCResponsesAndPermissions(t *testing.T) {
 	s := coverupload.Session{ID: uuid.New(), ReleaseID: uuid.New(), RequestedByUserID: uuid.New(), MIMEType: "image/png", ObjectKey: "private/cover.png", SizeBytes: 345, Status: coverupload.StatusPending}
 	server := &Server{sessions: fakeSessions{session: s}}

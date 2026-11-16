@@ -52,17 +52,18 @@ type SourceDiscovery interface {
 }
 
 type Dependencies struct {
-	Database DatabaseCheck
-	Storage  StorageCheck
-	Objects  ObjectStorage
-	Media    Playback
-	Ingest   UploadIngest
-	Covers   CoverUploadIngest
-	Imports  ExternalImport
-	Sources  SourceDiscovery
-	Tokens   IdentityVerifier
-	Origins  []string
-	Logger   *slog.Logger
+	Database        DatabaseCheck
+	Storage         StorageCheck
+	Objects         ObjectStorage
+	Media           Playback
+	Ingest          UploadIngest
+	Covers          CoverUploadIngest
+	PublishedCovers PublishedCover
+	Imports         ExternalImport
+	Sources         SourceDiscovery
+	Tokens          IdentityVerifier
+	Origins         []string
+	Logger          *slog.Logger
 }
 
 func NewRouter(dependencies Dependencies) http.Handler {
@@ -74,6 +75,7 @@ func NewRouter(dependencies Dependencies) http.Handler {
 	router := gin.New()
 	router.Use(observeRequests(dependencies.Logger), recoverPanics(dependencies.Logger), cors(dependencies.Origins))
 	router.GET("/health", health(dependencies))
+	router.GET("/v1/media/covers/:release_id", deliverCover(dependencies))
 	protected := router.Group("/v1/media")
 	protected.Use(authenticate(dependencies.Tokens, dependencies.Logger))
 	protected.GET("/assets/:media_asset_id/playback", playback(dependencies))
