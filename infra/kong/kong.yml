@@ -110,6 +110,15 @@ services:
   - name: media-service
     url: http://media-service:8080
     routes:
+      - name: media-published-cover
+        paths:
+          - ~/v1/media/covers/[0-9a-fA-F-]+$
+        methods:
+          - GET
+          - OPTIONS
+        regex_priority: 115
+        strip_path: false
+
       - name: media-creator-upload
         paths:
           - ~/v1/media/uploads/[0-9a-fA-F-]+$

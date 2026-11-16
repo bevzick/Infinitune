@@ -38,6 +38,23 @@ func (repository *CoverUploadRepository) ReleaseTarget(ctx context.Context, rele
 	return target, nil
 }
 
+func (repository *CoverUploadRepository) Published(ctx context.Context, releaseID uuid.UUID) (coverupload.Session, error) {
+	result, err := scanCoverUpload(repository.database.QueryRow(ctx, `
+		SELECT cover.id, cover.release_id, cover.requested_by_user_id, cover.idempotency_key,
+		       cover.object_key, cover.original_name, cover.mime_type, cover.size_bytes,
+		       cover.status, cover.created_at, cover.updated_at
+		FROM content.cover_uploads AS cover
+		JOIN content.releases AS release
+		  ON release.id=cover.release_id AND release.cover_object_key=cover.object_key
+		WHERE release.id=$1 AND release.status='published' AND cover.status='completed'
+		ORDER BY cover.updated_at DESC LIMIT 1
+	`, releaseID))
+	if err != nil {
+		return coverupload.Session{}, mapCoverUploadError(err)
+	}
+	return result, nil
+}
+
 func (repository *CoverUploadRepository) Create(ctx context.Context, session coverupload.Session) (coverupload.Session, bool, error) {
 	created, err := scanCoverUpload(repository.database.QueryRow(ctx, `
         INSERT INTO content.cover_uploads (

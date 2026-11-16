@@ -34,6 +34,13 @@ type AssetReadyData struct {
 	CatalogTrackID *uuid.UUID     `json:"catalog_track_id,omitempty"`
 	DurationMS     int            `json:"duration_ms"`
 	Variants       []AudioVariant `json:"variants"`
+	Genres         []string       `json:"genres,omitempty"`
+	Moods          []string       `json:"moods,omitempty"`
+}
+
+type Classification struct {
+	Genres []string
+	Moods  []string
 }
 
 type Message struct {
@@ -47,7 +54,7 @@ type Message struct {
 	Attempts    int
 }
 
-func NewAssetReady(asset media.Asset, variants []media.AudioVariant, occurredAt time.Time, topic string) (Message, error) {
+func NewAssetReady(asset media.Asset, variants []media.AudioVariant, occurredAt time.Time, topic string, values ...Classification) (Message, error) {
 	eventID := uuid.New()
 	eventVariants := make([]AudioVariant, 0, len(variants))
 	for _, variant := range variants {
@@ -74,12 +81,17 @@ func NewAssetReady(asset media.Asset, variants []media.AudioVariant, occurredAt 
 		value := asset.TrackID
 		catalogTrackID = &value
 	}
+	classification := Classification{}
+	if len(values) > 0 {
+		classification = values[0]
+	}
 	payload, err := json.Marshal(Envelope[AssetReadyData]{
 		ID: eventID, Type: AssetReadyV1, Source: "media-service", OccurredAt: occurredAt.UTC(),
 		Data: AssetReadyData{
 			MediaAssetID: asset.ID, SourceUploadID: sourceUploadID,
 			ContentTrackID: contentTrackID, CatalogTrackID: catalogTrackID,
 			DurationMS: durationMS, Variants: eventVariants,
+			Genres: classification.Genres, Moods: classification.Moods,
 		},
 	})
 	if err != nil {

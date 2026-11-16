@@ -43,6 +43,8 @@ type TrackInput struct {
 	DiscNumber     int32
 	Explicit       bool
 	MediaAssetID   uuid.UUID
+	GenreSlugs     []string
+	MoodSlugs      []string
 }
 
 type PublishedTrack struct {
@@ -116,6 +118,7 @@ func (client *Client) Publish(
 			TrackNumber: track.TrackNumber, DiscNumber: track.DiscNumber,
 			Explicit: track.Explicit, ReleaseDate: date,
 			MediaAssetId: track.MediaAssetID.String(),
+			GenreSlugs:   track.GenreSlugs, MoodSlugs: track.MoodSlugs,
 		})
 	}
 	response, err := client.client.PublishRelease(callCtx, request)

@@ -17,6 +17,14 @@ type Store interface {
 	ByID(context.Context, uuid.UUID) (Session, error)
 	Transition(context.Context, uuid.UUID, Status, Status) (Session, error)
 	Complete(context.Context, uuid.UUID) (Session, error)
+	Published(context.Context, uuid.UUID) (Session, error)
+}
+
+func (service *Service) Published(ctx context.Context, releaseID uuid.UUID) (Session, error) {
+	if releaseID == uuid.Nil {
+		return Session{}, invalidField("release_id", "must be a UUID")
+	}
+	return service.store.Published(ctx, releaseID)
 }
 
 type Authorizer interface {

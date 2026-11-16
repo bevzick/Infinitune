@@ -35,6 +35,8 @@ type Asset struct {
 	ContentTrackID uuid.UUID
 	DurationMS     int
 	Status         Status
+	Genres         []string
+	Moods          []string
 }
 
 type Client struct {

@@ -180,6 +180,17 @@ func TestValidateAlbumSupportsSingleWithMultipleArtists(t *testing.T) {
 	}
 }
 
+func TestValidateAlbumAcceptsPublishedMediaCover(t *testing.T) {
+	releaseID := uuid.New()
+	input := AlbumInput{ID: uuid.New(), Title: "Release", Type: AlbumTypeAlbum,
+		ReleaseDate: time.Now(), CoverURL: "/v1/media/covers/" + releaseID.String(),
+		Artists: []ArtistPositionInput{{ArtistID: uuid.New(), Position: 1}}}
+	canonical, err := validateAlbum(input)
+	if err != nil || canonical.CoverURL != input.CoverURL {
+		t.Fatalf("validateAlbum() = %+v, %v", canonical, err)
+	}
+}
+
 func TestValidateTaxonomyCanonicalizesSlug(t *testing.T) {
 	genre, err := validateGenre(GenreInput{ID: uuid.New(), Name: " Electronic ", Slug: " Electronic-Music "})
 	if err != nil {

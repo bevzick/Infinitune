@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	contentclient "github.com/bevzick/Infinitune/services/media-service/internal/content"
 	"github.com/bevzick/Infinitune/services/media-service/internal/identity"
 	"github.com/bevzick/Infinitune/services/media-service/internal/media"
 	"github.com/bevzick/Infinitune/services/media-service/internal/source"
@@ -167,6 +168,36 @@ type objectStorageStub struct {
 	object storage.Object
 	err    error
 	key    string
+}
+
+type publishedCoverStub struct {
+	session contentclient.CoverSession
+	err     error
+}
+
+func (stub publishedCoverStub) Published(context.Context, uuid.UUID) (contentclient.CoverSession, error) {
+	return stub.session, stub.err
+}
+
+func TestPublishedCoverIsPublicAndCacheable(t *testing.T) {
+	releaseID := uuid.New()
+	objects := &objectStorageStub{object: storage.Object{
+		Body: newReadSeekCloser("image"), Size: 5, ContentType: "image/webp",
+	}}
+	dependencies := Dependencies{
+		Database: databaseStub{}, Storage: storageStub{}, Objects: objects,
+		PublishedCovers: publishedCoverStub{session: contentclient.CoverSession{
+			ReleaseID: releaseID, ObjectKey: "creator-content/cover.webp", MIMEType: "image/webp",
+		}}, Logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
+	}
+	request := httptest.NewRequest(http.MethodGet, "/v1/media/covers/"+releaseID.String(), nil)
+	response := httptest.NewRecorder()
+	NewRouter(dependencies).ServeHTTP(response, request)
+	if response.Code != http.StatusOK || response.Body.String() != "image" ||
+		response.Header().Get("Content-Type") != "image/webp" ||
+		!strings.Contains(response.Header().Get("Cache-Control"), "public") {
+		t.Fatalf("cover response = %d %q %#v", response.Code, response.Body.String(), response.Header())
+	}
 }
 
 type readSeekCloser struct {

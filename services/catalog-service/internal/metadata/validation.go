@@ -454,10 +454,50 @@ func validateTrack(input TrackInput) (TrackInput, error) {
 	if err = validateMoods(input.Moods); err != nil {
 		return TrackInput{}, err
 	}
+	input.GenreSlugs, err = validateTaxonomySlugs("genre_slugs", input.GenreSlugs, allowedGenreSlugs)
+	if err != nil {
+		return TrackInput{}, err
+	}
+	input.MoodSlugs, err = validateTaxonomySlugs("mood_slugs", input.MoodSlugs, allowedMoodSlugs)
+	if err != nil {
+		return TrackInput{}, err
+	}
 
 	input.Title = title
 	input.ReleaseDate = dateOnly(input.ReleaseDate)
 	return input, nil
+}
+
+var allowedGenreSlugs = map[string]struct{}{
+	"acoustic": {}, "ambient": {}, "classical": {}, "disco": {}, "downtempo": {},
+	"dub": {}, "electronic": {}, "experimental": {}, "folk": {}, "funk": {},
+	"hip-hop": {}, "indie": {}, "industrial": {}, "jazz": {}, "metal": {},
+	"noise": {}, "piano": {}, "pop": {}, "punk": {}, "rock": {},
+	"synthwave": {}, "trip-hop": {},
+}
+
+var allowedMoodSlugs = map[string]struct{}{
+	"calm": {}, "dark": {}, "energetic": {}, "focused": {}, "nocturnal": {},
+	"relaxed": {}, "uplifting": {},
+}
+
+func validateTaxonomySlugs(field string, values []string, allowed map[string]struct{}) ([]string, error) {
+	if len(values) > 8 {
+		return nil, validationError(field, "must not contain more than 8 values")
+	}
+	result, seen := make([]string, 0, len(values)), make(map[string]struct{}, len(values))
+	for _, value := range values {
+		value = strings.ToLower(strings.TrimSpace(value))
+		if _, ok := allowed[value]; !ok {
+			return nil, validationError(field, "contains an unsupported value")
+		}
+		if _, exists := seen[value]; exists {
+			continue
+		}
+		seen[value] = struct{}{}
+		result = append(result, value)
+	}
+	return result, nil
 }
 
 func validateTrackLyrics(input TrackLyricsInput) (TrackLyricsInput, error) {
@@ -649,6 +689,11 @@ func optionalURL(field, value string) (string, error) {
 	value = strings.TrimSpace(value)
 	if value == "" {
 		return "", nil
+	}
+	if strings.HasPrefix(value, "/v1/media/covers/") && !strings.ContainsAny(value, "?#") {
+		if _, err := uuid.Parse(strings.TrimPrefix(value, "/v1/media/covers/")); err == nil {
+			return value, nil
+		}
 	}
 	parsed, err := url.ParseRequestURI(value)
 	if err != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.Host == "" ||
