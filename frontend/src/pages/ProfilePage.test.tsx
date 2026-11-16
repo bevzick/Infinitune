@@ -1,5 +1,6 @@
 import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ApiError } from "../shared/api/client";
@@ -68,7 +69,7 @@ describe("ProfilePage", () => {
 
   it("loads account data and saves explicit false settings", async () => {
     const user = userEvent.setup();
-    render(<ProfilePage />);
+    renderProfile();
 
     expect(
       await screen.findByRole("heading", { name: "Night Listener" }),
@@ -95,7 +96,7 @@ describe("ProfilePage", () => {
       .mockResolvedValue(profile);
     profileApi.createProfile.mockResolvedValue(profile);
     const user = userEvent.setup();
-    render(<ProfilePage />);
+    renderProfile();
 
     expect(
       await screen.findByRole("heading", {
@@ -120,7 +121,7 @@ describe("ProfilePage", () => {
 
   it("previews the selected interface theme immediately", async () => {
     const user = userEvent.setup();
-    render(<ProfilePage />);
+    renderProfile();
 
     await user.selectOptions(
       await screen.findByRole("combobox", { name: "Interface theme" }),
@@ -129,4 +130,46 @@ describe("ProfilePage", () => {
 
     expect(theme.setTheme).toHaveBeenCalledWith("light");
   });
+
+  it("returns to the requested page after creating a profile", async () => {
+    profileApi.getOwnProfile.mockRejectedValueOnce(
+      new ApiError(404, "profile_not_found", "Not found"),
+    );
+    profileApi.createProfile.mockResolvedValue(profile);
+    const user = userEvent.setup();
+    renderProfile("/library?view=tracks");
+
+    await user.type(
+      await screen.findByRole("textbox", { name: /^Username/ }),
+      "night_listener",
+    );
+    await user.type(screen.getByLabelText("Display name"), "Night Listener");
+    await user.click(screen.getByRole("button", { name: "Create profile" }));
+
+    expect(await screen.findByText("/library?view=tracks")).toBeInTheDocument();
+    expect(profileApi.getOwnProfile).toHaveBeenCalledTimes(1);
+  });
 });
+
+function renderProfile(returnTo?: string) {
+  return render(
+    <MemoryRouter
+      initialEntries={[
+        {
+          pathname: "/profile",
+          state: returnTo ? { from: returnTo } : null,
+        },
+      ]}
+    >
+      <Routes>
+        <Route path="/profile" element={<ProfilePage />} />
+        <Route path="/library" element={<LocationProbe />} />
+      </Routes>
+    </MemoryRouter>,
+  );
+}
+
+function LocationProbe() {
+  const location = useLocation();
+  return <span>{location.pathname + location.search}</span>;
+}
