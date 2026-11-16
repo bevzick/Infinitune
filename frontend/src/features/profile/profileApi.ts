@@ -48,6 +48,7 @@ export type SettingsUpdateInput = Omit<
 >;
 
 export const settingsUpdatedEvent = "infinitune:settings-updated";
+export const profileCreatedEvent = "infinitune:profile-created";
 
 export function getOwnProfile(accessToken: string, signal?: AbortSignal) {
   return apiRequest<UserProfile>("/v1/users/me/profile", {
@@ -56,12 +57,19 @@ export function getOwnProfile(accessToken: string, signal?: AbortSignal) {
   });
 }
 
-export function createProfile(accessToken: string, input: ProfileCreateInput) {
-  return apiRequest<UserProfile>("/v1/users/me/profile", {
+export async function createProfile(
+  accessToken: string,
+  input: ProfileCreateInput,
+) {
+  const profile = await apiRequest<UserProfile>("/v1/users/me/profile", {
     method: "POST",
     accessToken,
     body: JSON.stringify(input),
   });
+  window.dispatchEvent(
+    new CustomEvent<UserProfile>(profileCreatedEvent, { detail: profile }),
+  );
+  return profile;
 }
 
 export function updateProfile(accessToken: string, input: ProfileUpdateInput) {

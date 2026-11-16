@@ -4,6 +4,7 @@ import { createBrowserRouter } from "react-router-dom";
 import {
   AdminRoute,
   GuestRoute,
+  ProfileOnboardingRoute,
   ProtectedRoute,
 } from "../features/session/routeGuards";
 import { RouteLoading } from "../shared/ui/RouteLoading";
@@ -79,52 +80,59 @@ export const router = createBrowserRouter([
     ],
   },
   {
-    path: "/",
-    element: <AppLayout />,
-    errorElement: deferred(RouteErrorPage, "error details"),
+    element: <ProfileOnboardingRoute />,
     children: [
-      { index: true, element: deferred(DiscoverPage, "discoveries") },
-      { path: "search", element: deferred(SearchPage, "search") },
-      { path: "artists", element: deferred(ArtistsPage, "artists") },
       {
-        path: "artists/:artistId",
-        element: deferred(ArtistPage, "artist"),
-      },
-      { path: "albums", element: deferred(AlbumsPage, "albums") },
-      { path: "albums/:albumId", element: deferred(AlbumPage, "album") },
-      { path: "tracks/:trackId", element: deferred(TrackPage, "track") },
-      {
-        element: <ProtectedRoute />,
+        path: "/",
+        element: <AppLayout />,
+        errorElement: deferred(RouteErrorPage, "error details"),
         children: [
-          { path: "library", element: deferred(LibraryPage, "library") },
+          { index: true, element: deferred(DiscoverPage, "discoveries") },
+          { path: "search", element: deferred(SearchPage, "search") },
+          { path: "artists", element: deferred(ArtistsPage, "artists") },
           {
-            path: "library/:playlistId",
-            element: deferred(PlaylistPage, "playlist"),
+            path: "artists/:artistId",
+            element: deferred(ArtistPage, "artist"),
           },
-          { path: "profile", element: deferred(ProfilePage, "profile") },
+          { path: "albums", element: deferred(AlbumsPage, "albums") },
+          { path: "albums/:albumId", element: deferred(AlbumPage, "album") },
+          { path: "tracks/:trackId", element: deferred(TrackPage, "track") },
           {
-            path: "history",
-            element: deferred(ListeningHistoryPage, "listening history"),
+            element: <ProtectedRoute />,
+            children: [
+              { path: "library", element: deferred(LibraryPage, "library") },
+              {
+                path: "library/:playlistId",
+                element: deferred(PlaylistPage, "playlist"),
+              },
+              { path: "profile", element: deferred(ProfilePage, "profile") },
+              {
+                path: "history",
+                element: deferred(ListeningHistoryPage, "listening history"),
+              },
+              {
+                path: "creator/accounts",
+                element: deferred(CreatorAccountsPage, "creator accounts"),
+              },
+              {
+                path: "creator/releases",
+                element: deferred(CreatorReleasesPage, "release drafts"),
+              },
+              {
+                path: "creator/import",
+                element: deferred(MusicImportPage, "music import"),
+              },
+            ],
           },
           {
-            path: "creator/accounts",
-            element: deferred(CreatorAccountsPage, "creator accounts"),
+            element: <AdminRoute />,
+            children: [
+              { path: "admin", element: deferred(AdminPage, "admin") },
+            ],
           },
-          {
-            path: "creator/releases",
-            element: deferred(CreatorReleasesPage, "release drafts"),
-          },
-          {
-            path: "creator/import",
-            element: deferred(MusicImportPage, "music import"),
-          },
+          { path: "*", element: deferred(NotFoundPage, "page") },
         ],
       },
-      {
-        element: <AdminRoute />,
-        children: [{ path: "admin", element: deferred(AdminPage, "admin") }],
-      },
-      { path: "*", element: deferred(NotFoundPage, "page") },
     ],
   },
 ]);
