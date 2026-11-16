@@ -8,6 +8,8 @@ import (
 	interactionv1 "github.com/bevzick/Infinitune/services/recommendation-service/api/interaction/v1"
 	userv1 "github.com/bevzick/Infinitune/services/recommendation-service/api/user/v1"
 	"github.com/google/uuid"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 type UserClient struct{ client userv1.UserServiceClient }
@@ -15,6 +17,13 @@ type UserClient struct{ client userv1.UserServiceClient }
 func NewUserClient(client userv1.UserServiceClient) *UserClient { return &UserClient{client: client} }
 func (client *UserClient) Preferences(ctx context.Context, userID uuid.UUID) (Preferences, error) {
 	response, err := client.client.GetRecommendationPreferences(ctx, &userv1.GetRecommendationPreferencesRequest{UserId: userID.String()})
+	if status.Code(err) == codes.NotFound {
+		// Authentication and listener profiles have separate lifecycles. A newly
+		// registered user can request recommendations before completing profile
+		// onboarding, so use privacy-safe defaults and let the ranker produce a
+		// cold-start result instead of treating the missing profile as an outage.
+		return Preferences{Enabled: true, ExplicitAllowed: false}, nil
+	}
 	if err != nil {
 		return Preferences{}, err
 	}
