@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
+  createProfile,
+  profileCreatedEvent,
   settingsUpdatedEvent,
   updateProfile,
   updateSettings,
@@ -9,6 +11,26 @@ import {
 afterEach(() => vi.unstubAllGlobals());
 
 describe("profile API", () => {
+  it("announces successful profile creation to the onboarding guard", async () => {
+    const profile = {
+      user_id: "user-id",
+      username: "night_listener",
+      display_name: "Night Listener",
+    };
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse(profile)));
+    const listener = vi.fn();
+    window.addEventListener(profileCreatedEvent, listener);
+
+    await createProfile("access-token", {
+      username: "night_listener",
+      display_name: "Night Listener",
+    });
+
+    expect(listener).toHaveBeenCalledOnce();
+    expect((listener.mock.calls[0][0] as CustomEvent).detail).toEqual(profile);
+    window.removeEventListener(profileCreatedEvent, listener);
+  });
+
   it("can explicitly clear the private birth date", async () => {
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse({}));
     vi.stubGlobal("fetch", fetchMock);
