@@ -88,12 +88,25 @@ type GatewayAudioUpload = {
   status: "pending" | "completed";
 };
 
+type GatewayProfile = {
+  user_id: string;
+  username: string;
+  display_name: string;
+  bio: string;
+  avatar_url: string;
+  country_code: string;
+  language: string;
+  created_at: string;
+  updated_at: string;
+};
+
 export async function mockGateway(
   page: Page,
   options: {
     roles?: string[];
     emptyCreatorAccounts?: boolean;
     audioUploadFailure?: boolean;
+    missingProfile?: boolean;
   } = {},
 ) {
   const requests: Request[] = [];
@@ -102,6 +115,9 @@ export async function mockGateway(
     ? []
     : [defaultCreatorAccount()];
   let trackRights: GatewayTrackRight[] = [];
+  let listenerProfile: GatewayProfile | null = options.missingProfile
+    ? null
+    : defaultListenerProfile();
   const audioUploads = new Map<string, GatewayAudioUpload>();
   await page.route("http://localhost:8000/v1/**", async (route) => {
     const request = route.request();
@@ -111,6 +127,23 @@ export async function mockGateway(
       return route.fulfill({ status: 204, headers: corsHeaders });
     }
 
+    if (url.pathname === "/v1/auth/register") {
+      const input = request.postDataJSON() as {
+        email: string;
+        password: string;
+      };
+      return json(
+        route,
+        {
+          id: "00000000-0000-4000-8000-000000000001",
+          email: input.email,
+          status: "active",
+          email_verified: false,
+          created_at: "2026-11-17T00:00:00Z",
+        },
+        201,
+      );
+    }
     if (url.pathname === "/v1/auth/login") {
       return json(route, {
         access_token: "e2e-access-token",
@@ -125,6 +158,24 @@ export async function mockGateway(
         issued_at: "2026-11-12T00:00:00Z",
         expires_at: "2099-01-01T00:00:00Z",
       });
+    }
+    if (url.pathname === "/v1/users/me/profile") {
+      if (request.method() === "POST") {
+        const input = request.postDataJSON() as {
+          username: string;
+          display_name: string;
+        };
+        listenerProfile = {
+          ...defaultListenerProfile(),
+          username: input.username,
+          display_name: input.display_name,
+        };
+        return json(route, listenerProfile, 201);
+      }
+      if (!listenerProfile) {
+        return apiError(route, 404, "profile_not_found");
+      }
+      return json(route, listenerProfile);
     }
     if (url.pathname === "/v1/users/me/settings") {
       return json(route, {
@@ -423,6 +474,18 @@ export async function mockGateway(
     if (url.pathname === "/v1/interactions/artists/follows") {
       return json(route, { items: [], page: interactionPage() });
     }
+    if (url.pathname === "/v1/recommendations") {
+      return json(route, {
+        run_id: "00000000-0000-4000-8000-000000000701",
+        algorithm_version: "e2e-cold-start",
+        generated_at: "2026-11-17T00:00:00Z",
+        expires_at: "2099-01-01T00:00:00Z",
+        items: [],
+        total: 0,
+        limit: Number(url.searchParams.get("limit") || 20),
+        offset: Number(url.searchParams.get("offset") || 0),
+      });
+    }
     if (url.pathname === "/v1/catalog/tracks") {
       return json(route, {
         items: [track],
@@ -465,6 +528,20 @@ export async function mockGateway(
 
 function interactionPage() {
   return { limit: 100, offset: 0, total: 0 };
+}
+
+function defaultListenerProfile(): GatewayProfile {
+  return {
+    user_id: "00000000-0000-4000-8000-000000000001",
+    username: "night_listener",
+    display_name: "Night Listener",
+    bio: "",
+    avatar_url: "",
+    country_code: "UA",
+    language: "uk",
+    created_at: "2026-11-12T00:00:00Z",
+    updated_at: "2026-11-12T00:00:00Z",
+  };
 }
 
 function defaultCreatorAccount(): GatewayCreatorAccount {
