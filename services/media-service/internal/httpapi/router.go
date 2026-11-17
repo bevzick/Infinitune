@@ -59,6 +59,7 @@ type Dependencies struct {
 	Ingest          UploadIngest
 	Covers          CoverUploadIngest
 	PublishedCovers PublishedCover
+	ArtistImages    ArtistImages
 	Imports         ExternalImport
 	Sources         SourceDiscovery
 	Tokens          IdentityVerifier
@@ -76,11 +77,13 @@ func NewRouter(dependencies Dependencies) http.Handler {
 	router.Use(observeRequests(dependencies.Logger), recoverPanics(dependencies.Logger), cors(dependencies.Origins))
 	router.GET("/health", health(dependencies))
 	router.GET("/v1/media/covers/:release_id", deliverCover(dependencies))
+	router.GET("/v1/media/artists/:artist_id/image", deliverArtistImage(dependencies.ArtistImages, dependencies.Objects))
 	protected := router.Group("/v1/media")
 	protected.Use(authenticate(dependencies.Tokens, dependencies.Logger))
 	protected.GET("/assets/:media_asset_id/playback", playback(dependencies))
 	protected.PUT("/uploads/:upload_id", ingestUpload(dependencies.Ingest, dependencies.Logger))
 	protected.PUT("/cover-uploads/:upload_id", ingestCoverUpload(dependencies.Covers, dependencies.Logger))
+	protected.PUT("/creator-artists/:creator_id/image", uploadArtistImage(dependencies.ArtistImages, dependencies.Logger))
 	protected.POST("/imports", importExternal(dependencies.Imports, dependencies.Logger))
 	protected.GET("/sources/providers", listSourceProviders(dependencies.Sources))
 	protected.GET("/sources/:provider/tracks", discoverSourceTracks(dependencies.Sources, dependencies.Logger))

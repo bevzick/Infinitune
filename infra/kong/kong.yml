@@ -119,6 +119,31 @@ services:
         regex_priority: 115
         strip_path: false
 
+      - name: media-published-artist-image
+        paths:
+          - ~/v1/media/artists/[0-9a-fA-F-]+/image$
+        methods:
+          - GET
+          - OPTIONS
+        regex_priority: 115
+        strip_path: false
+
+      - name: media-artist-image-upload
+        paths:
+          - ~/v1/media/creator-artists/[0-9a-fA-F-]+/image$
+        methods:
+          - PUT
+          - OPTIONS
+        regex_priority: 116
+        strip_path: false
+        plugins:
+          - name: jwt
+            config:
+              key_claim_name: iss
+              claims_to_verify:
+                - exp
+              run_on_preflight: false
+
       - name: media-creator-upload
         paths:
           - ~/v1/media/uploads/[0-9a-fA-F-]+$

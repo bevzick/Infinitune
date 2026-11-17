@@ -6,10 +6,23 @@ option go_package = "github.com/bevzick/Infinitune/services/media-service/api/co
 
 // Consumer-owned subset of the Content service contract used by Media.
 service ContentService {
+  rpc CheckPermission(CheckPermissionRequest) returns (CheckPermissionResponse);
   rpc GetUploadSession(GetUploadSessionRequest) returns (UploadSession);
   rpc TransitionUpload(TransitionUploadRequest) returns (UploadSession);
   rpc CheckTrackImport(CheckTrackImportRequest) returns (CheckTrackImportResponse);
   rpc CheckTrackPlayback(CheckTrackPlaybackRequest) returns (CheckTrackPlaybackResponse);
+}
+
+message CheckPermissionRequest {
+  string creator_id = 1;
+  string user_id = 2;
+  string permission = 3;
+}
+
+message CheckPermissionResponse {
+  bool allowed = 1;
+  string member_role = 2;
+  string verification_status = 3;
 }
 
 message GetUploadSessionRequest {

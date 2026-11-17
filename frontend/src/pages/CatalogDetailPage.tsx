@@ -155,7 +155,7 @@ function ArtistDetail({ artist }: { artist: Artist }) {
   return (
     <article className="detail-page artist-detail-page">
       <DetailHero
-        artwork={artist.image_url}
+        artwork={artist.image_url || `/v1/media/artists/${artist.id}/image`}
         title={artist.name}
         eyebrow="Artist"
         subtitle={artist.description || "Artist on Infinitune"}

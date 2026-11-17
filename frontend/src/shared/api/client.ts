@@ -67,6 +67,8 @@ async function sendRequest(path: string, options: ApiRequestOptions) {
   if (
     init.body &&
     !(init.body instanceof FormData) &&
+    !(init.body instanceof Blob) &&
+    !(init.body instanceof URLSearchParams) &&
     !headers.has("Content-Type")
   ) {
     headers.set("Content-Type", "application/json");

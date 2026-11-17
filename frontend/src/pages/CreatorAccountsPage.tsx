@@ -8,9 +8,10 @@ import {
   createCreatorAccount,
   listCreatorAccounts,
   submitCreatorVerification,
+  uploadArtistImage,
 } from "../features/creator/creatorReleaseApi";
 import { useSession } from "../features/session/SessionContext";
-import { ApiError } from "../shared/api/client";
+import { ApiError, publicAssetUrl } from "../shared/api/client";
 
 const typeLabels: Record<CreatorAccount["type"], string> = {
   artist: "Artist",
@@ -36,6 +37,7 @@ export function CreatorAccountsPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [submittingId, setSubmittingId] = useState("");
   const [membersAccountId, setMembersAccountId] = useState("");
+  const [uploadingImageId, setUploadingImageId] = useState("");
 
   const load = useCallback(
     async (signal?: AbortSignal) => {
@@ -80,6 +82,25 @@ export function CreatorAccountsPage() {
     setAccounts((current) =>
       current.map((item) => (item.id === account.id ? account : item)),
     );
+  }
+
+  async function uploadImage(account: CreatorAccount, file: File) {
+    if (!accessToken) return;
+    setUploadingImageId(account.id);
+    setError("");
+    setNotice("");
+    try {
+      const uploaded = await uploadArtistImage(accessToken, account.id, file);
+      replaceAccount({
+        ...account,
+        image_url: `${uploaded.image_url}?v=${Date.now()}`,
+      });
+      setNotice(`Image for “${account.display_name}” was updated.`);
+    } catch (reason) {
+      setError(errorMessage(reason, "Could not upload artist image"));
+    } finally {
+      setUploadingImageId("");
+    }
   }
 
   if (status === "loading") {
@@ -146,9 +167,7 @@ export function CreatorAccountsPage() {
         {accounts.length ? (
           accounts.map((account) => (
             <article className="creator-account-card" key={account.id}>
-              <span className="creator-account-mark" aria-hidden="true">
-                {account.type === "artist" ? "♪" : "∞"}
-              </span>
+              <CreatorAccountImage account={account} />
               <div className="creator-account-copy">
                 <span className="eyebrow">{typeLabels[account.type]}</span>
                 <h2>{account.display_name}</h2>
@@ -163,6 +182,23 @@ export function CreatorAccountsPage() {
                 busy={submittingId === account.id}
                 onSubmit={() => void submitVerification(account)}
               />
+              {account.type === "artist" ? (
+                <label className="creator-account-image-upload">
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    disabled={uploadingImageId === account.id}
+                    onChange={(event) => {
+                      const file = event.currentTarget.files?.[0];
+                      event.currentTarget.value = "";
+                      if (file) void uploadImage(account, file);
+                    }}
+                  />
+                  {uploadingImageId === account.id
+                    ? "Uploading image…"
+                    : "Upload artist image"}
+                </label>
+              ) : null}
               <button
                 className="creator-account-members-toggle"
                 type="button"
@@ -207,6 +243,30 @@ export function CreatorAccountsPage() {
         </aside>
       ) : null}
     </section>
+  );
+}
+
+function CreatorAccountImage({ account }: { account: CreatorAccount }) {
+  const [failedSrc, setFailedSrc] = useState("");
+  if (
+    account.type === "artist" &&
+    account.image_url &&
+    failedSrc !== account.image_url
+  ) {
+    return (
+      <span className="creator-account-mark">
+        <img
+          src={publicAssetUrl(account.image_url)}
+          alt=""
+          onError={() => setFailedSrc(account.image_url)}
+        />
+      </span>
+    );
+  }
+  return (
+    <span className="creator-account-mark" aria-hidden="true">
+      {account.type === "artist" ? "♪" : "∞"}
+    </span>
   );
 }
 

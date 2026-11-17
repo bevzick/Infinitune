@@ -51,6 +51,7 @@ type ImportTarget struct {
 }
 
 type grpcClient interface {
+	CheckPermission(context.Context, *contentv1.CheckPermissionRequest, ...grpc.CallOption) (*contentv1.CheckPermissionResponse, error)
 	GetUploadSession(context.Context, *contentv1.GetUploadSessionRequest, ...grpc.CallOption) (*contentv1.UploadSession, error)
 	TransitionUpload(context.Context, *contentv1.TransitionUploadRequest, ...grpc.CallOption) (*contentv1.UploadSession, error)
 	CheckTrackPlayback(context.Context, *contentv1.CheckTrackPlaybackRequest, ...grpc.CallOption) (*contentv1.CheckTrackPlaybackResponse, error)
@@ -60,6 +61,28 @@ type grpcClient interface {
 type Client struct{ client grpcClient }
 
 func NewClient(client grpcClient) *Client { return &Client{client: client} }
+
+func (client *Client) CanUploadArtistImage(
+	ctx context.Context,
+	userID, creatorID uuid.UUID,
+) (bool, error) {
+	if userID == uuid.Nil || creatorID == uuid.Nil {
+		return false, ErrInvalid
+	}
+	callCtx, cancel := context.WithTimeout(ctx, requestTimeout)
+	defer cancel()
+	response, err := client.client.CheckPermission(callCtx, &contentv1.CheckPermissionRequest{
+		UserId: userID.String(), CreatorId: creatorID.String(),
+		Permission: "creator.content.upload",
+	})
+	if err != nil {
+		return false, mapError(ctx, err)
+	}
+	if response == nil {
+		return false, ErrUnavailable
+	}
+	return response.GetAllowed(), nil
+}
 
 func (client *Client) CanImport(
 	ctx context.Context,

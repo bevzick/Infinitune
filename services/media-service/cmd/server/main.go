@@ -15,6 +15,7 @@ import (
 
 	contentv1 "github.com/bevzick/Infinitune/services/media-service/api/content/v1"
 	mediav1 "github.com/bevzick/Infinitune/services/media-service/api/media/v1"
+	"github.com/bevzick/Infinitune/services/media-service/internal/artistimage"
 	"github.com/bevzick/Infinitune/services/media-service/internal/config"
 	content_client "github.com/bevzick/Infinitune/services/media-service/internal/content"
 	"github.com/bevzick/Infinitune/services/media-service/internal/correlation"
@@ -111,6 +112,7 @@ func main() {
 	)
 	coverClient := content_client.NewCoverClient(contentConnection)
 	coverService := coveringest.NewService(coverClient, objectStorage)
+	artistImageService := artistimage.NewService(contentClient, mediaRepository, objectStorage)
 	archiveProvider, err := internet_archive.New(internet_archive.Config{
 		MetadataURL: cfg.InternetArchive.MetadataURL,
 		DownloadURL: cfg.InternetArchive.DownloadURL,
@@ -173,6 +175,7 @@ func main() {
 			Ingest:          ingestService,
 			Covers:          coverService,
 			PublishedCovers: coverClient,
+			ArtistImages:    artistImageService,
 			Imports:         externalImportService,
 			Sources:         providers,
 			Tokens:          tokenVerifier,

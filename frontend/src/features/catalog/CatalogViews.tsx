@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import { publicAssetUrl } from "../../shared/api/client";
 import type { PlaybackContext } from "../history/historyApi";
@@ -102,7 +103,7 @@ export function ArtistGrid({ artists }: { artists: Artist[] }) {
         <article className="artist-card-shell" key={artist.id}>
           <Link className="artist-card" to={`/artists/${artist.id}`}>
             <CatalogArtwork
-              src={artist.image_url}
+              src={artist.image_url || `/v1/media/artists/${artist.id}/image`}
               label={artist.name}
               shape="round"
             />
@@ -203,12 +204,14 @@ export function CatalogArtwork({
   shape: "square" | "round";
 }) {
   const className = `catalog-art catalog-art-${shape}`;
-  return src ? (
+  const [failedSrc, setFailedSrc] = useState("");
+  return src && failedSrc !== src ? (
     <img
       className={className}
       src={publicAssetUrl(src)}
       alt=""
       loading="lazy"
+      onError={() => setFailedSrc(src)}
     />
   ) : (
     <span className={className} aria-hidden="true">
