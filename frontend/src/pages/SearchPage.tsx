@@ -207,7 +207,11 @@ function BestMatch({ track }: { track: Track }) {
   return (
     <aside className="best-match">
       <span className="eyebrow">Best match</span>
-      <CatalogArtwork src="" label={track.title} shape="square" />
+      <CatalogArtwork
+        src={track.cover_url}
+        label={track.title}
+        shape="square"
+      />
       <h2>{track.title}</h2>
       <p>{artistNames || "Infinitune artist"}</p>
       <span className="best-match-meta">

@@ -272,6 +272,18 @@ textarea:focus-visible {
     linear-gradient(135deg, #286b9b, #7f2ce3 70%, #d867b8);
 }
 
+.player-art,
+.track-art {
+  overflow: hidden;
+}
+
+.player-art img,
+.track-art-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
 .player-center {
   min-width: 0;
   display: grid;

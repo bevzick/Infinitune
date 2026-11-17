@@ -202,7 +202,8 @@ func (repository *MetadataRepository) filteredTrackPage(
 	rows, err := repository.database.Query(ctx, `
 		SELECT
 			t.id, t.album_id, t.title, t.duration_ms, t.track_number, t.disc_number, t.explicit,
-			t.release_date, t.media_asset_id, t.content_id, t.created_at, t.updated_at
+			t.release_date, t.media_asset_id, t.content_id, t.created_at, t.updated_at,
+			COALESCE((SELECT cover_url FROM catalog.albums WHERE id = t.album_id), '')
 	`+filterSQL+` ORDER BY `+orderBy+` LIMIT `+limitPlaceholder+` OFFSET `+offsetPlaceholder,
 		pageArguments...)
 	if err != nil {

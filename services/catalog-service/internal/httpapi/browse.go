@@ -86,6 +86,7 @@ type trackMoodResponse struct {
 type trackResponse struct {
 	ID          uuid.UUID             `json:"id"`
 	AlbumID     *uuid.UUID            `json:"album_id,omitempty"`
+	CoverURL    string                `json:"cover_url"`
 	PlaybackURL string                `json:"playback_url"`
 	Title       string                `json:"title"`
 	DurationMS  int                   `json:"duration_ms"`
@@ -393,7 +394,7 @@ func trackResponseFrom(track metadata.Track) trackResponse {
 		})
 	}
 	return trackResponse{
-		ID: track.ID, AlbumID: track.AlbumID,
+		ID: track.ID, AlbumID: track.AlbumID, CoverURL: track.CoverURL,
 		PlaybackURL: "/v1/media/assets/" + track.MediaAssetID.String() + "/playback",
 		Title:       track.Title,
 		DurationMS:  track.DurationMS, TrackNumber: track.TrackNumber,

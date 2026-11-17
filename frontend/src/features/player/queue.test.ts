@@ -21,6 +21,7 @@ describe("playback queue snapshot", () => {
 function track(id: string, title: string): Track {
   return {
     id,
+    cover_url: "",
     title,
     playback_url: `/tracks/${id}`,
     duration_ms: 180_000,

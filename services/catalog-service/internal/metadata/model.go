@@ -106,6 +106,7 @@ type AlbumInput struct {
 type Track struct {
 	ID           uuid.UUID
 	AlbumID      *uuid.UUID
+	CoverURL     string
 	Title        string
 	DurationMS   int
 	TrackNumber  int16
