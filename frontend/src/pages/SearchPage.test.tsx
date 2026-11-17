@@ -71,7 +71,9 @@ describe("SearchPage", () => {
       "/tracks/track-id",
     );
     expect(
-      document.querySelectorAll('img[src="/v1/media/covers/release-id"]'),
+      document.querySelectorAll(
+        'img[src="http://localhost:8000/v1/media/covers/release-id"]',
+      ),
     ).toHaveLength(2);
 
     await user.type(

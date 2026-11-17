@@ -4,6 +4,12 @@ export const gatewayUrl = (
   import.meta.env.VITE_GATEWAY_URL || defaultGatewayUrl
 ).replace(/\/$/, "");
 
+export function publicAssetUrl(value: string) {
+  const url = value.trim();
+  if (!url?.startsWith("/") || url.startsWith("//")) return url;
+  return `${gatewayUrl}${url}`;
+}
+
 type ApiErrorPayload = {
   error?: {
     code?: string;

@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { publicAssetUrl } from "../../shared/api/client";
 import type { PlaybackContext } from "../history/historyApi";
 import { InteractionButton } from "../interactions/InteractionButton";
 import { usePlayer } from "../player/PlayerContext";
@@ -36,7 +37,7 @@ export function TrackList({
             {track.cover_url ? (
               <img
                 className="track-art-image"
-                src={track.cover_url}
+                src={publicAssetUrl(track.cover_url)}
                 alt=""
                 loading="lazy"
               />
@@ -203,7 +204,12 @@ export function CatalogArtwork({
 }) {
   const className = `catalog-art catalog-art-${shape}`;
   return src ? (
-    <img className={className} src={src} alt="" loading="lazy" />
+    <img
+      className={className}
+      src={publicAssetUrl(src)}
+      alt=""
+      loading="lazy"
+    />
   ) : (
     <span className={className} aria-hidden="true">
       {label.slice(0, 1).toUpperCase()}
