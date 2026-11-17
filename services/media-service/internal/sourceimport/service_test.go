@@ -115,6 +115,51 @@ func TestServiceKeepsCreatorCoverInsteadOfProviderArtwork(t *testing.T) {
 	}
 }
 
+func TestServiceRepairsArtworkForExistingExternalImport(t *testing.T) {
+	releaseID, trackID := uuid.New(), uuid.New()
+	existing := media.Asset{ID: uuid.New(), ContentTrackID: trackID}
+	providers := &providerStub{artworkAvailable: true}
+	objects := &objectStub{}
+	covers := newCoverStub(releaseID)
+	asset, created, err := NewService(
+		&authorizerStub{target: content.ImportTarget{ReleaseID: releaseID}}, providers,
+		&storeStub{existing: existing, reference: source.Reference{
+			Provider: source.ProviderJamendo, ExternalID: "42",
+		}}, objects, covers,
+	).Import(context.Background(), uuid.New(), trackID, source.ProviderJamendo, "42")
+	if err != nil || created || asset.ID != existing.ID || providers.openCalls != 0 ||
+		providers.artworkCalls != 1 || objects.putCalls != 1 || covers.completeCalls != 1 {
+		t.Fatalf("Import() = %+v, created=%v, error=%v; audio=%d artwork=%d puts=%d completes=%d",
+			asset, created, err, providers.openCalls, providers.artworkCalls,
+			objects.putCalls, covers.completeCalls)
+	}
+}
+
+func TestServiceDiscardsProviderArtworkWhenCreatorCoverWinsRace(t *testing.T) {
+	releaseID := uuid.New()
+	providers := &providerStub{artworkAvailable: true}
+	objects := &objectStub{}
+	covers := newCoverStub(releaseID)
+	covers.completeErr = content.ErrConflict
+	_, created, err := NewService(
+		&authorizerStub{target: content.ImportTarget{ReleaseID: releaseID}}, providers,
+		&storeStub{findErr: media.ErrNotFound}, objects, covers,
+	).Import(context.Background(), uuid.New(), uuid.New(), source.ProviderJamendo, "42")
+	if err != nil || !created || covers.completeCalls != 1 || objects.deleteCalls != 1 ||
+		len(objects.deletedKeys) != 1 || objects.deletedKeys[0] != covers.session.ObjectKey {
+		t.Fatalf("Import() created=%v, error=%v; completes=%d deletes=%d",
+			created, err, covers.completeCalls, objects.deleteCalls)
+	}
+}
+
+func newCoverStub(releaseID uuid.UUID) *coverStub {
+	return &coverStub{session: content.CoverSession{
+		ID: uuid.New(), ReleaseID: releaseID, RequestedByUserID: uuid.New(),
+		ObjectKey: "creator-content/creator/release/covers/import/cover.jpg",
+		MIMEType:  "image/jpeg", SizeBytes: 5, Status: content.StatusPending,
+	}}
+}
+
 type authorizerStub struct {
 	target content.ImportTarget
 	err    error
@@ -181,6 +226,7 @@ type coverStub struct {
 	session       content.CoverSession
 	createCalls   int
 	completeCalls int
+	completeErr   error
 }
 
 func (stub *coverStub) CreateImported(
@@ -201,6 +247,9 @@ func (stub *coverStub) CompleteIfMissing(
 	context.Context, uuid.UUID,
 ) (content.CoverSession, error) {
 	stub.completeCalls++
+	if stub.completeErr != nil {
+		return content.CoverSession{}, stub.completeErr
+	}
 	stub.session.Status = content.StatusCompleted
 	return stub.session, nil
 }
@@ -236,6 +285,7 @@ type objectStub struct {
 	data        []byte
 	putCalls    int
 	deleteCalls int
+	deletedKeys []string
 }
 
 func (stub *objectStub) Put(
@@ -246,7 +296,8 @@ func (stub *objectStub) Put(
 	return nil
 }
 
-func (stub *objectStub) Delete(context.Context, string) error {
+func (stub *objectStub) Delete(_ context.Context, objectKey string) error {
 	stub.deleteCalls++
+	stub.deletedKeys = append(stub.deletedKeys, objectKey)
 	return nil
 }

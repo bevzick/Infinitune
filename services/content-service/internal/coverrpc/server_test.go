@@ -116,4 +116,26 @@ func TestCoverRPCDispatchThroughGRPC(t *testing.T) {
 	if resp.GetFields()["id"].GetStringValue() != session.ID.String() {
 		t.Fatalf("bad response: %v", resp.String())
 	}
+	actorID, releaseID := uuid.New(), uuid.New()
+	create, _ := structpb.NewStruct(map[string]any{
+		"user_id": actorID.String(), "release_id": releaseID.String(),
+		"idempotency_key": uuid.NewString(), "original_name": "provider.jpg",
+		"mime_type": "image/jpeg", "size_bytes": 512,
+	})
+	resp.Reset()
+	if err := connection.Invoke(context.Background(), CreateImportedMethod, create, &resp); err != nil {
+		t.Fatalf("CreateImported RPC: %v", err)
+	}
+	if resp.GetFields()["release_id"].GetStringValue() != releaseID.String() ||
+		resp.GetFields()["requested_by_user_id"].GetStringValue() != actorID.String() {
+		t.Fatalf("CreateImported response: %v", resp.String())
+	}
+	complete, _ := structpb.NewStruct(map[string]any{"upload_id": session.ID.String()})
+	resp.Reset()
+	if err := connection.Invoke(context.Background(), CompleteIfMissingMethod, complete, &resp); err != nil {
+		t.Fatalf("CompleteIfMissing RPC: %v", err)
+	}
+	if resp.GetFields()["status"].GetStringValue() != string(coverupload.StatusCompleted) {
+		t.Fatalf("CompleteIfMissing response: %v", resp.String())
+	}
 }
