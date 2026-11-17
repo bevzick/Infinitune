@@ -33,6 +33,9 @@ func TestResolveMapsJamendoTrack(t *testing.T) {
 	if track.PageURL != "https://www.jamendo.com/track/42" {
 		t.Errorf("PageURL = %q", track.PageURL)
 	}
+	if track.ArtworkURL != "https://usercontent.jamendo.com/album-9.jpg" {
+		t.Errorf("ArtworkURL = %q", track.ArtworkURL)
+	}
 	if track.License.Name != "CC BY 4.0" ||
 		track.License.URL != "https://creativecommons.org/licenses/by/4.0/" ||
 		track.License.Attribution != "Luna Veil" || !track.License.AllowsStreaming ||
@@ -186,6 +189,19 @@ func TestResolveHandlesMissingInvalidAndUnsupportedTracks(t *testing.T) {
 			t.Fatalf("Resolve() error = %v, want %v", err, ErrUnsupportedLicense)
 		}
 	})
+
+	t.Run("unapproved artwork host", func(t *testing.T) {
+		server := newJamendoServer(t, func(_ *testing.T, _ *http.Request) trackResult {
+			track := validTrack("42", "https://storage.jamendo.com/audio.mp3")
+			track.AlbumImageURL = "https://tracker.example/album.jpg"
+			return track
+		})
+		defer server.Close()
+		client := newTestClient(t, server)
+		if _, err := client.Resolve(context.Background(), "42"); !errors.Is(err, ErrUnavailable) {
+			t.Fatalf("Resolve() error = %v, want %v", err, ErrUnavailable)
+		}
+	})
 }
 
 func newJamendoServer(
@@ -247,9 +263,10 @@ func validTrack(id, downloadURL string) trackResult {
 		ID: id, Name: "Night Signal", Duration: 228,
 		ArtistID: "artist-7", ArtistName: "Luna Veil",
 		AlbumID: "album-9", AlbumName: "After Dark", ReleaseDate: "2026-11-10",
-		LicenseURL:  "http://creativecommons.org/licenses/by/4.0/",
-		ShareURL:    "https://www.jamendo.com/track/" + id,
-		DownloadURL: downloadURL, DownloadAllowed: true,
+		LicenseURL:    "http://creativecommons.org/licenses/by/4.0/",
+		ShareURL:      "https://www.jamendo.com/track/" + id,
+		AlbumImageURL: "https://usercontent.jamendo.com/album-9.jpg",
+		DownloadURL:   downloadURL, DownloadAllowed: true,
 	}
 }
 

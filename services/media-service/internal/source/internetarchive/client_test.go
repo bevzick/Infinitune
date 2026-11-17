@@ -30,7 +30,8 @@ func TestResolveMapsLicensedOriginalAudio(t *testing.T) {
 	}
 	if track.ExternalID != "night-signals/audio/track one.mp3" ||
 		track.Title != "Night Signal" || track.Artist != "Luna Veil" ||
-		track.PageURL != "https://archive.org/details/night-signals" {
+		track.PageURL != "https://archive.org/details/night-signals" ||
+		track.ArtworkURL != "https://archive.org/services/img/night-signals" {
 		t.Errorf("Resolve() = %+v", track)
 	}
 	if track.License.Name != "CC BY 4.0" ||

@@ -274,6 +274,13 @@
     ),
     linear-gradient(135deg, #287f91, #7c2ae4 72%);
   font-size: 1.65rem;
+
+  img {
+    width: 100%;
+    height: 100%;
+    border-radius: inherit;
+    object-fit: cover;
+  }
 }
 
 .music-source-copy {

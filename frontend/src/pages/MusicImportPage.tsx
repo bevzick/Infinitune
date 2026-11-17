@@ -301,7 +301,11 @@ function SourceResults({
             key={`${track.provider}:${track.external_id}`}
           >
             <span className="music-source-art" aria-hidden="true">
-              ◎
+              {track.artwork_url ? (
+                <img src={track.artwork_url} alt="" loading="lazy" />
+              ) : (
+                "◎"
+              )}
             </span>
             <div className="music-source-copy">
               <strong>{track.title}</strong>

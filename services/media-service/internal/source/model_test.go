@@ -93,3 +93,14 @@ func TestValidateAudioStream(t *testing.T) {
 		t.Fatalf("ValidateAudioStream() error = %v, want %v", err, ErrInvalidStream)
 	}
 }
+
+func TestValidateTrackRejectsUnsafeArtworkURL(t *testing.T) {
+	track := Track{
+		ExternalID: "42", Title: "Track", Artist: "Artist",
+		PageURL: "https://example.com/tracks/42", ArtworkURL: "http://example.com/cover.jpg",
+		License: License{Name: "CC BY", URL: "https://example.com/license"},
+	}
+	if err := ValidateTrack(track); !errors.Is(err, ErrInvalid) {
+		t.Fatalf("ValidateTrack() error = %v, want %v", err, ErrInvalid)
+	}
+}

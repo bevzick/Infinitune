@@ -184,8 +184,9 @@ func normalizedTrack(item itemDocument, file fileRecord, license source.License)
 	}
 	return source.Track{
 		ExternalID: item.Metadata.Identifier + "/" + file.Name, Title: title, Artist: artist,
-		PageURL: "https://archive.org/details/" + url.PathEscape(item.Metadata.Identifier),
-		License: license, Metadata: metadata,
+		PageURL:    "https://archive.org/details/" + url.PathEscape(item.Metadata.Identifier),
+		ArtworkURL: "https://archive.org/services/img/" + url.PathEscape(item.Metadata.Identifier),
+		License:    license, Metadata: metadata,
 	}
 }
 

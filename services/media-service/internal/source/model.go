@@ -76,6 +76,7 @@ type Track struct {
 	Title      string
 	Artist     string
 	PageURL    string
+	ArtworkURL string
 	License    License
 	Metadata   map[string]string
 }
@@ -165,6 +166,11 @@ func ValidateTrack(track Track) error {
 	}
 	if err := validateHTTPSURL("page_url", track.PageURL); err != nil {
 		return err
+	}
+	if track.ArtworkURL != "" {
+		if err := validateHTTPSURL("artwork_url", track.ArtworkURL); err != nil {
+			return err
+		}
 	}
 	if strings.TrimSpace(track.License.Name) == "" {
 		return validationError("license.name", "must not be blank")

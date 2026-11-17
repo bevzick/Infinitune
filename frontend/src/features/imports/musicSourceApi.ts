@@ -16,6 +16,7 @@ export type SourceTrack = {
   title: string;
   artist: string;
   page_url: string;
+  artwork_url: string;
   license: SourceLicense;
   metadata: Record<string, string>;
 };

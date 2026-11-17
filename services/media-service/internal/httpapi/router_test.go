@@ -327,7 +327,8 @@ func TestDiscoversLicensedSourceTracks(t *testing.T) {
 	service := &sourceDiscoveryStub{page: source.DiscoveryPage{
 		Tracks: []source.Track{{
 			ExternalID: "42", Title: "Focus", Artist: "Artist",
-			PageURL: "https://example.com/tracks/42",
+			PageURL:    "https://example.com/tracks/42",
+			ArtworkURL: "https://example.com/artwork/42.jpg",
 			License: source.License{Name: "CC BY", URL: "https://example.com/license",
 				AllowsStreaming: true, AllowsRedistribution: true},
 		}}, Limit: 5, Offset: 10, Total: 12,
@@ -341,7 +342,8 @@ func TestDiscoversLicensedSourceTracks(t *testing.T) {
 	NewRouter(dependencies).ServeHTTP(response, request)
 	if response.Code != http.StatusOK || service.provider != source.ProviderJamendo ||
 		service.query.Query != "focus" || service.query.Limit != 5 || service.query.Offset != 10 ||
-		!strings.Contains(response.Body.String(), `"allows_redistribution":true`) {
+		!strings.Contains(response.Body.String(), `"allows_redistribution":true`) ||
+		!strings.Contains(response.Body.String(), `"artwork_url":"https://example.com/artwork/42.jpg"`) {
 		t.Fatalf("status = %d, query = %+v, body = %s", response.Code, service.query, response.Body.String())
 	}
 }

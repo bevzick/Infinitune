@@ -38,6 +38,7 @@ describe("MusicImportPage", () => {
           title: "Night Signal",
           artist: "Luna Veil",
           page_url: "https://example.com/tracks/42",
+          artwork_url: "https://example.com/artwork/42.jpg",
           license: {
             name: "CC BY 4.0",
             url: "https://creativecommons.org/licenses/by/4.0/",
@@ -81,6 +82,10 @@ describe("MusicImportPage", () => {
     await user.click(screen.getByRole("button", { name: "Search source" }));
 
     expect(await screen.findByText("Luna Veil")).toBeInTheDocument();
+    expect(document.querySelector(".music-source-art img")).toHaveAttribute(
+      "src",
+      "https://example.com/artwork/42.jpg",
+    );
     expect(musicSourceApi.discoverSourceTracks).toHaveBeenCalledWith(
       "access-token",
       "jamendo",

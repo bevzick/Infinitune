@@ -159,8 +159,11 @@ GET /v1/media/sources/internet_archive/track?external_id=item-identifier%2Faudio
 ```
 
 Discovery responses contain the provider, external identifier, title, artist,
-stable public page, normalized license permissions, attribution, and bounded
-metadata. They never expose provider credentials or temporary download URLs.
+stable public page, provider artwork URL when available, normalized license
+permissions, attribution, and bounded metadata. They never expose provider
+credentials or temporary audio download URLs. Artwork is used only as a
+discovery preview at this stage; publication still uses the release cover
+uploaded through the Content cover workflow.
 
 Provider genre and mood tags are mapped onto a bounded Infinitune taxonomy
 during import. Unknown tags are ignored; trusted canonical slugs are carried by

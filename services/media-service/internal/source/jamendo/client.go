@@ -139,6 +139,16 @@ func normalizedTrack(result trackResult) (source.Track, error) {
 	if err != nil {
 		return source.Track{}, err
 	}
+	artworkURL, err := normalizeArtworkURL(result.AlbumImageURL)
+	if err != nil {
+		return source.Track{}, err
+	}
+	if artworkURL == "" {
+		artworkURL, err = normalizeArtworkURL(result.ImageURL)
+		if err != nil {
+			return source.Track{}, err
+		}
+	}
 	metadata := map[string]string{
 		"artist_id":    result.ArtistID,
 		"duration_sec": strconv.Itoa(result.Duration),
@@ -162,9 +172,26 @@ func normalizedTrack(result trackResult) (source.Track, error) {
 		Title:      result.Name,
 		Artist:     result.ArtistName,
 		PageURL:    result.ShareURL,
+		ArtworkURL: artworkURL,
 		License:    license,
 		Metadata:   metadata,
 	}, nil
+}
+
+func normalizeArtworkURL(raw string) (string, error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return "", nil
+	}
+	parsed, err := url.Parse(raw)
+	if err != nil || validateHTTPSURL(parsed) != nil {
+		return "", fmt.Errorf("%w: Jamendo artwork URL is not safe", ErrUnavailable)
+	}
+	host := strings.ToLower(parsed.Hostname())
+	if host != "jamendo.com" && !strings.HasSuffix(host, ".jamendo.com") {
+		return "", fmt.Errorf("%w: Jamendo artwork host %q is not allowed", ErrUnavailable, host)
+	}
+	return parsed.String(), nil
 }
 
 func (client *Client) Open(ctx context.Context, externalID string) (source.AudioStream, error) {
@@ -389,6 +416,8 @@ type trackResult struct {
 	ReleaseDate     string `json:"releasedate"`
 	LicenseURL      string `json:"license_ccurl"`
 	ShareURL        string `json:"shareurl"`
+	ImageURL        string `json:"image"`
+	AlbumImageURL   string `json:"album_image"`
 	DownloadURL     string `json:"audiodownload"`
 	DownloadAllowed bool   `json:"audiodownload_allowed"`
 	MusicInfo       struct {
