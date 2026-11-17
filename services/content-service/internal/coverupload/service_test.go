@@ -77,6 +77,9 @@ func (stub *coverStoreStub) Complete(_ context.Context, id uuid.UUID) (Session, 
 	stub.sessions[id] = session
 	return session, nil
 }
+func (stub *coverStoreStub) CompleteIfMissing(ctx context.Context, id uuid.UUID) (Session, error) {
+	return stub.Complete(ctx, id)
+}
 func (stub *coverStoreStub) Transition(_ context.Context, id uuid.UUID, previous, next Status) (Session, error) {
 	session, ok := stub.sessions[id]
 	if !ok || session.Status != previous {

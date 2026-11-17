@@ -1,6 +1,7 @@
 import { expect, type Page, test } from "@playwright/test";
 
 import { createPublishingJourneyMock } from "./creatorPublishingGateway";
+import { appURL } from "./testConfig";
 
 const png = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9B0hV7wAAAAASUVORK5CYII=",
@@ -21,7 +22,7 @@ async function signIn(page: Page, path: string, email: string) {
     {
       name: "infinitune_csrf",
       value: "e2e-csrf",
-      url: "http://127.0.0.1:5173",
+      url: appURL,
     },
   ]);
 }

@@ -35,6 +35,7 @@ type Config struct {
 
 type Identity struct {
 	UserID uuid.UUID
+	Roles  []string
 }
 
 type Verifier struct {
@@ -52,11 +53,12 @@ type tokenHeader struct {
 }
 
 type tokenClaims struct {
-	Subject   string `json:"sub"`
-	Issuer    string `json:"iss"`
-	Audience  string `json:"aud"`
-	IssuedAt  int64  `json:"iat"`
-	ExpiresAt int64  `json:"exp"`
+	Subject   string   `json:"sub"`
+	Issuer    string   `json:"iss"`
+	Audience  string   `json:"aud"`
+	IssuedAt  int64    `json:"iat"`
+	ExpiresAt int64    `json:"exp"`
+	Roles     []string `json:"roles"`
 }
 
 type keySet struct {
@@ -140,7 +142,17 @@ func (verifier *Verifier) Verify(
 	if err != nil || userID == uuid.Nil {
 		return Identity{}, ErrInvalidAccessToken
 	}
-	return Identity{UserID: userID}, nil
+	roles, seen := make([]string, 0, len(claims.Roles)), make(map[string]struct{})
+	for _, role := range claims.Roles {
+		if role == "" || strings.TrimSpace(role) != role {
+			return Identity{}, ErrInvalidAccessToken
+		}
+		if _, exists := seen[role]; !exists {
+			seen[role] = struct{}{}
+			roles = append(roles, role)
+		}
+	}
+	return Identity{UserID: userID, Roles: roles}, nil
 }
 
 func parseToken(encodedToken string) (tokenHeader, string, string, []byte, error) {

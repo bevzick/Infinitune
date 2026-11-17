@@ -25,6 +25,22 @@ const activeAlbumPredicate = `NOT EXISTS (
 	  AND visibility_publication.archived_at IS NOT NULL
 )`
 
+// Published singles do not have an album row. Resolve their release artwork
+// through the immutable publication mapping while keeping seeded/non-published
+// standalone tracks without a fabricated cover URL.
+const trackCoverURLSQL = `COALESCE(
+	NULLIF((SELECT cover_url FROM catalog.albums WHERE id = t.album_id), ''),
+	(
+		SELECT '/v1/media/covers/' || publication_track.source_release_id::text
+		FROM catalog.publication_tracks AS publication_track
+		JOIN catalog.publications AS publication
+		  ON publication.source_release_id = publication_track.source_release_id
+		WHERE publication_track.catalog_track_id = t.id
+		  AND publication.archived_at IS NULL
+	),
+	''
+)`
+
 const artistDiscographySQL = `
 	WITH discography AS (
 		SELECT DISTINCT

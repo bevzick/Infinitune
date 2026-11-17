@@ -16,6 +16,11 @@ const maxCoverEdge = 8192
 const maxCoverPixels = 16_000_000
 
 func validateImage(data []byte, expected string) error {
+	return ValidateImage(data, expected)
+}
+
+// ValidateImage verifies that bytes, declared MIME type and decoded dimensions agree.
+func ValidateImage(data []byte, expected string) error {
 	sniffed := ""
 	switch {
 	case len(data) > 3 && bytes.HasPrefix(data, []byte{0xff, 0xd8, 0xff}):

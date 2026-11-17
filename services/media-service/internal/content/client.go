@@ -45,7 +45,14 @@ type Session struct {
 	Status            Status
 }
 
+type ImportTarget struct {
+	ReleaseID uuid.UUID
+	CreatorID uuid.UUID
+	HasCover  bool
+}
+
 type grpcClient interface {
+	CheckPermission(context.Context, *contentv1.CheckPermissionRequest, ...grpc.CallOption) (*contentv1.CheckPermissionResponse, error)
 	GetUploadSession(context.Context, *contentv1.GetUploadSessionRequest, ...grpc.CallOption) (*contentv1.UploadSession, error)
 	TransitionUpload(context.Context, *contentv1.TransitionUploadRequest, ...grpc.CallOption) (*contentv1.UploadSession, error)
 	CheckTrackPlayback(context.Context, *contentv1.CheckTrackPlaybackRequest, ...grpc.CallOption) (*contentv1.CheckTrackPlaybackResponse, error)
@@ -56,13 +63,35 @@ type Client struct{ client grpcClient }
 
 func NewClient(client grpcClient) *Client { return &Client{client: client} }
 
+func (client *Client) CanUploadArtistImage(
+	ctx context.Context,
+	userID, creatorID uuid.UUID,
+) (bool, error) {
+	if userID == uuid.Nil || creatorID == uuid.Nil {
+		return false, ErrInvalid
+	}
+	callCtx, cancel := context.WithTimeout(ctx, requestTimeout)
+	defer cancel()
+	response, err := client.client.CheckPermission(callCtx, &contentv1.CheckPermissionRequest{
+		UserId: userID.String(), CreatorId: creatorID.String(),
+		Permission: "creator.content.upload",
+	})
+	if err != nil {
+		return false, mapError(ctx, err)
+	}
+	if response == nil {
+		return false, ErrUnavailable
+	}
+	return response.GetAllowed(), nil
+}
+
 func (client *Client) CanImport(
 	ctx context.Context,
 	userID uuid.UUID,
 	trackID uuid.UUID,
-) error {
+) (ImportTarget, error) {
 	if userID == uuid.Nil || trackID == uuid.Nil {
-		return ErrInvalid
+		return ImportTarget{}, ErrInvalid
 	}
 	callCtx, cancel := context.WithTimeout(ctx, requestTimeout)
 	defer cancel()
@@ -70,12 +99,22 @@ func (client *Client) CanImport(
 		UserId: userID.String(), ReleaseTrackId: trackID.String(),
 	})
 	if err != nil {
-		return mapError(ctx, err)
+		return ImportTarget{}, mapError(ctx, err)
 	}
 	if response == nil || !response.GetAllowed() {
-		return ErrForbidden
+		return ImportTarget{}, ErrForbidden
 	}
-	return nil
+	releaseID, err := uuid.Parse(response.GetReleaseId())
+	if err != nil || releaseID == uuid.Nil {
+		return ImportTarget{}, fmt.Errorf("%w: invalid release id", ErrUnavailable)
+	}
+	creatorID, err := uuid.Parse(response.GetCreatorId())
+	if err != nil || creatorID == uuid.Nil {
+		return ImportTarget{}, fmt.Errorf("%w: invalid creator id", ErrUnavailable)
+	}
+	return ImportTarget{
+		ReleaseID: releaseID, CreatorID: creatorID, HasCover: response.GetHasCover(),
+	}, nil
 }
 
 func (client *Client) CanStream(

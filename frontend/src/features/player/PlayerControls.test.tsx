@@ -56,7 +56,7 @@ describe("PlayerControls", () => {
     expect(screen.getByText("Lumen Harbor")).toBeInTheDocument();
     expect(document.querySelector(".player-art img")).toHaveAttribute(
       "src",
-      "/v1/media/covers/release-id",
+      "http://localhost:8000/v1/media/covers/release-id",
     );
     expect(screen.getByRole("button", { name: "Lyrics" })).toBeEnabled();
     await user.click(screen.getByRole("button", { name: "Play" }));

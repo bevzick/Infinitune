@@ -43,12 +43,27 @@ func TestClientMapsForbiddenUpload(t *testing.T) {
 }
 
 func TestClientChecksTrackImportAccess(t *testing.T) {
-	userID, trackID := uuid.New(), uuid.New()
-	stub := &grpcClientStub{importResponse: &contentv1.CheckTrackImportResponse{Allowed: true}}
-	err := NewClient(stub).CanImport(context.Background(), userID, trackID)
-	if err != nil || stub.importRequest.GetUserId() != userID.String() ||
+	userID, trackID, releaseID, creatorID := uuid.New(), uuid.New(), uuid.New(), uuid.New()
+	stub := &grpcClientStub{importResponse: &contentv1.CheckTrackImportResponse{
+		Allowed: true, ReleaseId: releaseID.String(), HasCover: true,
+		CreatorId: creatorID.String(),
+	}}
+	target, err := NewClient(stub).CanImport(context.Background(), userID, trackID)
+	if err != nil || target.ReleaseID != releaseID || target.CreatorID != creatorID || !target.HasCover ||
+		stub.importRequest.GetUserId() != userID.String() ||
 		stub.importRequest.GetReleaseTrackId() != trackID.String() {
-		t.Fatalf("CanImport() error = %v; request = %+v", err, stub.importRequest)
+		t.Fatalf("CanImport() = %+v, %v; request = %+v", target, err, stub.importRequest)
+	}
+}
+
+func TestClientChecksArtistImagePermission(t *testing.T) {
+	userID, creatorID := uuid.New(), uuid.New()
+	stub := &grpcClientStub{permissionResponse: &contentv1.CheckPermissionResponse{Allowed: true}}
+	allowed, err := NewClient(stub).CanUploadArtistImage(context.Background(), userID, creatorID)
+	if err != nil || !allowed || stub.permissionRequest.GetUserId() != userID.String() ||
+		stub.permissionRequest.GetCreatorId() != creatorID.String() ||
+		stub.permissionRequest.GetPermission() != "creator.content.upload" {
+		t.Fatalf("CanUploadArtistImage() = %v, %v; request = %+v", allowed, err, stub.permissionRequest)
 	}
 }
 
@@ -84,13 +99,24 @@ func TestClientRejectsMalformedContentResponse(t *testing.T) {
 }
 
 type grpcClientStub struct {
-	response          *contentv1.UploadSession
-	playbackResponse  *contentv1.CheckTrackPlaybackResponse
-	importResponse    *contentv1.CheckTrackImportResponse
-	err               error
-	transitionRequest *contentv1.TransitionUploadRequest
-	playbackRequest   *contentv1.CheckTrackPlaybackRequest
-	importRequest     *contentv1.CheckTrackImportRequest
+	response           *contentv1.UploadSession
+	playbackResponse   *contentv1.CheckTrackPlaybackResponse
+	importResponse     *contentv1.CheckTrackImportResponse
+	permissionResponse *contentv1.CheckPermissionResponse
+	err                error
+	transitionRequest  *contentv1.TransitionUploadRequest
+	playbackRequest    *contentv1.CheckTrackPlaybackRequest
+	importRequest      *contentv1.CheckTrackImportRequest
+	permissionRequest  *contentv1.CheckPermissionRequest
+}
+
+func (stub *grpcClientStub) CheckPermission(
+	_ context.Context,
+	request *contentv1.CheckPermissionRequest,
+	_ ...grpc.CallOption,
+) (*contentv1.CheckPermissionResponse, error) {
+	stub.permissionRequest = request
+	return stub.permissionResponse, stub.err
 }
 
 func (stub *grpcClientStub) CheckTrackImport(

@@ -23,6 +23,14 @@ func (repository *MediaReadinessRepository) UpsertReady(ctx context.Context, ass
 	if asset.SourceUploadID != uuid.Nil {
 		sourceUploadID = asset.SourceUploadID
 	}
+	genres := asset.Genres
+	if genres == nil {
+		genres = []string{}
+	}
+	moods := asset.Moods
+	if moods == nil {
+		moods = []string{}
+	}
 	_, err := repository.pool.Exec(ctx, `
 		INSERT INTO content.media_asset_readiness (
 			media_asset_id, source_upload_id, content_track_id, duration_ms, event_id, occurred_at,
@@ -39,7 +47,7 @@ func (repository *MediaReadinessRepository) UpsertReady(ctx context.Context, ass
 		    updated_at=now()
 		WHERE EXCLUDED.occurred_at > content.media_asset_readiness.occurred_at
 	`, asset.MediaAssetID, sourceUploadID, asset.ContentTrackID,
-		asset.DurationMS, asset.EventID, asset.OccurredAt, asset.Genres, asset.Moods)
+		asset.DurationMS, asset.EventID, asset.OccurredAt, genres, moods)
 	if err != nil {
 		return fmt.Errorf("upsert media readiness: %w", err)
 	}

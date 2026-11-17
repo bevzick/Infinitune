@@ -147,6 +147,42 @@
   color: white;
   background: linear-gradient(145deg, #315e9b, #8b38df 70%, #d16ba6);
   font-size: 1.7rem;
+  overflow: hidden;
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+}
+
+.creator-account-image-upload {
+  grid-column: 1 / -1;
+  min-height: 2.7rem;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--app-line);
+  border-radius: 0.7rem;
+  color: var(--app-text);
+  background: var(--app-input);
+  cursor: pointer;
+  font-size: 0.78rem;
+  font-weight: 800;
+
+  input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  &:focus-within {
+    outline: 2px solid var(--app-accent);
+    outline-offset: 2px;
+  }
 }
 
 .creator-account-copy {

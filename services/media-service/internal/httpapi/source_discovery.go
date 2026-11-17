@@ -20,6 +20,7 @@ type sourceTrackResponse struct {
 	Title      string                `json:"title"`
 	Artist     string                `json:"artist"`
 	PageURL    string                `json:"page_url"`
+	ArtworkURL string                `json:"artwork_url"`
 	License    sourceLicenseResponse `json:"license"`
 	Metadata   map[string]string     `json:"metadata"`
 }
@@ -108,7 +109,8 @@ func resolveSourceTrack(discovery SourceDiscovery, logger *slog.Logger) gin.Hand
 func sourceTrack(provider source.ProviderName, track source.Track) sourceTrackResponse {
 	return sourceTrackResponse{
 		Provider: provider, ExternalID: track.ExternalID, Title: track.Title,
-		Artist: track.Artist, PageURL: track.PageURL, License: sourceLicenseResponse{
+		Artist: track.Artist, PageURL: track.PageURL, ArtworkURL: track.ArtworkURL,
+		License: sourceLicenseResponse{
 			Name: track.License.Name, URL: track.License.URL,
 			Attribution:          track.License.Attribution,
 			AllowsStreaming:      track.License.AllowsStreaming,

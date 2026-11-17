@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
+  backfillSourceArtwork,
   discoverSourceTracks,
   importSourceTrack,
   listDraftReleaseTracks,
@@ -78,6 +79,31 @@ describe("music source API", () => {
       provider: "internet_archive",
       external_id: "concert/audio/track.flac",
     });
+  });
+
+  it("requests a bounded artwork backfill page", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse({
+        scanned: 2,
+        repaired: 1,
+        unchanged: 1,
+        skipped: 0,
+        failed: 0,
+        next_offset: 7,
+        has_more: true,
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await backfillSourceArtwork("token", 2, 5);
+
+    expect(fetchMock.mock.calls[0][0]).toBe(
+      "http://localhost:8000/v1/media/imports/artwork/backfill?limit=2&offset=5",
+    );
+    expect(fetchMock.mock.calls[0][1].method).toBe("POST");
+    expect(fetchMock.mock.calls[0][1].headers.get("Authorization")).toBe(
+      "Bearer token",
+    );
   });
 });
 

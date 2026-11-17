@@ -71,7 +71,7 @@ func (repository *MetadataRepository) TracksByIDs(
 		SELECT
 			id, album_id, title, duration_ms, track_number, disc_number, explicit,
 			release_date, media_asset_id, content_id, created_at, updated_at,
-			COALESCE((SELECT cover_url FROM catalog.albums WHERE id = t.album_id), '')
+			`+trackCoverURLSQL+`
 		FROM catalog.tracks AS t
 		WHERE id = ANY($1::uuid[])
 	`, ids)

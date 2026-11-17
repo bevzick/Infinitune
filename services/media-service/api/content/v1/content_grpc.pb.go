@@ -19,6 +19,7 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
+	ContentService_CheckPermission_FullMethodName    = "/infinitune.content.v1.ContentService/CheckPermission"
 	ContentService_GetUploadSession_FullMethodName   = "/infinitune.content.v1.ContentService/GetUploadSession"
 	ContentService_TransitionUpload_FullMethodName   = "/infinitune.content.v1.ContentService/TransitionUpload"
 	ContentService_CheckTrackImport_FullMethodName   = "/infinitune.content.v1.ContentService/CheckTrackImport"
@@ -31,6 +32,7 @@ const (
 //
 // Consumer-owned subset of the Content service contract used by Media.
 type ContentServiceClient interface {
+	CheckPermission(ctx context.Context, in *CheckPermissionRequest, opts ...grpc.CallOption) (*CheckPermissionResponse, error)
 	GetUploadSession(ctx context.Context, in *GetUploadSessionRequest, opts ...grpc.CallOption) (*UploadSession, error)
 	TransitionUpload(ctx context.Context, in *TransitionUploadRequest, opts ...grpc.CallOption) (*UploadSession, error)
 	CheckTrackImport(ctx context.Context, in *CheckTrackImportRequest, opts ...grpc.CallOption) (*CheckTrackImportResponse, error)
@@ -43,6 +45,16 @@ type contentServiceClient struct {
 
 func NewContentServiceClient(cc grpc.ClientConnInterface) ContentServiceClient {
 	return &contentServiceClient{cc}
+}
+
+func (c *contentServiceClient) CheckPermission(ctx context.Context, in *CheckPermissionRequest, opts ...grpc.CallOption) (*CheckPermissionResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CheckPermissionResponse)
+	err := c.cc.Invoke(ctx, ContentService_CheckPermission_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func (c *contentServiceClient) GetUploadSession(ctx context.Context, in *GetUploadSessionRequest, opts ...grpc.CallOption) (*UploadSession, error) {
@@ -91,6 +103,7 @@ func (c *contentServiceClient) CheckTrackPlayback(ctx context.Context, in *Check
 //
 // Consumer-owned subset of the Content service contract used by Media.
 type ContentServiceServer interface {
+	CheckPermission(context.Context, *CheckPermissionRequest) (*CheckPermissionResponse, error)
 	GetUploadSession(context.Context, *GetUploadSessionRequest) (*UploadSession, error)
 	TransitionUpload(context.Context, *TransitionUploadRequest) (*UploadSession, error)
 	CheckTrackImport(context.Context, *CheckTrackImportRequest) (*CheckTrackImportResponse, error)
@@ -105,6 +118,9 @@ type ContentServiceServer interface {
 // pointer dereference when methods are called.
 type UnimplementedContentServiceServer struct{}
 
+func (UnimplementedContentServiceServer) CheckPermission(context.Context, *CheckPermissionRequest) (*CheckPermissionResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CheckPermission not implemented")
+}
 func (UnimplementedContentServiceServer) GetUploadSession(context.Context, *GetUploadSessionRequest) (*UploadSession, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetUploadSession not implemented")
 }
@@ -136,6 +152,24 @@ func RegisterContentServiceServer(s grpc.ServiceRegistrar, srv ContentServiceSer
 		t.testEmbeddedByValue()
 	}
 	s.RegisterService(&ContentService_ServiceDesc, srv)
+}
+
+func _ContentService_CheckPermission_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CheckPermissionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ContentServiceServer).CheckPermission(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ContentService_CheckPermission_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ContentServiceServer).CheckPermission(ctx, req.(*CheckPermissionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _ContentService_GetUploadSession_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -217,6 +251,10 @@ var ContentService_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "infinitune.content.v1.ContentService",
 	HandlerType: (*ContentServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "CheckPermission",
+			Handler:    _ContentService_CheckPermission_Handler,
+		},
 		{
 			MethodName: "GetUploadSession",
 			Handler:    _ContentService_GetUploadSession_Handler,

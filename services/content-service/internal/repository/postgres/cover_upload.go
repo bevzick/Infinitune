@@ -156,6 +156,21 @@ var _ coverupload.Store = (*CoverUploadRepository)(nil)
 // Complete updates the uploaded cover and the release atomically, preventing
 // a failed or unverified upload from making a release submission-ready.
 func (repository *CoverUploadRepository) Complete(ctx context.Context, uploadID uuid.UUID) (coverupload.Session, error) {
+	return repository.complete(ctx, uploadID, false)
+}
+
+func (repository *CoverUploadRepository) CompleteIfMissing(
+	ctx context.Context,
+	uploadID uuid.UUID,
+) (coverupload.Session, error) {
+	return repository.complete(ctx, uploadID, true)
+}
+
+func (repository *CoverUploadRepository) complete(
+	ctx context.Context,
+	uploadID uuid.UUID,
+	onlyIfMissing bool,
+) (coverupload.Session, error) {
 	tx, err := repository.database.Begin(ctx)
 	if err != nil {
 		return coverupload.Session{}, fmt.Errorf("begin cover completion: %w", err)
@@ -177,8 +192,22 @@ func (repository *CoverUploadRepository) Complete(ctx context.Context, uploadID 
 	var releaseID uuid.UUID
 	err = tx.QueryRow(ctx, `UPDATE content.releases SET cover_object_key = $2
         WHERE id = $1 AND status IN ('draft', 'rejected', 'changes_requested')
-        RETURNING id`, current.ReleaseID, current.ObjectKey).Scan(&releaseID)
+	      AND (NOT $3::boolean OR cover_object_key IS NULL)
+        RETURNING id`, current.ReleaseID, current.ObjectKey, onlyIfMissing).Scan(&releaseID)
 	if errors.Is(err, pgx.ErrNoRows) {
+		if onlyIfMissing {
+			var status string
+			var hasCover bool
+			if readErr := tx.QueryRow(ctx, `
+				SELECT status, cover_object_key IS NOT NULL
+				FROM content.releases WHERE id = $1
+			`, current.ReleaseID).Scan(&status, &hasCover); readErr != nil {
+				return coverupload.Session{}, fmt.Errorf("inspect cover completion conflict: %w", mapCoverUploadError(readErr))
+			}
+			if hasCover {
+				return coverupload.Session{}, coverupload.ErrConflict
+			}
+		}
 		return coverupload.Session{}, coverupload.ErrReleaseLocked
 	}
 	if err != nil {

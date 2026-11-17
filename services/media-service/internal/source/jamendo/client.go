@@ -105,7 +105,7 @@ func (client *Client) Resolve(ctx context.Context, externalID string) (source.Tr
 	if err != nil {
 		return source.Track{}, err
 	}
-	return normalizedTrack(result)
+	return client.normalizedTrack(result)
 }
 
 func (client *Client) Discover(
@@ -123,7 +123,7 @@ func (client *Client) Discover(
 	}
 	tracks := make([]source.Track, 0, len(document.Results))
 	for _, result := range document.Results {
-		track, normalizeErr := normalizedTrack(result)
+		track, normalizeErr := client.normalizedTrack(result)
 		if normalizeErr == nil && track.License.AllowsRedistribution {
 			tracks = append(tracks, track)
 		}
@@ -134,10 +134,20 @@ func (client *Client) Discover(
 	}, nil
 }
 
-func normalizedTrack(result trackResult) (source.Track, error) {
+func (client *Client) normalizedTrack(result trackResult) (source.Track, error) {
 	license, err := licenseFromURL(result.LicenseURL, result.ArtistName, result.DownloadAllowed)
 	if err != nil {
 		return source.Track{}, err
+	}
+	artworkURL, err := client.normalizeArtworkURL(result.AlbumImageURL)
+	if err != nil {
+		return source.Track{}, err
+	}
+	if artworkURL == "" {
+		artworkURL, err = client.normalizeArtworkURL(result.ImageURL)
+		if err != nil {
+			return source.Track{}, err
+		}
 	}
 	metadata := map[string]string{
 		"artist_id":    result.ArtistID,
@@ -162,9 +172,22 @@ func normalizedTrack(result trackResult) (source.Track, error) {
 		Title:      result.Name,
 		Artist:     result.ArtistName,
 		PageURL:    result.ShareURL,
+		ArtworkURL: artworkURL,
 		License:    license,
 		Metadata:   metadata,
 	}, nil
+}
+
+func (client *Client) normalizeArtworkURL(raw string) (string, error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return "", nil
+	}
+	parsed, err := url.Parse(raw)
+	if err != nil || client.validateHTTPURL(parsed) != nil {
+		return "", fmt.Errorf("%w: Jamendo artwork URL is not safe", ErrUnavailable)
+	}
+	return parsed.String(), nil
 }
 
 func (client *Client) Open(ctx context.Context, externalID string) (source.AudioStream, error) {
@@ -214,6 +237,67 @@ func (client *Client) Open(ctx context.Context, externalID string) (source.Audio
 		return source.AudioStream{}, err
 	}
 	return stream, nil
+}
+
+func (client *Client) OpenArtwork(ctx context.Context, externalID string) (source.ArtworkStream, error) {
+	result, err := client.track(ctx, externalID)
+	if err != nil {
+		return source.ArtworkStream{}, err
+	}
+	artworkURL, err := client.normalizeArtworkURL(result.AlbumImageURL)
+	if err != nil {
+		return source.ArtworkStream{}, err
+	}
+	if artworkURL == "" {
+		artworkURL, err = client.normalizeArtworkURL(result.ImageURL)
+	}
+	if err != nil {
+		return source.ArtworkStream{}, err
+	}
+	if artworkURL == "" {
+		return source.ArtworkStream{}, source.ErrNotFound
+	}
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, artworkURL, nil)
+	if err != nil {
+		return source.ArtworkStream{}, fmt.Errorf("create Jamendo artwork request: %w", err)
+	}
+	request.Header.Set("Accept", "image/jpeg,image/png,image/webp")
+	response, err := client.client.Do(request)
+	if err != nil {
+		return source.ArtworkStream{}, fmt.Errorf("%w: download artwork: %v", ErrUnavailable, err)
+	}
+	return source.ArtworkFromHTTP(response, "jamendo-"+result.ID+"-cover")
+}
+
+func (client *Client) OpenArtistArtwork(
+	ctx context.Context,
+	externalID string,
+) (source.ArtworkStream, error) {
+	track, err := client.track(ctx, externalID)
+	if err != nil {
+		return source.ArtworkStream{}, err
+	}
+	artist, err := client.artist(ctx, track.ArtistID)
+	if err != nil {
+		return source.ArtworkStream{}, err
+	}
+	artworkURL, err := client.normalizeArtworkURL(artist.ImageURL)
+	if err != nil {
+		return source.ArtworkStream{}, err
+	}
+	if artworkURL == "" {
+		return source.ArtworkStream{}, source.ErrNotFound
+	}
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, artworkURL, nil)
+	if err != nil {
+		return source.ArtworkStream{}, fmt.Errorf("create Jamendo artist artwork request: %w", err)
+	}
+	request.Header.Set("Accept", "image/jpeg,image/png,image/webp")
+	response, err := client.client.Do(request)
+	if err != nil {
+		return source.ArtworkStream{}, fmt.Errorf("%w: download artist artwork: %v", ErrUnavailable, err)
+	}
+	return source.ArtworkFromHTTP(response, "jamendo-"+artist.ID+"-artist")
 }
 
 func (client *Client) track(ctx context.Context, externalID string) (trackResult, error) {
@@ -275,6 +359,49 @@ func (client *Client) tracks(ctx context.Context, parameters url.Values) (tracks
 	return document, nil
 }
 
+func (client *Client) artist(ctx context.Context, artistID string) (artistResult, error) {
+	if !validTrackID(artistID) {
+		return artistResult{}, fmt.Errorf("%w: Jamendo artist ID must contain only digits", source.ErrInvalid)
+	}
+	endpoint := *client.baseURL
+	endpoint.Path = strings.TrimRight(endpoint.Path, "/") + "/artists/"
+	query := endpoint.Query()
+	query.Set("client_id", client.clientID)
+	query.Set("format", "json")
+	query.Set("id", artistID)
+	query.Set("limit", "1")
+	endpoint.RawQuery = query.Encode()
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint.String(), nil)
+	if err != nil {
+		return artistResult{}, fmt.Errorf("create Jamendo artist request: %w", err)
+	}
+	request.Header.Set("Accept", "application/json")
+	response, err := client.client.Do(request)
+	if err != nil {
+		return artistResult{}, fmt.Errorf("%w: query artist: %v", ErrUnavailable, err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		return artistResult{}, fmt.Errorf("%w: artists endpoint returned %s", ErrUnavailable, response.Status)
+	}
+	var document artistsResponse
+	if err = json.NewDecoder(io.LimitReader(response.Body, maximumResponse)).Decode(&document); err != nil {
+		return artistResult{}, fmt.Errorf("%w: decode artists response: %v", ErrUnavailable, err)
+	}
+	if document.Headers.Status != "success" || document.Headers.Code != 0 {
+		return artistResult{}, fmt.Errorf("%w: API code %d: %s",
+			ErrUnavailable, document.Headers.Code, document.Headers.ErrorMessage)
+	}
+	if len(document.Results) == 0 {
+		return artistResult{}, source.ErrNotFound
+	}
+	if document.Results[0].ID != artistID {
+		return artistResult{}, fmt.Errorf("%w: API returned artist %q for %q",
+			ErrUnavailable, document.Results[0].ID, artistID)
+	}
+	return document.Results[0], nil
+}
+
 func (client *Client) validateDownloadURL(downloadURL *url.URL) error {
 	if err := validateHTTPSURL(downloadURL); err != nil {
 		return fmt.Errorf("%w: download URL is not safe", ErrUnavailable)
@@ -293,6 +420,10 @@ func (client *Client) validateHTTPURL(target *url.URL) error {
 		return fmt.Errorf("%w: redirect URL is not safe", ErrUnavailable)
 	}
 	if strings.EqualFold(target.Hostname(), client.baseURL.Hostname()) {
+		return nil
+	}
+	host := strings.ToLower(target.Hostname())
+	if host == "jamendo.com" || strings.HasSuffix(host, ".jamendo.com") {
 		return nil
 	}
 	return client.validateDownloadURL(target)
@@ -371,6 +502,17 @@ type tracksResponse struct {
 	Results []trackResult   `json:"results"`
 }
 
+type artistsResponse struct {
+	Headers responseHeaders `json:"headers"`
+	Results []artistResult  `json:"results"`
+}
+
+type artistResult struct {
+	ID       string `json:"id"`
+	Name     string `json:"name"`
+	ImageURL string `json:"image"`
+}
+
 type responseHeaders struct {
 	Status       string `json:"status"`
 	Code         int    `json:"code"`
@@ -389,6 +531,8 @@ type trackResult struct {
 	ReleaseDate     string `json:"releasedate"`
 	LicenseURL      string `json:"license_ccurl"`
 	ShareURL        string `json:"shareurl"`
+	ImageURL        string `json:"image"`
+	AlbumImageURL   string `json:"album_image"`
 	DownloadURL     string `json:"audiodownload"`
 	DownloadAllowed bool   `json:"audiodownload_allowed"`
 	MusicInfo       struct {

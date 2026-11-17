@@ -11,7 +11,9 @@ import "google/protobuf/struct.proto";
 // or failed. Complete request: {upload_id}; atomically marks the session
 // completed and assigns its key to content.releases.cover_object_key.
 service CoverUploadService {
+	rpc CreateImported(google.protobuf.Struct) returns (google.protobuf.Struct);
   rpc GetSession(google.protobuf.Struct) returns (google.protobuf.Struct);
   rpc Transition(google.protobuf.Struct) returns (google.protobuf.Struct);
   rpc Complete(google.protobuf.Struct) returns (google.protobuf.Struct);
+	rpc CompleteIfMissing(google.protobuf.Struct) returns (google.protobuf.Struct);
 }

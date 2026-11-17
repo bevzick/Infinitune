@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { type ApiError, apiRequest } from "./client";
+import { type ApiError, apiRequest, publicAssetUrl } from "./client";
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -43,5 +43,23 @@ describe("apiRequest network recovery", () => {
       code: "service_unavailable",
       message: "Service not ready",
     });
+  });
+});
+
+describe("publicAssetUrl", () => {
+  it("routes root-relative media paths through the configured gateway", () => {
+    expect(publicAssetUrl("/v1/media/covers/release-id")).toBe(
+      "http://localhost:8000/v1/media/covers/release-id",
+    );
+  });
+
+  it("preserves external asset URLs", () => {
+    expect(publicAssetUrl("https://cdn.example.test/cover.jpg")).toBe(
+      "https://cdn.example.test/cover.jpg",
+    );
+  });
+
+  it("preserves an empty asset URL", () => {
+    expect(publicAssetUrl("  ")).toBe("");
   });
 });

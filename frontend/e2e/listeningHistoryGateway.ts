@@ -1,6 +1,7 @@
 import type { Page, Request, Route } from "@playwright/test";
 
 import { mockGateway } from "./gatewayMock";
+import { appURL } from "./testConfig";
 
 export const historyTrackId = "00000000-0000-4000-8000-000000000101";
 export const historyOtherTrackId = "00000000-0000-4000-8000-000000000102";
@@ -32,7 +33,7 @@ type RecordInput = Omit<StoredEvent, "completed"> & {
 
 const gatewayBase = "http://localhost:8000";
 const corsHeaders = {
-  "access-control-allow-origin": "http://127.0.0.1:5173",
+  "access-control-allow-origin": appURL,
   "access-control-allow-credentials": "true",
   "access-control-allow-methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS",
   "access-control-allow-headers":

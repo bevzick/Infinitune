@@ -159,8 +159,13 @@ GET /v1/media/sources/internet_archive/track?external_id=item-identifier%2Faudio
 ```
 
 Discovery responses contain the provider, external identifier, title, artist,
-stable public page, normalized license permissions, attribution, and bounded
-metadata. They never expose provider credentials or temporary download URLs.
+stable public page, provider artwork URL when available, normalized license
+permissions, attribution, and bounded metadata. They never expose provider
+credentials or temporary audio download URLs. During import, Media downloads
+available provider artwork into Infinitune's private object storage and attaches
+it through the Content cover workflow when the draft release has no cover. A
+cover selected by the creator always wins: provider artwork never overwrites it,
+including when the two uploads race.
 
 Provider genre and mood tags are mapped onto a bounded Infinitune taxonomy
 during import. Unknown tags are ignored; trusted canonical slugs are carried by

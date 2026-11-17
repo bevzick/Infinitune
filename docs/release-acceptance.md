@@ -122,6 +122,16 @@ creator and release review.
 
 ## 4. Verification before acceptance
 
+The complete local acceptance suite is available as one command:
+
+```bash
+make product-check
+```
+
+It runs Compose validation, all backend unit suites, all frontend static/unit/
+build/browser checks, and finally the isolated real-service journey described
+below. It stops at the first failed gate and does not reuse development data.
+
 Run frontend checks from `frontend/`:
 
 ```bash
@@ -137,6 +147,8 @@ cd ..
 
 The Playwright Chromium override is only needed when the browser is installed
 at `/usr/bin/chromium`; otherwise use the project's default Playwright setup.
+Playwright uses loopback port `4173` by default and accepts a different free
+port through `PLAYWRIGHT_PORT`.
 
 Each Go service is a separate module. For a changed service, for example:
 

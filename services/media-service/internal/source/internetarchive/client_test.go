@@ -30,7 +30,8 @@ func TestResolveMapsLicensedOriginalAudio(t *testing.T) {
 	}
 	if track.ExternalID != "night-signals/audio/track one.mp3" ||
 		track.Title != "Night Signal" || track.Artist != "Luna Veil" ||
-		track.PageURL != "https://archive.org/details/night-signals" {
+		track.PageURL != "https://archive.org/details/night-signals" ||
+		track.ArtworkURL != "https://archive.org/services/img/night-signals" {
 		t.Errorf("Resolve() = %+v", track)
 	}
 	if track.License.Name != "CC BY 4.0" ||
@@ -100,6 +101,32 @@ func TestOpenDownloadsSelectedFile(t *testing.T) {
 	if string(data) != "audio" || stream.MIMEType != "audio/mpeg" ||
 		stream.SizeBytes != 5 || stream.Filename != "internet-archive-night-signals.mp3" {
 		t.Errorf("stream = %+v, data = %q", stream, data)
+	}
+}
+
+func TestOpenArtworkDownloadsItemImage(t *testing.T) {
+	server := httptest.NewTLSServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+		switch request.URL.Path {
+		case "/metadata/night-signals":
+			writeItem(t, response, validItem())
+		case "/artwork/night-signals":
+			response.Header().Set("Content-Type", "image/png")
+			_, _ = io.WriteString(response, "image")
+		default:
+			http.NotFound(response, request)
+		}
+	}))
+	defer server.Close()
+	client := newTestClient(t, server)
+	artwork, err := client.OpenArtwork(context.Background(), "night-signals/audio/track one.mp3")
+	if err != nil {
+		t.Fatalf("OpenArtwork() error = %v", err)
+	}
+	defer artwork.Body.Close()
+	data, _ := io.ReadAll(artwork.Body)
+	if string(data) != "image" || artwork.MIMEType != "image/png" ||
+		artwork.SizeBytes != int64(len(data)) || artwork.Filename != "internet-archive-night-signals-cover.png" {
+		t.Fatalf("OpenArtwork() = %+v, data = %q", artwork, data)
 	}
 }
 
@@ -191,7 +218,8 @@ func newTestClient(t *testing.T, server *httptest.Server) *Client {
 	}
 	client, err := New(Config{
 		MetadataURL: server.URL + "/metadata", DownloadURL: server.URL + "/download",
-		Timeout: time.Second, AllowedHosts: []string{parsed.Hostname()},
+		ArtworkURL: server.URL + "/artwork",
+		Timeout:    time.Second, AllowedHosts: []string{parsed.Hostname()},
 	}, server.Client())
 	if err != nil {
 		t.Fatalf("New() error = %v", err)

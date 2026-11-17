@@ -17,6 +17,7 @@ type Store interface {
 	ByID(context.Context, uuid.UUID) (Session, error)
 	Transition(context.Context, uuid.UUID, Status, Status) (Session, error)
 	Complete(context.Context, uuid.UUID) (Session, error)
+	CompleteIfMissing(context.Context, uuid.UUID) (Session, error)
 	Published(context.Context, uuid.UUID) (Session, error)
 }
 
@@ -157,6 +158,19 @@ func (service *Service) Complete(ctx context.Context, uploadID uuid.UUID) (Sessi
 	session, err := service.store.Complete(ctx, uploadID)
 	if err != nil {
 		return Session{}, fmt.Errorf("complete cover session: %w", err)
+	}
+	return session, nil
+}
+
+// CompleteIfMissing is used for provider artwork. It never replaces a cover
+// explicitly selected by the creator while the provider image was downloading.
+func (service *Service) CompleteIfMissing(ctx context.Context, uploadID uuid.UUID) (Session, error) {
+	if uploadID == uuid.Nil {
+		return Session{}, invalidField("upload_id", "must be a UUID")
+	}
+	session, err := service.store.CompleteIfMissing(ctx, uploadID)
+	if err != nil {
+		return Session{}, fmt.Errorf("complete provider cover session: %w", err)
 	}
 	return session, nil
 }

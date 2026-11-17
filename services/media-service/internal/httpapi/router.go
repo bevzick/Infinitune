@@ -10,6 +10,7 @@ import (
 	"github.com/bevzick/Infinitune/services/media-service/internal/identity"
 	"github.com/bevzick/Infinitune/services/media-service/internal/media"
 	"github.com/bevzick/Infinitune/services/media-service/internal/source"
+	"github.com/bevzick/Infinitune/services/media-service/internal/sourceimport"
 	"github.com/bevzick/Infinitune/services/media-service/internal/storage"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -43,6 +44,7 @@ type UploadIngest interface {
 
 type ExternalImport interface {
 	Import(context.Context, uuid.UUID, uuid.UUID, source.ProviderName, string) (media.Asset, bool, error)
+	BackfillArtwork(context.Context, uuid.UUID, int, int) (sourceimport.BackfillReport, error)
 }
 
 type SourceDiscovery interface {
@@ -59,6 +61,7 @@ type Dependencies struct {
 	Ingest          UploadIngest
 	Covers          CoverUploadIngest
 	PublishedCovers PublishedCover
+	ArtistImages    ArtistImages
 	Imports         ExternalImport
 	Sources         SourceDiscovery
 	Tokens          IdentityVerifier
@@ -76,12 +79,16 @@ func NewRouter(dependencies Dependencies) http.Handler {
 	router.Use(observeRequests(dependencies.Logger), recoverPanics(dependencies.Logger), cors(dependencies.Origins))
 	router.GET("/health", health(dependencies))
 	router.GET("/v1/media/covers/:release_id", deliverCover(dependencies))
+	router.GET("/v1/media/artists/:artist_id/image", deliverArtistImage(dependencies.ArtistImages, dependencies.Objects))
 	protected := router.Group("/v1/media")
 	protected.Use(authenticate(dependencies.Tokens, dependencies.Logger))
 	protected.GET("/assets/:media_asset_id/playback", playback(dependencies))
 	protected.PUT("/uploads/:upload_id", ingestUpload(dependencies.Ingest, dependencies.Logger))
 	protected.PUT("/cover-uploads/:upload_id", ingestCoverUpload(dependencies.Covers, dependencies.Logger))
+	protected.PUT("/creator-artists/:creator_id/image", uploadArtistImage(dependencies.ArtistImages, dependencies.Logger))
+	protected.PUT("/admin/artists/:artist_id/image", uploadCatalogArtistImage(dependencies.ArtistImages, dependencies.Logger))
 	protected.POST("/imports", importExternal(dependencies.Imports, dependencies.Logger))
+	protected.POST("/imports/artwork/backfill", backfillExternalArtwork(dependencies.Imports, dependencies.Logger))
 	protected.GET("/sources/providers", listSourceProviders(dependencies.Sources))
 	protected.GET("/sources/:provider/tracks", discoverSourceTracks(dependencies.Sources, dependencies.Logger))
 	protected.GET("/sources/:provider/track", resolveSourceTrack(dependencies.Sources, dependencies.Logger))

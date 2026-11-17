@@ -8,6 +8,7 @@ import {
   listDraftReleases,
   submitCreatorVerification,
   updateRelease,
+  uploadArtistImage,
   uploadAudioFile,
 } from "./creatorReleaseApi";
 
@@ -39,6 +40,27 @@ describe("creator release API", () => {
       "http://localhost:8000/v1/creators/creator-1/verification-submissions",
     );
     expect(fetchMock.mock.calls[1][1].method).toBe("POST");
+  });
+
+  it("uploads artist image bytes with their image content type", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse({
+        artist_id: "artist-1",
+        image_url: "/v1/media/artists/artist-1/image",
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const image = new File([new Uint8Array([1, 2, 3])], "artist.png", {
+      type: "image/png",
+    });
+
+    await uploadArtistImage("token", "creator-1", image);
+
+    expect(fetchMock.mock.calls[0][0]).toBe(
+      "http://localhost:8000/v1/media/creator-artists/creator-1/image",
+    );
+    expect(fetchMock.mock.calls[0][1].body).toBe(image);
+    expect(fetchMock.mock.calls[0][1].headers.get("Content-Type")).toBeNull();
   });
 
   it("hydrates draft release tracks", async () => {
