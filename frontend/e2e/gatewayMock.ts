@@ -1,5 +1,7 @@
 import type { Page, Request, Route } from "@playwright/test";
 
+import { appURL } from "./testConfig";
+
 const track = {
   id: "00000000-0000-4000-8000-000000000101",
   album_id: "00000000-0000-4000-8000-000000000201",
@@ -50,7 +52,7 @@ const releaseTrackId = "00000000-0000-4000-8000-000000000502";
 const audioUploadId = "00000000-0000-4000-8000-000000000551";
 const audioAssetId = "00000000-0000-4000-8000-000000000552";
 const corsHeaders = {
-  "access-control-allow-origin": "http://127.0.0.1:5173",
+  "access-control-allow-origin": appURL,
   "access-control-allow-credentials": "true",
   "access-control-allow-methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS",
   "access-control-allow-headers":

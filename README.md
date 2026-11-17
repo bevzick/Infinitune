@@ -89,6 +89,14 @@ frontend mocks alone as proof that the full system works. Back up both the
 service databases **and** private media; see the
 [backup and recovery runbook](docs/backup-and-recovery.md).
 
+To run the complete local acceptance suite (Compose validation, every backend
+unit suite, frontend lint/type/tests/build, Playwright, and the disposable
+real-service journey), use:
+
+```bash
+make product-check
+```
+
 ## Local operations
 
 See the [local operations runbook](docs/local-operations.md) for first-time

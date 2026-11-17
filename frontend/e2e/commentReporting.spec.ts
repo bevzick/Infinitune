@@ -4,10 +4,10 @@ import {
   communityIds,
   createCommunityJourneyMock,
 } from "./commentReportingGateway";
+import { appURL } from "./testConfig";
 
 const trackPath = `/tracks/${communityIds.track}`;
 const gatewayURL = "http://localhost:8000";
-const appURL = "http://127.0.0.1:5173";
 
 async function signIn(page: Page, actor: "author" | "reporter" | "moderator") {
   await page.goto("/login");

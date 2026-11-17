@@ -6,8 +6,8 @@ import {
   historyOtherTrackId,
   historyTrackId,
 } from "./listeningHistoryGateway";
+import { appURL } from "./testConfig";
 
-const appURL = "http://127.0.0.1:5173";
 const gatewayURL = "http://localhost:8000";
 
 async function signIn(

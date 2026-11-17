@@ -1,6 +1,7 @@
 import type { Page, Request, Route } from "@playwright/test";
 
 import { mockGateway } from "./gatewayMock";
+import { appURL } from "./testConfig";
 
 /** Stateful browser-only contract mock shared by separate creator and moderator contexts.
  * This does not replace the real-service content/media/system smoke tests.
@@ -24,7 +25,7 @@ const ids = {
 };
 
 const corsHeaders = {
-  "access-control-allow-origin": "http://127.0.0.1:5173",
+  "access-control-allow-origin": appURL,
   "access-control-allow-credentials": "true",
   "access-control-allow-methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS",
   "access-control-allow-headers":
