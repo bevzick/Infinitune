@@ -16,6 +16,7 @@ vi.mock("../catalog/catalogApi", async (importOriginal) => ({
 
 const track: Track = {
   id: "track-id",
+  cover_url: "",
   playback_url: "/v1/media/assets/asset-id/playback",
   title: "First Light Engine",
   duration_ms: 180_000,

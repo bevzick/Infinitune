@@ -8,6 +8,7 @@ const player = vi.hoisted(() => ({
   status: "paused" as const,
   currentTrack: {
     id: "track-id",
+    cover_url: "/v1/media/covers/release-id",
     playback_url: "/v1/media/assets/asset-id/playback",
     title: "First Light Engine",
     duration_ms: 180_000,
@@ -53,6 +54,10 @@ describe("PlayerControls", () => {
 
     expect(screen.getByText("First Light Engine")).toBeInTheDocument();
     expect(screen.getByText("Lumen Harbor")).toBeInTheDocument();
+    expect(document.querySelector(".player-art img")).toHaveAttribute(
+      "src",
+      "/v1/media/covers/release-id",
+    );
     expect(screen.getByRole("button", { name: "Lyrics" })).toBeEnabled();
     await user.click(screen.getByRole("button", { name: "Play" }));
     await user.click(screen.getByRole("button", { name: "Next track" }));

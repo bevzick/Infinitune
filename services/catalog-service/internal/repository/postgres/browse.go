@@ -617,5 +617,6 @@ func scanTrack(row scanner, result *metadata.Track) error {
 		&result.ContentID,
 		&result.CreatedAt,
 		&result.UpdatedAt,
+		&result.CoverURL,
 	)
 }

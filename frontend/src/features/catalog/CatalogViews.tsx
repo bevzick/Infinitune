@@ -33,7 +33,16 @@ export function TrackList({
               else void player.playQueue(tracks, index, playbackContext);
             }}
           >
-            {track.title.slice(0, 1).toUpperCase()}
+            {track.cover_url ? (
+              <img
+                className="track-art-image"
+                src={track.cover_url}
+                alt=""
+                loading="lazy"
+              />
+            ) : (
+              track.title.slice(0, 1).toUpperCase()
+            )}
           </button>
           <div className="track-main">
             <Link to={`/tracks/${track.id}`}>{track.title}</Link>
