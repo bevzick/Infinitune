@@ -115,6 +115,35 @@ func TestOpenReturnsAllowedAudio(t *testing.T) {
 	}
 }
 
+func TestOpenArtworkDownloadsProviderImage(t *testing.T) {
+	var server *httptest.Server
+	server = httptest.NewTLSServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+		switch request.URL.Path {
+		case "/v3.0/tracks/":
+			track := validTrack("42", server.URL+"/audio/42.mp3")
+			track.AlbumImageURL = server.URL + "/artwork/42.jpg"
+			writeTrackResponse(t, response, track)
+		case "/artwork/42.jpg":
+			response.Header().Set("Content-Type", "image/jpeg")
+			_, _ = io.WriteString(response, "image")
+		default:
+			http.NotFound(response, request)
+		}
+	}))
+	defer server.Close()
+	client := newTestClient(t, server)
+	artwork, err := client.OpenArtwork(context.Background(), "42")
+	if err != nil {
+		t.Fatalf("OpenArtwork() error = %v", err)
+	}
+	defer artwork.Body.Close()
+	data, _ := io.ReadAll(artwork.Body)
+	if string(data) != "image" || artwork.MIMEType != "image/jpeg" ||
+		artwork.SizeBytes != int64(len(data)) || artwork.Filename != "jamendo-42-cover.jpg" {
+		t.Fatalf("OpenArtwork() = %+v, data = %q", artwork, data)
+	}
+}
+
 func TestOpenRejectsForbiddenAndUnsafeDownloads(t *testing.T) {
 	tests := []struct {
 		name   string

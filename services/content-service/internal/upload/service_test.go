@@ -94,16 +94,16 @@ func TestServiceAuthorizesExternalImportForEditableTrack(t *testing.T) {
 		ReleaseStatus: release.StatusDraft,
 	}}
 	authorizer := &authorizerStub{}
-	err := NewService(store, authorizer).AuthorizeImport(context.Background(), actorID, trackID)
+	target, err := NewService(store, authorizer).AuthorizeImport(context.Background(), actorID, trackID)
 	if err != nil || authorizer.actorID != actorID || authorizer.creatorID != creatorID ||
-		authorizer.permission != creator.PermissionContentUpload {
+		authorizer.permission != creator.PermissionContentUpload || target.TrackID != trackID {
 		t.Fatalf("AuthorizeImport() error = %v; authorization = %+v", err, authorizer)
 	}
 }
 
 func TestServiceRejectsImportIntoLockedRelease(t *testing.T) {
 	trackID := uuid.New()
-	err := NewService(&storeStub{target: TrackTarget{
+	_, err := NewService(&storeStub{target: TrackTarget{
 		TrackID: trackID, ReleaseID: uuid.New(), CreatorID: uuid.New(),
 		ReleaseStatus: release.StatusPendingReview,
 	}}, &authorizerStub{}).AuthorizeImport(context.Background(), uuid.New(), trackID)

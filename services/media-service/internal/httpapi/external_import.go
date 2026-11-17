@@ -91,6 +91,7 @@ func writeExternalImportError(c *gin.Context, logger *slog.Logger, err error) {
 	case errors.Is(err, content.ErrInvalidTransition), errors.Is(err, content.ErrConflict):
 		writeError(c, http.StatusConflict, "import_not_allowed", "Release track does not accept imports")
 	case errors.Is(err, source.ErrProviderUnavailable), errors.Is(err, sourceimport.ErrStorage),
+		errors.Is(err, sourceimport.ErrArtwork),
 		errors.Is(err, content.ErrUnavailable):
 		writeError(c, http.StatusServiceUnavailable, "import_unavailable", "External import is temporarily unavailable")
 	default:

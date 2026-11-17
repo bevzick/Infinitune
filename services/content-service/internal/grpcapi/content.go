@@ -20,7 +20,7 @@ type AccessChecker interface {
 type UploadSessions interface {
 	SessionForUser(context.Context, uuid.UUID, uuid.UUID) (upload.Session, error)
 	Transition(context.Context, uuid.UUID, upload.Status) (upload.Session, error)
-	AuthorizeImport(context.Context, uuid.UUID, uuid.UUID) error
+	AuthorizeImport(context.Context, uuid.UUID, uuid.UUID) (upload.TrackTarget, error)
 }
 
 type PlaybackAccess interface {
@@ -57,7 +57,8 @@ func (server *ContentServer) CheckTrackImport(
 	if err != nil {
 		return nil, err
 	}
-	if err = server.uploads.AuthorizeImport(ctx, userID, trackID); err != nil {
+	target, err := server.uploads.AuthorizeImport(ctx, userID, trackID)
+	if err != nil {
 		switch {
 		case errors.Is(err, creator.ErrForbidden):
 			return nil, status.Error(codes.PermissionDenied, "track is not available to this user")
@@ -71,7 +72,9 @@ func (server *ContentServer) CheckTrackImport(
 			return nil, status.Error(codes.Internal, "track import could not be authorized")
 		}
 	}
-	return &contentv1.CheckTrackImportResponse{Allowed: true}, nil
+	return &contentv1.CheckTrackImportResponse{
+		Allowed: true, ReleaseId: target.ReleaseID.String(), HasCover: target.HasCover,
+	}, nil
 }
 
 func (server *ContentServer) CheckTrackPlayback(

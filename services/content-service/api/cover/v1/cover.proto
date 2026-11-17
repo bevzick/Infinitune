@@ -13,8 +13,10 @@ import "google/protobuf/struct.proto";
 // GetPublished request: {release_id}; it returns a cover only when the release
 // is published, allowing Media to expose artwork without leaking draft covers.
 service CoverUploadService {
+	rpc CreateImported(google.protobuf.Struct) returns (google.protobuf.Struct);
   rpc GetSession(google.protobuf.Struct) returns (google.protobuf.Struct);
   rpc Transition(google.protobuf.Struct) returns (google.protobuf.Struct);
   rpc Complete(google.protobuf.Struct) returns (google.protobuf.Struct);
+	rpc CompleteIfMissing(google.protobuf.Struct) returns (google.protobuf.Struct);
   rpc GetPublished(google.protobuf.Struct) returns (google.protobuf.Struct);
 }

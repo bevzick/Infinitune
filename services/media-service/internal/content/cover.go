@@ -27,11 +27,26 @@ func NewCoverClient(conn grpc.ClientConnInterface) *CoverClient { return &CoverC
 func (c *CoverClient) Session(ctx context.Context, actorID, uploadID uuid.UUID) (CoverSession, error) {
 	return c.call(ctx, "GetSession", map[string]any{"user_id": actorID.String(), "upload_id": uploadID.String()})
 }
+func (c *CoverClient) CreateImported(
+	ctx context.Context,
+	actorID, releaseID, idempotencyKey uuid.UUID,
+	filename, mimeType string,
+	sizeBytes int64,
+) (CoverSession, error) {
+	return c.call(ctx, "CreateImported", map[string]any{
+		"user_id": actorID.String(), "release_id": releaseID.String(),
+		"idempotency_key": idempotencyKey.String(), "original_name": filename,
+		"mime_type": mimeType, "size_bytes": sizeBytes,
+	})
+}
 func (c *CoverClient) Transition(ctx context.Context, uploadID uuid.UUID, next Status) (CoverSession, error) {
 	return c.call(ctx, "Transition", map[string]any{"upload_id": uploadID.String(), "target_status": string(next)})
 }
 func (c *CoverClient) Complete(ctx context.Context, uploadID uuid.UUID) (CoverSession, error) {
 	return c.call(ctx, "Complete", map[string]any{"upload_id": uploadID.String()})
+}
+func (c *CoverClient) CompleteIfMissing(ctx context.Context, uploadID uuid.UUID) (CoverSession, error) {
+	return c.call(ctx, "CompleteIfMissing", map[string]any{"upload_id": uploadID.String()})
 }
 func (c *CoverClient) Published(ctx context.Context, releaseID uuid.UUID) (CoverSession, error) {
 	return c.call(ctx, "GetPublished", map[string]any{"release_id": releaseID.String()})

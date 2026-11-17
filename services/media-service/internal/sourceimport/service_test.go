@@ -18,7 +18,7 @@ func TestServiceImportsAuthorizedExternalTrack(t *testing.T) {
 	providers := &providerStub{}
 	store := &storeStub{findErr: media.ErrNotFound}
 	objects := &objectStub{}
-	asset, created, err := NewService(&authorizerStub{}, providers, store, objects).Import(
+	asset, created, err := NewService(&authorizerStub{}, providers, store, objects, nil).Import(
 		context.Background(), actorID, trackID, source.ProviderJamendo, "42",
 	)
 	if err != nil || !created || asset.ContentTrackID != trackID ||
@@ -44,9 +44,9 @@ func TestServiceReturnsExistingImportWithoutDownloading(t *testing.T) {
 	asset, created, err := NewService(&authorizerStub{}, providers, &storeStub{
 		existing:  existing,
 		reference: source.Reference{Provider: source.ProviderJamendo, ExternalID: "42"},
-	}, &objectStub{}).Import(context.Background(), uuid.New(), trackID,
+	}, &objectStub{}, nil).Import(context.Background(), uuid.New(), trackID,
 		source.ProviderJamendo, "42")
-	if err != nil || created || asset.ID != existing.ID || providers.resolveCalls != 0 {
+	if err != nil || created || asset.ID != existing.ID || providers.resolveCalls != 1 {
 		t.Fatalf("Import() = %+v, created %v, error %v, resolves %d",
 			asset, created, err, providers.resolveCalls)
 	}
@@ -55,7 +55,7 @@ func TestServiceReturnsExistingImportWithoutDownloading(t *testing.T) {
 func TestServiceRejectsForbiddenAndIncompatibleLicense(t *testing.T) {
 	trackID := uuid.New()
 	_, _, err := NewService(&authorizerStub{err: content.ErrForbidden}, &providerStub{},
-		&storeStub{}, &objectStub{}).Import(context.Background(), uuid.New(), trackID,
+		&storeStub{}, &objectStub{}, nil).Import(context.Background(), uuid.New(), trackID,
 		source.ProviderJamendo, "42")
 	if !errors.Is(err, ErrForbidden) {
 		t.Fatalf("Import(forbidden) error = %v", err)
@@ -63,7 +63,7 @@ func TestServiceRejectsForbiddenAndIncompatibleLicense(t *testing.T) {
 	providers := &providerStub{denyRedistribution: true}
 	objects := &objectStub{}
 	_, _, err = NewService(&authorizerStub{}, providers,
-		&storeStub{findErr: media.ErrNotFound}, objects).Import(
+		&storeStub{findErr: media.ErrNotFound}, objects, nil).Import(
 		context.Background(), uuid.New(), trackID, source.ProviderJamendo, "42")
 	if !errors.Is(err, ErrLicense) || providers.openCalls != 0 || objects.putCalls != 0 {
 		t.Fatalf("Import(license) error = %v, opens %d, puts %d",
@@ -75,21 +75,63 @@ func TestServiceDeletesObjectWhenDatabaseWriteFails(t *testing.T) {
 	objects := &objectStub{}
 	_, _, err := NewService(&authorizerStub{}, &providerStub{}, &storeStub{
 		findErr: media.ErrNotFound, createErr: errors.New("database unavailable"),
-	}, objects).Import(context.Background(), uuid.New(), uuid.New(), source.ProviderJamendo, "42")
+	}, objects, nil).Import(context.Background(), uuid.New(), uuid.New(), source.ProviderJamendo, "42")
 	if err == nil || objects.deleteCalls != 1 {
 		t.Fatalf("Import() error = %v, deletes = %d", err, objects.deleteCalls)
 	}
 }
 
-type authorizerStub struct{ err error }
+func TestServiceImportsProviderArtworkForReleaseWithoutCover(t *testing.T) {
+	releaseID := uuid.New()
+	providers := &providerStub{artworkAvailable: true}
+	objects := &objectStub{}
+	covers := &coverStub{session: content.CoverSession{
+		ID: uuid.New(), ReleaseID: releaseID, RequestedByUserID: uuid.New(),
+		ObjectKey: "creator-content/creator/release/covers/import/cover.jpg",
+		MIMEType:  "image/jpeg", SizeBytes: 5, Status: content.StatusPending,
+	}}
+	_, _, err := NewService(
+		&authorizerStub{target: content.ImportTarget{ReleaseID: releaseID}},
+		providers, &storeStub{findErr: media.ErrNotFound}, objects, covers,
+	).Import(context.Background(), uuid.New(), uuid.New(), source.ProviderJamendo, "42")
+	if err != nil || providers.artworkCalls != 1 || covers.createCalls != 1 ||
+		covers.completeCalls != 1 || objects.putCalls != 2 || string(objects.data) != "image" {
+		t.Fatalf("Import() error = %v; artwork opens=%d creates=%d completes=%d puts=%d data=%q",
+			err, providers.artworkCalls, covers.createCalls, covers.completeCalls,
+			objects.putCalls, objects.data)
+	}
+}
 
-func (stub *authorizerStub) CanImport(context.Context, uuid.UUID, uuid.UUID) error {
-	return stub.err
+func TestServiceKeepsCreatorCoverInsteadOfProviderArtwork(t *testing.T) {
+	providers := &providerStub{artworkAvailable: true}
+	covers := &coverStub{}
+	_, _, err := NewService(
+		&authorizerStub{target: content.ImportTarget{ReleaseID: uuid.New(), HasCover: true}},
+		providers, &storeStub{findErr: media.ErrNotFound}, &objectStub{}, covers,
+	).Import(context.Background(), uuid.New(), uuid.New(), source.ProviderJamendo, "42")
+	if err != nil || providers.artworkCalls != 0 || covers.createCalls != 0 {
+		t.Fatalf("Import() error = %v; artwork opens=%d creates=%d",
+			err, providers.artworkCalls, covers.createCalls)
+	}
+}
+
+type authorizerStub struct {
+	target content.ImportTarget
+	err    error
+}
+
+func (stub *authorizerStub) CanImport(context.Context, uuid.UUID, uuid.UUID) (content.ImportTarget, error) {
+	if stub.target.ReleaseID == uuid.Nil {
+		stub.target.ReleaseID = uuid.New()
+	}
+	return stub.target, stub.err
 }
 
 type providerStub struct {
 	resolveCalls       int
 	openCalls          int
+	artworkCalls       int
+	artworkAvailable   bool
 	denyRedistribution bool
 }
 
@@ -97,7 +139,7 @@ func (stub *providerStub) Resolve(
 	context.Context, source.ProviderName, string,
 ) (source.Track, error) {
 	stub.resolveCalls++
-	return source.Track{
+	track := source.Track{
 		ExternalID: "42", Title: "Night Signal", Artist: "Luna Veil",
 		PageURL: "https://www.jamendo.com/track/42",
 		License: source.License{
@@ -105,7 +147,11 @@ func (stub *providerStub) Resolve(
 			Attribution: "Luna Veil", AllowsStreaming: true,
 			AllowsRedistribution: !stub.denyRedistribution,
 		},
-	}, nil
+	}
+	if stub.artworkAvailable {
+		track.ArtworkURL = "https://usercontent.jamendo.com/cover.jpg"
+	}
+	return track, nil
 }
 
 func (stub *providerStub) Open(
@@ -116,6 +162,47 @@ func (stub *providerStub) Open(
 		Body: io.NopCloser(bytes.NewBufferString("audio")), Filename: "track.mp3",
 		MIMEType: "audio/mpeg", SizeBytes: 5,
 	}, nil
+}
+
+func (stub *providerStub) OpenArtwork(
+	context.Context, source.ProviderName, string,
+) (source.ArtworkStream, error) {
+	stub.artworkCalls++
+	if !stub.artworkAvailable {
+		return source.ArtworkStream{}, source.ErrNotFound
+	}
+	return source.ArtworkStream{
+		Body: io.NopCloser(bytes.NewBufferString("image")), Filename: "cover.jpg",
+		MIMEType: "image/jpeg", SizeBytes: 5,
+	}, nil
+}
+
+type coverStub struct {
+	session       content.CoverSession
+	createCalls   int
+	completeCalls int
+}
+
+func (stub *coverStub) CreateImported(
+	context.Context, uuid.UUID, uuid.UUID, uuid.UUID, string, string, int64,
+) (content.CoverSession, error) {
+	stub.createCalls++
+	return stub.session, nil
+}
+
+func (stub *coverStub) Transition(
+	_ context.Context, _ uuid.UUID, status content.Status,
+) (content.CoverSession, error) {
+	stub.session.Status = status
+	return stub.session, nil
+}
+
+func (stub *coverStub) CompleteIfMissing(
+	context.Context, uuid.UUID,
+) (content.CoverSession, error) {
+	stub.completeCalls++
+	stub.session.Status = content.StatusCompleted
+	return stub.session, nil
 }
 
 type storeStub struct {

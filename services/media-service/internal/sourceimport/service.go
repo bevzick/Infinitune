@@ -21,17 +21,25 @@ var (
 	ErrConflict  = errors.New("release track already has a different external source")
 	ErrLicense   = errors.New("external media license does not permit import")
 	ErrStorage   = errors.New("external media storage failed")
+	ErrArtwork   = errors.New("external artwork import failed")
 )
 
 const compensationTimeout = 5 * time.Second
 
 type Authorizer interface {
-	CanImport(context.Context, uuid.UUID, uuid.UUID) error
+	CanImport(context.Context, uuid.UUID, uuid.UUID) (content.ImportTarget, error)
 }
 
 type Providers interface {
 	Resolve(context.Context, source.ProviderName, string) (source.Track, error)
 	Open(context.Context, source.ProviderName, string) (source.AudioStream, error)
+	OpenArtwork(context.Context, source.ProviderName, string) (source.ArtworkStream, error)
+}
+
+type CoverSessions interface {
+	CreateImported(context.Context, uuid.UUID, uuid.UUID, uuid.UUID, string, string, int64) (content.CoverSession, error)
+	Transition(context.Context, uuid.UUID, content.Status) (content.CoverSession, error)
+	CompleteIfMissing(context.Context, uuid.UUID) (content.CoverSession, error)
 }
 
 type Store interface {
@@ -49,6 +57,7 @@ type Service struct {
 	providers  Providers
 	store      Store
 	objects    ObjectStore
+	covers     CoverSessions
 }
 
 func NewService(
@@ -56,8 +65,9 @@ func NewService(
 	providers Providers,
 	store Store,
 	objects ObjectStore,
+	covers CoverSessions,
 ) *Service {
-	return &Service{authorizer: authorizer, providers: providers, store: store, objects: objects}
+	return &Service{authorizer: authorizer, providers: providers, store: store, objects: objects, covers: covers}
 }
 
 func (service *Service) Import(
@@ -72,19 +82,12 @@ func (service *Service) Import(
 		len(externalID) > source.MaximumExternalIDLength || strings.ContainsAny(externalID, "\r\n\t") {
 		return media.Asset{}, false, ErrInvalid
 	}
-	if err := service.authorizer.CanImport(ctx, actorID, contentTrackID); err != nil {
+	target, err := service.authorizer.CanImport(ctx, actorID, contentTrackID)
+	if err != nil {
 		if errors.Is(err, content.ErrForbidden) {
 			return media.Asset{}, false, ErrForbidden
 		}
 		return media.Asset{}, false, fmt.Errorf("authorize external import: %w", err)
-	}
-	if existing, reference, err := service.store.ExternalByContentTrack(ctx, contentTrackID); err == nil {
-		if reference.Provider != provider || reference.ExternalID != externalID {
-			return media.Asset{}, false, ErrConflict
-		}
-		return existing, false, nil
-	} else if !errors.Is(err, media.ErrNotFound) {
-		return media.Asset{}, false, fmt.Errorf("find existing external import: %w", err)
 	}
 	track, err := service.providers.Resolve(ctx, provider, externalID)
 	if err != nil {
@@ -92,6 +95,17 @@ func (service *Service) Import(
 	}
 	if !track.License.AllowsStreaming || !track.License.AllowsRedistribution {
 		return media.Asset{}, false, ErrLicense
+	}
+	if existing, reference, err := service.store.ExternalByContentTrack(ctx, contentTrackID); err == nil {
+		if reference.Provider != provider || reference.ExternalID != externalID {
+			return media.Asset{}, false, ErrConflict
+		}
+		if err = service.importArtwork(ctx, actorID, target, provider, externalID, track); err != nil {
+			return media.Asset{}, false, err
+		}
+		return existing, false, nil
+	} else if !errors.Is(err, media.ErrNotFound) {
+		return media.Asset{}, false, fmt.Errorf("find existing external import: %w", err)
 	}
 	stream, err := service.providers.Open(ctx, provider, externalID)
 	if err != nil {
@@ -134,5 +148,72 @@ func (service *Service) Import(
 		}
 		return stored, false, deleteErr
 	}
+	if err = service.importArtwork(ctx, actorID, target, provider, externalID, track); err != nil {
+		return stored, true, err
+	}
 	return stored, true, nil
+}
+
+func (service *Service) importArtwork(
+	ctx context.Context,
+	actorID uuid.UUID,
+	target content.ImportTarget,
+	provider source.ProviderName,
+	externalID string,
+	track source.Track,
+) error {
+	if target.HasCover || track.ArtworkURL == "" || service.covers == nil {
+		return nil
+	}
+	artwork, err := service.providers.OpenArtwork(ctx, provider, externalID)
+	if errors.Is(err, source.ErrNotFound) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("%w: open provider artwork: %v", ErrArtwork, err)
+	}
+	defer artwork.Body.Close()
+	idempotencyKey := uuid.NewSHA1(uuid.NameSpaceURL, []byte(
+		"infinitune:provider-artwork:"+target.ReleaseID.String()+":"+string(provider)+":"+externalID,
+	))
+	session, err := service.covers.CreateImported(
+		ctx, actorID, target.ReleaseID, idempotencyKey,
+		artwork.Filename, artwork.MIMEType, artwork.SizeBytes,
+	)
+	if err != nil {
+		return fmt.Errorf("%w: create cover session: %v", ErrArtwork, err)
+	}
+	if session.Status == content.StatusCompleted {
+		return nil
+	}
+	if session.Status == content.StatusFailed {
+		session, err = service.covers.Transition(ctx, session.ID, content.StatusPending)
+		if err != nil {
+			return fmt.Errorf("%w: reset cover session: %v", ErrArtwork, err)
+		}
+	}
+	if session.Status == content.StatusPending {
+		session, err = service.covers.Transition(ctx, session.ID, content.StatusUploading)
+		if err != nil {
+			return fmt.Errorf("%w: start cover session: %v", ErrArtwork, err)
+		}
+	}
+	if session.Status != content.StatusUploading {
+		return fmt.Errorf("%w: unsupported cover session status %q", ErrArtwork, session.Status)
+	}
+	if err = service.objects.Put(ctx, session.ObjectKey, artwork.Body,
+		artwork.SizeBytes, artwork.MIMEType); err != nil {
+		_, _ = service.covers.Transition(context.WithoutCancel(ctx), session.ID, content.StatusFailed)
+		return fmt.Errorf("%w: store provider artwork: %v", ErrArtwork, err)
+	}
+	if _, err = service.covers.CompleteIfMissing(ctx, session.ID); err != nil {
+		cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), compensationTimeout)
+		defer cancel()
+		deleteErr := service.objects.Delete(cleanupCtx, session.ObjectKey)
+		if errors.Is(err, content.ErrConflict) {
+			return deleteErr
+		}
+		return errors.Join(fmt.Errorf("%w: attach provider artwork: %v", ErrArtwork, err), deleteErr)
+	}
+	return nil
 }

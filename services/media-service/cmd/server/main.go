@@ -139,7 +139,7 @@ func main() {
 		os.Exit(1)
 	}
 	externalImportService := sourceimport.NewService(
-		contentClient, providers, mediaRepository, objectStorage,
+		contentClient, providers, mediaRepository, objectStorage, coverClient,
 	)
 	processingWorker := processing.NewWorker(
 		mediaRepository,

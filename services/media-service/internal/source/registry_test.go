@@ -127,6 +127,13 @@ func (stub *providerStub) Open(_ context.Context, externalID string) (AudioStrea
 	}, nil
 }
 
+func (stub *providerStub) OpenArtwork(_ context.Context, _ string) (ArtworkStream, error) {
+	return ArtworkStream{
+		Body: io.NopCloser(strings.NewReader("image")), Filename: "cover.jpg",
+		MIMEType: "image/jpeg", SizeBytes: 5,
+	}, nil
+}
+
 type trackingReadCloser struct {
 	io.Reader
 	closed bool

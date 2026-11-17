@@ -45,6 +45,11 @@ type Session struct {
 	Status            Status
 }
 
+type ImportTarget struct {
+	ReleaseID uuid.UUID
+	HasCover  bool
+}
+
 type grpcClient interface {
 	GetUploadSession(context.Context, *contentv1.GetUploadSessionRequest, ...grpc.CallOption) (*contentv1.UploadSession, error)
 	TransitionUpload(context.Context, *contentv1.TransitionUploadRequest, ...grpc.CallOption) (*contentv1.UploadSession, error)
@@ -60,9 +65,9 @@ func (client *Client) CanImport(
 	ctx context.Context,
 	userID uuid.UUID,
 	trackID uuid.UUID,
-) error {
+) (ImportTarget, error) {
 	if userID == uuid.Nil || trackID == uuid.Nil {
-		return ErrInvalid
+		return ImportTarget{}, ErrInvalid
 	}
 	callCtx, cancel := context.WithTimeout(ctx, requestTimeout)
 	defer cancel()
@@ -70,12 +75,16 @@ func (client *Client) CanImport(
 		UserId: userID.String(), ReleaseTrackId: trackID.String(),
 	})
 	if err != nil {
-		return mapError(ctx, err)
+		return ImportTarget{}, mapError(ctx, err)
 	}
 	if response == nil || !response.GetAllowed() {
-		return ErrForbidden
+		return ImportTarget{}, ErrForbidden
 	}
-	return nil
+	releaseID, err := uuid.Parse(response.GetReleaseId())
+	if err != nil || releaseID == uuid.Nil {
+		return ImportTarget{}, fmt.Errorf("%w: invalid release id", ErrUnavailable)
+	}
+	return ImportTarget{ReleaseID: releaseID, HasCover: response.GetHasCover()}, nil
 }
 
 func (client *Client) CanStream(

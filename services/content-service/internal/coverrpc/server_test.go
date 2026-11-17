@@ -21,6 +21,13 @@ type fakeSessions struct {
 	err     error
 }
 
+func (f fakeSessions) CreateSession(_ context.Context, actor uuid.UUID, input coverupload.CreateInput) (coverupload.Session, error) {
+	s := f.session
+	s.RequestedByUserID = actor
+	s.ReleaseID = input.ReleaseID
+	return s, f.err
+}
+
 func (f fakeSessions) SessionForUser(_ context.Context, actor, upload uuid.UUID) (coverupload.Session, error) {
 	if f.err != nil {
 		return coverupload.Session{}, f.err
@@ -45,6 +52,9 @@ func (f fakeSessions) Complete(_ context.Context, id uuid.UUID) (coverupload.Ses
 	s := f.session
 	s.Status = coverupload.StatusCompleted
 	return s, nil
+}
+func (f fakeSessions) CompleteIfMissing(ctx context.Context, id uuid.UUID) (coverupload.Session, error) {
+	return f.Complete(ctx, id)
 }
 
 func (f fakeSessions) Published(_ context.Context, _ uuid.UUID) (coverupload.Session, error) {

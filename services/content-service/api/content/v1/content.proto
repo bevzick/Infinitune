@@ -60,4 +60,6 @@ message CheckTrackImportRequest {
 
 message CheckTrackImportResponse {
   bool allowed = 1;
+  string release_id = 2;
+  bool has_cover = 3;
 }

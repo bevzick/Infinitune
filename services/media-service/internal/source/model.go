@@ -18,6 +18,7 @@ const (
 	MaximumMetadataKeySize   = 64
 	MaximumMetadataValueSize = 1024
 	MaximumAudioSizeBytes    = 500 * 1024 * 1024
+	MaximumArtworkSizeBytes  = 10 * 1024 * 1024
 	MaximumDiscoveryQuery    = 200
 	MaximumDiscoveryLimit    = 50
 	DefaultDiscoveryLimit    = 20
@@ -101,11 +102,19 @@ type AudioStream struct {
 	SizeBytes int64
 }
 
+type ArtworkStream struct {
+	Body      io.ReadCloser
+	Filename  string
+	MIMEType  string
+	SizeBytes int64
+}
+
 type Provider interface {
 	Name() ProviderName
 	Discover(context.Context, DiscoveryQuery) (DiscoveryPage, error)
 	Resolve(context.Context, string) (Track, error)
 	Open(context.Context, string) (AudioStream, error)
+	OpenArtwork(context.Context, string) (ArtworkStream, error)
 }
 
 type Store interface {
@@ -200,6 +209,26 @@ func ValidateAudioStream(stream AudioStream) error {
 	if stream.SizeBytes < 1 || stream.SizeBytes > MaximumAudioSizeBytes {
 		return fmt.Errorf("%w: size must be between 1 and %d bytes",
 			ErrInvalidStream, MaximumAudioSizeBytes)
+	}
+	return nil
+}
+
+func ValidateArtworkStream(stream ArtworkStream) error {
+	if stream.Body == nil {
+		return fmt.Errorf("%w: artwork body is required", ErrInvalidStream)
+	}
+	if strings.TrimSpace(stream.Filename) == "" ||
+		strings.ContainsAny(stream.Filename, "/\\\r\n\t") {
+		return fmt.Errorf("%w: artwork filename is invalid", ErrInvalidStream)
+	}
+	switch strings.ToLower(strings.TrimSpace(stream.MIMEType)) {
+	case "image/jpeg", "image/png", "image/webp":
+	default:
+		return fmt.Errorf("%w: artwork MIME type %q is unsupported", ErrInvalidStream, stream.MIMEType)
+	}
+	if stream.SizeBytes < 1 || stream.SizeBytes > MaximumArtworkSizeBytes {
+		return fmt.Errorf("%w: artwork size must be between 1 and %d bytes",
+			ErrInvalidStream, MaximumArtworkSizeBytes)
 	}
 	return nil
 }

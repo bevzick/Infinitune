@@ -20,6 +20,7 @@ import (
 const (
 	defaultMetadataURL = "https://archive.org/metadata"
 	defaultDownloadURL = "https://archive.org/download"
+	defaultArtworkURL  = "https://archive.org/services/img"
 	defaultTimeout     = 20 * time.Second
 	maximumResponse    = 8 * 1024 * 1024
 )
@@ -29,6 +30,7 @@ var ErrUnsupportedLicense = fmt.Errorf("Internet Archive item license is unsuppo
 type Config struct {
 	MetadataURL  string
 	DownloadURL  string
+	ArtworkURL   string
 	Timeout      time.Duration
 	AllowedHosts []string
 }
@@ -37,6 +39,7 @@ type Client struct {
 	client       *http.Client
 	metadataURL  *url.URL
 	downloadURL  *url.URL
+	artworkURL   *url.URL
 	allowedHosts []string
 }
 
@@ -49,6 +52,9 @@ func New(config Config, httpClient *http.Client) (*Client, error) {
 	if config.DownloadURL == "" {
 		config.DownloadURL = defaultDownloadURL
 	}
+	if config.ArtworkURL == "" {
+		config.ArtworkURL = defaultArtworkURL
+	}
 	metadataURL, err := parseBaseURL("Internet Archive metadata URL", config.MetadataURL)
 	if err != nil {
 		return nil, err
@@ -57,12 +63,16 @@ func New(config Config, httpClient *http.Client) (*Client, error) {
 	if err != nil {
 		return nil, err
 	}
+	artworkURL, err := parseBaseURL("Internet Archive artwork URL", config.ArtworkURL)
+	if err != nil {
+		return nil, err
+	}
 	if config.Timeout <= 0 {
 		config.Timeout = defaultTimeout
 	}
 	hosts := append([]string(nil), config.AllowedHosts...)
 	if len(hosts) == 0 {
-		hosts = []string{"archive.org", metadataURL.Hostname(), downloadURL.Hostname()}
+		hosts = []string{"archive.org", metadataURL.Hostname(), downloadURL.Hostname(), artworkURL.Hostname()}
 	}
 	for index, host := range hosts {
 		hosts[index] = strings.ToLower(strings.TrimSpace(host))
@@ -76,7 +86,7 @@ func New(config Config, httpClient *http.Client) (*Client, error) {
 	clientCopy := *httpClient
 	clientCopy.Timeout = config.Timeout
 	client := &Client{
-		client: &clientCopy, metadataURL: metadataURL, downloadURL: downloadURL,
+		client: &clientCopy, metadataURL: metadataURL, downloadURL: downloadURL, artworkURL: artworkURL,
 		allowedHosts: hosts,
 	}
 	previousPolicy := clientCopy.CheckRedirect
@@ -242,6 +252,36 @@ func (client *Client) Open(ctx context.Context, externalID string) (source.Audio
 		return source.AudioStream{}, err
 	}
 	return stream, nil
+}
+
+func (client *Client) OpenArtwork(ctx context.Context, externalID string) (source.ArtworkStream, error) {
+	identifier, _, err := parseExternalID(externalID)
+	if err != nil {
+		return source.ArtworkStream{}, err
+	}
+	item, err := client.item(ctx, identifier)
+	if err != nil {
+		return source.ArtworkStream{}, err
+	}
+	if _, err = archiveLicense(item.Metadata.LicenseURL.First(), item.artist()); err != nil {
+		return source.ArtworkStream{}, err
+	}
+	artworkURL := *client.artworkURL
+	artworkURL.Path = strings.TrimRight(artworkURL.Path, "/") + "/" + url.PathEscape(identifier)
+	if client.validateURL(&artworkURL) != nil {
+		return source.ArtworkStream{}, fmt.Errorf("%w: invalid Internet Archive artwork URL", source.ErrProviderUnavailable)
+	}
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, artworkURL.String(), nil)
+	if err != nil {
+		return source.ArtworkStream{}, fmt.Errorf("create Internet Archive artwork request: %w", err)
+	}
+	request.Header.Set("Accept", "image/jpeg,image/png,image/webp")
+	response, err := client.client.Do(request)
+	if err != nil {
+		return source.ArtworkStream{}, fmt.Errorf("%w: download Internet Archive artwork: %v",
+			source.ErrProviderUnavailable, err)
+	}
+	return source.ArtworkFromHTTP(response, "internet-archive-"+identifier+"-cover")
 }
 
 func (client *Client) resolve(

@@ -122,6 +122,32 @@ func (registry *Registry) Open(
 	return stream, nil
 }
 
+func (registry *Registry) OpenArtwork(
+	ctx context.Context,
+	providerName ProviderName,
+	externalID string,
+) (ArtworkStream, error) {
+	provider, err := registry.provider(providerName)
+	if err != nil {
+		return ArtworkStream{}, err
+	}
+	if !validExternalID(externalID) {
+		return ArtworkStream{}, validationError("external_id", "must be a non-blank provider identifier")
+	}
+	stream, err := provider.OpenArtwork(ctx, externalID)
+	if err != nil {
+		return ArtworkStream{}, fmt.Errorf("open %s artwork %q: %w", providerName, externalID, err)
+	}
+	if err = ValidateArtworkStream(stream); err != nil {
+		if stream.Body != nil {
+			_ = stream.Body.Close()
+		}
+		return ArtworkStream{}, fmt.Errorf("validate %s artwork stream %q: %w",
+			providerName, externalID, err)
+	}
+	return stream, nil
+}
+
 func (registry *Registry) provider(name ProviderName) (Provider, error) {
 	if registry == nil {
 		return nil, fmt.Errorf("%w: %s", ErrUnsupportedProvider, name)

@@ -47,6 +47,7 @@ type TrackTarget struct {
 	ReleaseID     uuid.UUID
 	CreatorID     uuid.UUID
 	ReleaseStatus release.Status
+	HasCover      bool
 }
 
 type CreateInput struct {
