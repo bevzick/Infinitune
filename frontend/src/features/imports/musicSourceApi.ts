@@ -41,6 +41,16 @@ export type ImportResult = {
   status: string;
 };
 
+export type ArtworkBackfillReport = {
+  scanned: number;
+  repaired: number;
+  unchanged: number;
+  skipped: number;
+  failed: number;
+  next_offset: number;
+  has_more: boolean;
+};
+
 type ProviderPage = { items: Array<{ id: MusicSourceProvider }> };
 type ReleaseTrack = { id: string; title: string };
 type Release = {
@@ -92,6 +102,21 @@ export function importSourceTrack(
       external_id: track.external_id,
     }),
   });
+}
+
+export function backfillSourceArtwork(
+  accessToken: string,
+  limit: number,
+  offset: number,
+) {
+  const parameters = new URLSearchParams({
+    limit: String(limit),
+    offset: String(offset),
+  });
+  return apiRequest<ArtworkBackfillReport>(
+    `/v1/media/imports/artwork/backfill?${parameters}`,
+    { method: "POST", accessToken },
+  );
 }
 
 export async function listDraftReleaseTracks(

@@ -188,6 +188,45 @@ func TestServiceKeepsExistingArtistImage(t *testing.T) {
 	}
 }
 
+func TestServiceBackfillsArtworkInBoundedPages(t *testing.T) {
+	creatorID, releaseID := uuid.New(), uuid.New()
+	store := &storeStub{candidates: []BackfillCandidate{
+		{ContentTrackID: uuid.New(), Provider: source.ProviderJamendo, ExternalID: "42"},
+		{ContentTrackID: uuid.New(), Provider: source.ProviderJamendo, ExternalID: "43"},
+	}}
+	providers := &providerStub{artworkAvailable: true, artistArtworkAvailable: true}
+	images := &artistImagesStub{findErr: artistimage.ErrNotFound}
+	report, err := NewService(
+		&authorizerStub{target: content.ImportTarget{
+			ReleaseID: releaseID, CreatorID: creatorID,
+		}},
+		providers, store, &objectStub{}, newCoverStub(releaseID), images,
+	).BackfillArtwork(context.Background(), uuid.New(), 1, 0)
+	if err != nil || report.Scanned != 1 || report.Repaired != 1 ||
+		report.Failed != 0 || report.NextOffset != 1 || !report.HasMore ||
+		providers.resolveCalls != 1 || providers.artworkCalls != 1 ||
+		providers.artistArtworkCalls != 1 || images.importCalls != 1 {
+		t.Fatalf("BackfillArtwork() = %+v, %v; providers=%+v images=%+v",
+			report, err, providers, images)
+	}
+}
+
+func TestServiceBackfillSkipsImportsActorCannotEdit(t *testing.T) {
+	store := &storeStub{candidates: []BackfillCandidate{{
+		ContentTrackID: uuid.New(), Provider: source.ProviderJamendo, ExternalID: "42",
+	}}}
+	providers := &providerStub{artworkAvailable: true}
+	report, err := NewService(
+		&authorizerStub{err: content.ErrForbidden}, providers, store,
+		&objectStub{}, nil,
+	).BackfillArtwork(context.Background(), uuid.New(), DefaultBackfillLimit, 0)
+	if err != nil || report.Scanned != 1 || report.Skipped != 1 ||
+		report.Repaired != 0 || providers.resolveCalls != 0 {
+		t.Fatalf("BackfillArtwork() = %+v, %v; resolves=%d",
+			report, err, providers.resolveCalls)
+	}
+}
+
 func newCoverStub(releaseID uuid.UUID) *coverStub {
 	return &coverStub{session: content.CoverSession{
 		ID: uuid.New(), ReleaseID: releaseID, RequestedByUserID: uuid.New(),
@@ -334,11 +373,27 @@ func (stub *coverStub) CompleteIfMissing(
 }
 
 type storeStub struct {
-	existing  media.Asset
-	reference source.Reference
-	asset     media.Asset
-	findErr   error
-	createErr error
+	existing   media.Asset
+	reference  source.Reference
+	asset      media.Asset
+	candidates []BackfillCandidate
+	findErr    error
+	createErr  error
+}
+
+func (stub *storeStub) ExternalImports(
+	_ context.Context,
+	limit int,
+	offset int,
+) ([]BackfillCandidate, error) {
+	if offset >= len(stub.candidates) {
+		return []BackfillCandidate{}, nil
+	}
+	end := offset + limit
+	if end > len(stub.candidates) {
+		end = len(stub.candidates)
+	}
+	return append([]BackfillCandidate(nil), stub.candidates[offset:end]...), nil
 }
 
 func (stub *storeStub) ExternalByContentTrack(

@@ -91,6 +91,20 @@ func TestMediaRepositoryCreatesExternalAssetSourceAndJobAtomically(t *testing.T)
 	if err != nil || loaded.ID != assetID || loadedReference.ExternalID != "42" {
 		t.Fatalf("ExternalByContentTrack() = %+v, %+v, %v", loaded, loadedReference, err)
 	}
+	candidates, err := repository.ExternalImports(ctx, 1000, 0)
+	if err != nil {
+		t.Fatalf("ExternalImports() error = %v", err)
+	}
+	found := false
+	for _, candidate := range candidates {
+		if candidate.ContentTrackID == trackID {
+			found = candidate.Provider == source.ProviderJamendo && candidate.ExternalID == "42"
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("ExternalImports() did not include track %s: %+v", trackID, candidates)
+	}
 	var jobs int
 	if err = pool.QueryRow(ctx,
 		`SELECT count(*) FROM media.processing_jobs WHERE media_asset_id = $1`, assetID,

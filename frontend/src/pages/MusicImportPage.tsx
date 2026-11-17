@@ -7,6 +7,8 @@ import {
 } from "react";
 
 import {
+  type ArtworkBackfillReport,
+  backfillSourceArtwork,
   discoverSourceTracks,
   importSourceTrack,
   listDraftReleaseTracks,
@@ -39,6 +41,8 @@ export function MusicImportPage() {
   const [importing, setImporting] = useState("");
   const [imported, setImported] = useState<SourceTrack | null>(null);
   const [hasSearched, setHasSearched] = useState(false);
+  const [repairing, setRepairing] = useState(false);
+  const [repairNotice, setRepairNotice] = useState("");
 
   const load = useCallback(
     async (signal?: AbortSignal) => {
@@ -113,6 +117,46 @@ export function MusicImportPage() {
     }
   }
 
+  async function repairImportedArtwork() {
+    if (!accessToken || repairing) return;
+    setRepairing(true);
+    setRepairNotice("");
+    setError("");
+    const total: ArtworkBackfillReport = {
+      scanned: 0,
+      repaired: 0,
+      unchanged: 0,
+      skipped: 0,
+      failed: 0,
+      next_offset: 0,
+      has_more: false,
+    };
+    try {
+      do {
+        const page = await backfillSourceArtwork(
+          accessToken,
+          50,
+          total.next_offset,
+        );
+        total.scanned += page.scanned;
+        total.repaired += page.repaired;
+        total.unchanged += page.unchanged;
+        total.skipped += page.skipped;
+        total.failed += page.failed;
+        total.next_offset = page.next_offset;
+        total.has_more = page.has_more;
+      } while (total.has_more);
+      setRepairNotice(
+        `${total.repaired} updated, ${total.unchanged} already complete, ` +
+          `${total.skipped} not editable, ${total.failed} failed.`,
+      );
+    } catch (reason) {
+      setError(errorMessage(reason, "Could not repair imported artwork"));
+    } finally {
+      setRepairing(false);
+    }
+  }
+
   if (status === "loading") {
     return <ImportState label="Loading creator tracks and music sources…" />;
   }
@@ -153,6 +197,30 @@ export function MusicImportPage() {
           External audio must be attached to an existing track in a draft
           release.
         </ImportNotice>
+      ) : null}
+
+      {providers.length ? (
+        <section
+          className="music-import-repair"
+          aria-labelledby="artwork-repair-title"
+        >
+          <div>
+            <span className="eyebrow">Existing imports</span>
+            <h2 id="artwork-repair-title">Repair missing artwork</h2>
+            <p>
+              Restore provider covers and artist images for imported tracks in
+              releases you can still edit.
+            </p>
+          </div>
+          <button
+            type="button"
+            disabled={repairing}
+            onClick={() => void repairImportedArtwork()}
+          >
+            {repairing ? "Repairing…" : "Repair artwork"}
+          </button>
+          {repairNotice ? <p role="status">{repairNotice}</p> : null}
+        </section>
       ) : null}
 
       {providers.length && releaseTracks.length ? (
