@@ -84,6 +84,7 @@ func NewRouter(dependencies Dependencies) http.Handler {
 	protected.PUT("/uploads/:upload_id", ingestUpload(dependencies.Ingest, dependencies.Logger))
 	protected.PUT("/cover-uploads/:upload_id", ingestCoverUpload(dependencies.Covers, dependencies.Logger))
 	protected.PUT("/creator-artists/:creator_id/image", uploadArtistImage(dependencies.ArtistImages, dependencies.Logger))
+	protected.PUT("/admin/artists/:artist_id/image", uploadCatalogArtistImage(dependencies.ArtistImages, dependencies.Logger))
 	protected.POST("/imports", importExternal(dependencies.Imports, dependencies.Logger))
 	protected.GET("/sources/providers", listSourceProviders(dependencies.Sources))
 	protected.GET("/sources/:provider/tracks", discoverSourceTracks(dependencies.Sources, dependencies.Logger))

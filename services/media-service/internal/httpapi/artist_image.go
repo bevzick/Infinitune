@@ -16,7 +16,47 @@ import (
 
 type ArtistImages interface {
 	Upload(context.Context, uuid.UUID, uuid.UUID, string, int64, io.Reader) (artistimage.Image, error)
+	UploadCatalog(context.Context, uuid.UUID, []string, uuid.UUID, string, int64, io.Reader) (artistimage.Image, error)
 	Find(context.Context, uuid.UUID) (artistimage.Image, error)
+}
+
+func uploadCatalogArtistImage(service ArtistImages, logger *slog.Logger) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if service == nil {
+			writeError(c, 503, "image_unavailable", "Artist image service is unavailable")
+			return
+		}
+		artistID, err := uuid.Parse(c.Param("artist_id"))
+		if err != nil || artistID == uuid.Nil {
+			writeError(c, 422, "invalid_artist", "artist_id must be a UUID")
+			return
+		}
+		if c.Request.ContentLength < 0 {
+			writeError(c, http.StatusLengthRequired, "content_length_required", "Content-Length required")
+			return
+		}
+		if c.Request.ContentLength > artistimage.MaximumBytes {
+			writeError(c, 413, "image_too_large", "Artist image exceeds 10 MiB")
+			return
+		}
+		identity, ok := requestIdentity(c)
+		if !ok {
+			writeUnauthorized(c)
+			return
+		}
+		c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, artistimage.MaximumBytes)
+		image, err := service.UploadCatalog(c.Request.Context(), identity.UserID,
+			identity.Roles, artistID, c.GetHeader("Content-Type"),
+			c.Request.ContentLength, c.Request.Body)
+		if err != nil {
+			writeArtistImageError(c, logger, err)
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{
+			"artist_id": image.CatalogArtistID.String(),
+			"image_url": "/v1/media/artists/" + image.CatalogArtistID.String() + "/image",
+		})
+	}
 }
 
 func uploadArtistImage(service ArtistImages, logger *slog.Logger) gin.HandlerFunc {

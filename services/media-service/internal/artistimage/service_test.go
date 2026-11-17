@@ -7,6 +7,7 @@ import (
 	"image/color"
 	"image/png"
 	"io"
+	"strings"
 	"testing"
 
 	"github.com/google/uuid"
@@ -59,8 +60,35 @@ func TestUploadStoresAndReplacesArtistImage(t *testing.T) {
 	}
 	wantArtistID := uuid.NewSHA1(artistNamespace, creatorID[:])
 	if result.CatalogArtistID != wantArtistID || store.saved.UpdatedByUserID != actorID ||
+		store.saved.CreatorID == nil || *store.saved.CreatorID != creatorID ||
 		objects.mime != "image/png" || !bytes.Equal(objects.data, data) || objects.deleted != "old/image.png" {
 		t.Fatalf("Upload() = %+v; saved = %+v; object = %+v", result, store.saved, objects)
+	}
+}
+
+func TestAdminUploadsImportedCatalogArtistImage(t *testing.T) {
+	actorID, artistID := uuid.New(), uuid.New()
+	data := testPNG(t)
+	store, objects := &storeStub{}, &objectStub{}
+	result, err := NewService(permissionStub{}, store, objects).UploadCatalog(
+		context.Background(), actorID, []string{"listener", "admin"}, artistID,
+		"image/png", int64(len(data)), bytes.NewReader(data),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.CatalogArtistID != artistID || store.saved.CreatorID != nil ||
+		store.saved.UpdatedByUserID != actorID ||
+		!strings.HasPrefix(objects.key, "catalog-content/") {
+		t.Fatalf("UploadCatalog() = %+v; saved = %+v; object = %+v", result, store.saved, objects)
+	}
+
+	_, err = NewService(permissionStub{}, &storeStub{}, &objectStub{}).UploadCatalog(
+		context.Background(), actorID, []string{"moderator"}, artistID,
+		"image/png", int64(len(data)), bytes.NewReader(data),
+	)
+	if err != ErrForbidden {
+		t.Fatalf("moderator UploadCatalog() error = %v", err)
 	}
 }
 

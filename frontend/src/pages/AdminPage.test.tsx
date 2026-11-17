@@ -6,6 +6,7 @@ import { AdminPage } from "./AdminPage";
 
 const adminApi = vi.hoisted(() => ({
   assignUserRole: vi.fn(),
+  listCatalogArtists: vi.fn(),
   listCommentReports: vi.fn(),
   listCommentAudit: vi.fn(),
   listCreatorsForModeration: vi.fn(),
@@ -17,6 +18,7 @@ const adminApi = vi.hoisted(() => ({
   reviewCreator: vi.fn(),
   reviewRelease: vi.fn(),
   updateUserStatus: vi.fn(),
+  uploadCatalogArtistImage: vi.fn(),
 }));
 
 vi.mock("../features/admin/adminApi", () => adminApi);
@@ -51,11 +53,19 @@ describe("AdminPage", () => {
     adminApi.listCommentReports.mockResolvedValue(emptyPage);
     adminApi.listReleaseAudit.mockResolvedValue(emptyPage);
     adminApi.listCommentAudit.mockResolvedValue(emptyPage);
+    adminApi.listCatalogArtists.mockResolvedValue({
+      items: [],
+      pagination: { limit: 10, offset: 0, total: 0 },
+    });
     adminApi.assignUserRole.mockResolvedValue({
       user_id: "listener-id",
       roles: ["listener", "moderator"],
     });
     adminApi.updateUserStatus.mockResolvedValue({});
+    adminApi.uploadCatalogArtistImage.mockResolvedValue({
+      artist_id: "artist-id",
+      image_url: "/v1/media/artists/artist-id/image",
+    });
   });
 
   afterEach(() => {
@@ -219,5 +229,38 @@ describe("AdminPage", () => {
     expect(
       screen.getByText("Moderator: comment-moderator-id"),
     ).toBeInTheDocument();
+  });
+
+  it("uploads an image for an imported catalog artist", async () => {
+    const user = userEvent.setup();
+    adminApi.listCatalogArtists.mockResolvedValue({
+      items: [
+        {
+          id: "artist-id",
+          name: "Imported Artist",
+          description: "Provider catalog artist",
+          image_url: "",
+        },
+      ],
+      pagination: { limit: 10, offset: 0, total: 1 },
+    });
+    render(<AdminPage />);
+    await user.click(
+      await screen.findByRole("button", { name: /Artist images/ }),
+    );
+    const file = new File([new Uint8Array([1, 2, 3])], "artist.png", {
+      type: "image/png",
+    });
+
+    await user.upload(screen.getByLabelText("Upload image"), file);
+
+    await waitFor(() =>
+      expect(adminApi.uploadCatalogArtistImage).toHaveBeenCalledWith(
+        "admin-token",
+        "artist-id",
+        file,
+      ),
+    );
+    expect(await screen.findByText(/Image for/)).toBeInTheDocument();
   });
 });

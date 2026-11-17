@@ -60,6 +60,39 @@ func (service *Service) Upload(
 	if !allowed {
 		return Image{}, ErrForbidden
 	}
+	catalogArtistID := uuid.NewSHA1(artistNamespace, creatorID[:])
+	return service.storeImage(ctx, actorID, &creatorID, catalogArtistID,
+		"creator-content/"+creatorID.String(), contentType, length, body)
+}
+
+func (service *Service) UploadCatalog(
+	ctx context.Context,
+	actorID uuid.UUID,
+	roles []string,
+	catalogArtistID uuid.UUID,
+	contentType string,
+	length int64,
+	body io.Reader,
+) (Image, error) {
+	if actorID == uuid.Nil || catalogArtistID == uuid.Nil || body == nil {
+		return Image{}, ErrInvalid
+	}
+	if !hasRole(roles, "admin") {
+		return Image{}, ErrForbidden
+	}
+	return service.storeImage(ctx, actorID, nil, catalogArtistID,
+		"catalog-content", contentType, length, body)
+}
+
+func (service *Service) storeImage(
+	ctx context.Context,
+	actorID uuid.UUID,
+	creatorID *uuid.UUID,
+	catalogArtistID uuid.UUID,
+	keyPrefix, contentType string,
+	length int64,
+	body io.Reader,
+) (Image, error) {
 	if length < 1 || length > MaximumBytes {
 		return Image{}, ErrTooLarge
 	}
@@ -77,11 +110,10 @@ func (service *Service) Upload(
 	if int64(len(data)) != length || coveringest.ValidateImage(data, mimeType) != nil {
 		return Image{}, ErrInvalid
 	}
-	catalogArtistID := uuid.NewSHA1(artistNamespace, creatorID[:])
 	imageID := uuid.New()
 	objectKey := fmt.Sprintf(
-		"creator-content/%s/artists/%s/images/%s/profile.%s",
-		creatorID, catalogArtistID, imageID, extension(mimeType),
+		"%s/artists/%s/images/%s/profile.%s",
+		keyPrefix, catalogArtistID, imageID, extension(mimeType),
 	)
 	if err = service.objects.PutIfAbsent(ctx, objectKey, bytes.NewReader(data), length, mimeType); err != nil {
 		return Image{}, fmt.Errorf("store artist image: %w: %v", ErrStorage, err)
@@ -100,6 +132,15 @@ func (service *Service) Upload(
 		_ = service.objects.Delete(context.WithoutCancel(ctx), previous.ObjectKey)
 	}
 	return image, nil
+}
+
+func hasRole(roles []string, expected string) bool {
+	for _, role := range roles {
+		if role == expected {
+			return true
+		}
+	}
+	return false
 }
 
 func (service *Service) Find(ctx context.Context, catalogArtistID uuid.UUID) (Image, error) {

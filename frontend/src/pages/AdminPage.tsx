@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import {
+  type AdminCatalogArtist,
   type AdminUser,
   assignUserRole,
   type CommentAuditEvent,
   type CommentReport,
   type CreatorReviewItem,
+  listCatalogArtists,
   listCommentAudit,
   listCommentReports,
   listCreatorsForModeration,
@@ -21,11 +23,12 @@ import {
   reviewCreator,
   reviewRelease,
   updateUserStatus,
+  uploadCatalogArtistImage,
 } from "../features/admin/adminApi";
 import { useSession } from "../features/session/SessionContext";
-import { ApiError } from "../shared/api/client";
+import { ApiError, publicAssetUrl } from "../shared/api/client";
 
-type Section = "users" | "content" | "reports" | "activity";
+type Section = "users" | "content" | "artists" | "reports" | "activity";
 type LoadState = "loading" | "ready" | "error";
 type UserStatus = AdminUser["status"] | "all";
 type CreatorStatus = CreatorReviewItem["verification_status"];
@@ -46,6 +49,7 @@ export function AdminPage() {
   const [creators, setCreators] = useState<Page<CreatorReviewItem>>(emptyPage);
   const [releases, setReleases] = useState<Page<ReleaseReviewItem>>(emptyPage);
   const [reports, setReports] = useState<Page<CommentReport>>(emptyPage);
+  const [artists, setArtists] = useState<Page<AdminCatalogArtist>>(emptyPage);
   const [releaseAudit, setReleaseAudit] =
     useState<Page<ReleaseAuditEvent>>(emptyPage);
   const [commentAudit, setCommentAudit] =
@@ -59,11 +63,13 @@ export function AdminPage() {
   const [releaseOffset, setReleaseOffset] = useState(0);
   const [reportStatus, setReportStatus] = useState<ReportStatus>("pending");
   const [reportOffset, setReportOffset] = useState(0);
+  const [artistOffset, setArtistOffset] = useState(0);
   const [releaseAuditOffset, setReleaseAuditOffset] = useState(0);
   const [commentAuditOffset, setCommentAuditOffset] = useState(0);
   const [state, setState] = useState<LoadState>("loading");
   const [error, setError] = useState("");
   const [busyId, setBusyId] = useState("");
+  const [artistNotice, setArtistNotice] = useState("");
 
   const load = useCallback(
     async (signal?: AbortSignal) => {
@@ -76,6 +82,7 @@ export function AdminPage() {
           creatorPage,
           releasePage,
           reportPage,
+          artistPage,
           releaseAuditPage,
           commentAuditPage,
         ] = await Promise.all([
@@ -111,6 +118,7 @@ export function AdminPage() {
             },
             signal,
           ),
+          listCatalogArtists({ limit: pageSize, offset: artistOffset }, signal),
           listReleaseAudit(
             accessToken,
             { limit: pageSize, offset: releaseAuditOffset },
@@ -126,6 +134,7 @@ export function AdminPage() {
         setCreators(creatorPage);
         setReleases(releasePage);
         setReports(reportPage);
+        setArtists({ items: artistPage.items, page: artistPage.pagination });
         setReleaseAudit(releaseAuditPage);
         setCommentAudit(commentAuditPage);
         setState("ready");
@@ -137,6 +146,7 @@ export function AdminPage() {
     },
     [
       accessToken,
+      artistOffset,
       creatorOffset,
       creatorStatus,
       commentAuditOffset,
@@ -169,14 +179,42 @@ export function AdminPage() {
     }
   }
 
+  async function uploadArtistImage(artist: AdminCatalogArtist, file: File) {
+    if (!accessToken) return;
+    setBusyId(artist.id);
+    setError("");
+    setArtistNotice("");
+    try {
+      const uploaded = await uploadCatalogArtistImage(
+        accessToken,
+        artist.id,
+        file,
+      );
+      setArtists((current) => ({
+        ...current,
+        items: current.items.map((item) =>
+          item.id === artist.id
+            ? { ...item, image_url: `${uploaded.image_url}?v=${Date.now()}` }
+            : item,
+        ),
+      }));
+      setArtistNotice(`Image for “${artist.name}” was updated.`);
+    } catch (reason) {
+      setError(errorMessage(reason, "Could not upload artist image"));
+    } finally {
+      setBusyId("");
+    }
+  }
+
   const counts = useMemo(
     () => ({
       users: users.page.total,
       content: creators.page.total + releases.page.total,
+      artists: artists.page.total,
       reports: reports.page.total,
       activity: releaseAudit.page.total + commentAudit.page.total,
     }),
-    [users, creators, releases, reports, releaseAudit, commentAudit],
+    [users, creators, releases, reports, artists, releaseAudit, commentAudit],
   );
 
   return (
@@ -208,6 +246,12 @@ export function AdminPage() {
           label="Users & roles"
           count={counts.users}
           onClick={() => setSection("users")}
+        />
+        <AdminTab
+          active={section === "artists"}
+          label="Artist images"
+          count={counts.artists}
+          onClick={() => setSection("artists")}
         />
         <AdminTab
           active={section === "content"}
@@ -292,6 +336,15 @@ export function AdminPage() {
               busyId={busyId}
               mutate={mutate}
               accessToken={accessToken || ""}
+            />
+          ) : null}
+          {section === "artists" ? (
+            <ArtistImagesSection
+              page={artists}
+              notice={artistNotice}
+              busyId={busyId}
+              onPageChange={setArtistOffset}
+              onUpload={(artist, file) => void uploadArtistImage(artist, file)}
             />
           ) : null}
           {section === "activity" ? (
@@ -498,6 +551,110 @@ function UsersSection({
       )}
       <Pagination page={page.page} label="users" onPageChange={onPageChange} />
     </section>
+  );
+}
+
+function ArtistImagesSection({
+  page,
+  notice,
+  busyId,
+  onPageChange,
+  onUpload,
+}: {
+  page: Page<AdminCatalogArtist>;
+  notice: string;
+  busyId: string;
+  onPageChange(offset: number): void;
+  onUpload(artist: AdminCatalogArtist, file: File): void;
+}) {
+  const [query, setQuery] = useState("");
+  const normalized = query.trim().toLowerCase();
+  const visible = page.items.filter(
+    (artist) =>
+      !normalized ||
+      artist.name.toLowerCase().includes(normalized) ||
+      artist.id.toLowerCase().includes(normalized),
+  );
+  return (
+    <section aria-labelledby="admin-artist-images-title">
+      <div className="admin-section-heading">
+        <div>
+          <span className="eyebrow">Catalog presentation</span>
+          <h2 id="admin-artist-images-title">Artist images</h2>
+        </div>
+        <div className="admin-filters">
+          <label>
+            <span className="visually-hidden">Search catalog artists</span>
+            <input
+              type="search"
+              value={query}
+              onChange={(event) => setQuery(event.currentTarget.value)}
+              placeholder="Search artist name or ID"
+            />
+          </label>
+        </div>
+      </div>
+      {notice ? (
+        <p className="admin-artist-notice" role="status">
+          {notice}
+        </p>
+      ) : null}
+      {visible.length ? (
+        <div className="admin-artist-grid">
+          {visible.map((artist) => (
+            <article className="admin-artist-card" key={artist.id}>
+              <AdminArtistArtwork artist={artist} />
+              <div>
+                <strong>{artist.name}</strong>
+                <small>{artist.description || "Catalog artist"}</small>
+                <code>{artist.id}</code>
+              </div>
+              <label className="admin-artist-upload">
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  disabled={busyId === artist.id}
+                  onChange={(event) => {
+                    const file = event.currentTarget.files?.[0];
+                    event.currentTarget.value = "";
+                    if (file) onUpload(artist, file);
+                  }}
+                />
+                {busyId === artist.id ? "Uploading…" : "Upload image"}
+              </label>
+            </article>
+          ))}
+        </div>
+      ) : (
+        <AdminEmpty message="No artists match this page and search." />
+      )}
+      <Pagination
+        page={page.page}
+        label="artists"
+        onPageChange={onPageChange}
+      />
+    </section>
+  );
+}
+
+function AdminArtistArtwork({ artist }: { artist: AdminCatalogArtist }) {
+  const source = artist.image_url || `/v1/media/artists/${artist.id}/image`;
+  const [failedSource, setFailedSource] = useState("");
+  if (source && failedSource !== source) {
+    return (
+      <span className="admin-artist-artwork">
+        <img
+          src={publicAssetUrl(source)}
+          alt=""
+          onError={() => setFailedSource(source)}
+        />
+      </span>
+    );
+  }
+  return (
+    <span className="admin-artist-artwork" aria-hidden="true">
+      {artist.name.slice(0, 1).toUpperCase()}
+    </span>
   );
 }
 

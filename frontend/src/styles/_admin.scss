@@ -178,6 +178,98 @@
   gap: 0.65rem;
 }
 
+.admin-artist-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr));
+  gap: 0.9rem;
+}
+
+.admin-artist-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 0.9rem;
+  padding: 0.9rem;
+  border: 1px solid var(--app-line);
+  border-radius: 0.9rem;
+  background: var(--app-panel);
+
+  > div {
+    min-width: 0;
+    display: grid;
+    gap: 0.25rem;
+  }
+
+  strong,
+  small,
+  code {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  small,
+  code {
+    color: var(--app-muted);
+  }
+}
+
+.admin-artist-artwork {
+  width: 4.5rem;
+  height: 4.5rem;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 50%;
+  color: white;
+  background: linear-gradient(145deg, #315e9b, #8b38df 70%, #d16ba6);
+  font-size: 1.5rem;
+  font-weight: 850;
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+}
+
+.admin-artist-upload {
+  grid-column: 1 / -1;
+  min-height: 2.5rem;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--app-line);
+  border-radius: 0.65rem;
+  background: var(--app-input);
+  cursor: pointer;
+  font-size: 0.75rem;
+  font-weight: 800;
+
+  input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  &:focus-within {
+    outline: 2px solid var(--app-accent);
+    outline-offset: 2px;
+  }
+}
+
+.admin-artist-notice {
+  margin: 0 0 1rem;
+  padding: 0.75rem 0.9rem;
+  border: 1px solid color-mix(in srgb, #44d49b 35%, var(--app-line));
+  border-radius: 0.75rem;
+  color: color-mix(in srgb, #44d49b 78%, var(--app-text));
+  background: color-mix(in srgb, #44d49b 10%, var(--app-panel));
+}
+
 .admin-user-card {
   display: grid;
   grid-template-columns: minmax(15rem, 1.2fr) minmax(16rem, 1fr) auto;

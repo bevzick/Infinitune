@@ -19,8 +19,9 @@ var (
 )
 
 type Image struct {
-	CreatorID, CatalogArtistID, UpdatedByUserID uuid.UUID
-	ObjectKey, MIMEType                         string
-	SizeBytes                                   int64
-	CreatedAt, UpdatedAt                        time.Time
+	CreatorID                        *uuid.UUID
+	CatalogArtistID, UpdatedByUserID uuid.UUID
+	ObjectKey, MIMEType              string
+	SizeBytes                        int64
+	CreatedAt, UpdatedAt             time.Time
 }
