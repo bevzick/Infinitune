@@ -115,6 +115,7 @@ type Provider interface {
 	Resolve(context.Context, string) (Track, error)
 	Open(context.Context, string) (AudioStream, error)
 	OpenArtwork(context.Context, string) (ArtworkStream, error)
+	OpenArtistArtwork(context.Context, string) (ArtworkStream, error)
 }
 
 type Store interface {

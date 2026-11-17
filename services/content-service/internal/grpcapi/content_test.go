@@ -78,9 +78,9 @@ func TestContentServerReturnsPlaybackDecision(t *testing.T) {
 }
 
 func TestContentServerAuthorizesTrackImport(t *testing.T) {
-	trackID, userID, releaseID := uuid.New(), uuid.New(), uuid.New()
+	trackID, userID, releaseID, creatorID := uuid.New(), uuid.New(), uuid.New(), uuid.New()
 	uploads := &uploadSessionsStub{importTarget: upload.TrackTarget{
-		TrackID: trackID, ReleaseID: releaseID, HasCover: true,
+		TrackID: trackID, ReleaseID: releaseID, CreatorID: creatorID, HasCover: true,
 	}}
 	response, err := NewContentServer(&checkerStub{}, uploads, nil).CheckTrackImport(
 		context.Background(), &contentv1.CheckTrackImportRequest{
@@ -88,7 +88,8 @@ func TestContentServerAuthorizesTrackImport(t *testing.T) {
 		},
 	)
 	if err != nil || !response.GetAllowed() || response.GetReleaseId() != releaseID.String() ||
-		!response.GetHasCover() || uploads.importTrackID != trackID ||
+		response.GetCreatorId() != creatorID.String() || !response.GetHasCover() ||
+		uploads.importTrackID != trackID ||
 		uploads.importUserID != userID {
 		t.Fatalf("CheckTrackImport() = %+v, %v; uploads = %+v", response, err, uploads)
 	}

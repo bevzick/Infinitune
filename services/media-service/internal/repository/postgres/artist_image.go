@@ -10,6 +10,25 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
+func (repository *MediaRepository) Create(
+	ctx context.Context,
+	image artistimage.Image,
+) (bool, error) {
+	command, err := repository.database.Exec(ctx, `
+		INSERT INTO media.artist_images (
+			creator_id, catalog_artist_id, object_key, mime_type,
+			size_bytes, updated_by_user_id
+		)
+		VALUES ($1, $2, $3, $4, $5, $6)
+		ON CONFLICT (catalog_artist_id) DO NOTHING
+	`, image.CreatorID, image.CatalogArtistID, image.ObjectKey, image.MIMEType,
+		image.SizeBytes, image.UpdatedByUserID)
+	if err != nil {
+		return false, fmt.Errorf("create artist image: %w", err)
+	}
+	return command.RowsAffected() == 1, nil
+}
+
 func (repository *MediaRepository) Replace(
 	ctx context.Context,
 	image artistimage.Image,

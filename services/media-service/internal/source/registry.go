@@ -148,6 +148,35 @@ func (registry *Registry) OpenArtwork(
 	return stream, nil
 }
 
+func (registry *Registry) OpenArtistArtwork(
+	ctx context.Context,
+	providerName ProviderName,
+	externalID string,
+) (ArtworkStream, error) {
+	provider, err := registry.provider(providerName)
+	if err != nil {
+		return ArtworkStream{}, err
+	}
+	if !validExternalID(externalID) {
+		return ArtworkStream{}, validationError("external_id", "must be a non-blank provider identifier")
+	}
+	stream, err := provider.OpenArtistArtwork(ctx, externalID)
+	if err != nil {
+		return ArtworkStream{}, fmt.Errorf(
+			"open %s artist artwork %q: %w", providerName, externalID, err,
+		)
+	}
+	if err = ValidateArtworkStream(stream); err != nil {
+		if stream.Body != nil {
+			_ = stream.Body.Close()
+		}
+		return ArtworkStream{}, fmt.Errorf(
+			"validate %s artist artwork stream %q: %w", providerName, externalID, err,
+		)
+	}
+	return stream, nil
+}
+
 func (registry *Registry) provider(name ProviderName) (Provider, error) {
 	if registry == nil {
 		return nil, fmt.Errorf("%w: %s", ErrUnsupportedProvider, name)

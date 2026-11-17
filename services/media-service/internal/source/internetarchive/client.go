@@ -284,6 +284,12 @@ func (client *Client) OpenArtwork(ctx context.Context, externalID string) (sourc
 	return source.ArtworkFromHTTP(response, "internet-archive-"+identifier+"-cover")
 }
 
+// Internet Archive items expose item artwork, but not a reliable distinct
+// artist profile image. Reusing item artwork here would misrepresent artists.
+func (client *Client) OpenArtistArtwork(context.Context, string) (source.ArtworkStream, error) {
+	return source.ArtworkStream{}, source.ErrNotFound
+}
+
 func (client *Client) resolve(
 	ctx context.Context,
 	externalID string,

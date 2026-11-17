@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/bevzick/Infinitune/services/media-service/internal/artistimage"
 	"github.com/bevzick/Infinitune/services/media-service/internal/content"
 	"github.com/bevzick/Infinitune/services/media-service/internal/media"
 	"github.com/bevzick/Infinitune/services/media-service/internal/source"
@@ -16,12 +17,13 @@ import (
 )
 
 var (
-	ErrInvalid   = errors.New("invalid external media import")
-	ErrForbidden = errors.New("external media import is forbidden")
-	ErrConflict  = errors.New("release track already has a different external source")
-	ErrLicense   = errors.New("external media license does not permit import")
-	ErrStorage   = errors.New("external media storage failed")
-	ErrArtwork   = errors.New("external artwork import failed")
+	ErrInvalid       = errors.New("invalid external media import")
+	ErrForbidden     = errors.New("external media import is forbidden")
+	ErrConflict      = errors.New("release track already has a different external source")
+	ErrLicense       = errors.New("external media license does not permit import")
+	ErrStorage       = errors.New("external media storage failed")
+	ErrArtwork       = errors.New("external artwork import failed")
+	ErrArtistArtwork = errors.New("external artist artwork import failed")
 )
 
 const compensationTimeout = 5 * time.Second
@@ -34,6 +36,7 @@ type Providers interface {
 	Resolve(context.Context, source.ProviderName, string) (source.Track, error)
 	Open(context.Context, source.ProviderName, string) (source.AudioStream, error)
 	OpenArtwork(context.Context, source.ProviderName, string) (source.ArtworkStream, error)
+	OpenArtistArtwork(context.Context, source.ProviderName, string) (source.ArtworkStream, error)
 }
 
 type CoverSessions interface {
@@ -52,12 +55,18 @@ type ObjectStore interface {
 	Delete(context.Context, string) error
 }
 
+type ArtistImages interface {
+	Find(context.Context, uuid.UUID) (artistimage.Image, error)
+	Import(context.Context, uuid.UUID, uuid.UUID, string, int64, io.Reader) (artistimage.Image, bool, error)
+}
+
 type Service struct {
-	authorizer Authorizer
-	providers  Providers
-	store      Store
-	objects    ObjectStore
-	covers     CoverSessions
+	authorizer   Authorizer
+	providers    Providers
+	store        Store
+	objects      ObjectStore
+	covers       CoverSessions
+	artistImages ArtistImages
 }
 
 func NewService(
@@ -66,8 +75,16 @@ func NewService(
 	store Store,
 	objects ObjectStore,
 	covers CoverSessions,
+	artistImages ...ArtistImages,
 ) *Service {
-	return &Service{authorizer: authorizer, providers: providers, store: store, objects: objects, covers: covers}
+	service := &Service{
+		authorizer: authorizer, providers: providers, store: store,
+		objects: objects, covers: covers,
+	}
+	if len(artistImages) > 0 {
+		service.artistImages = artistImages[0]
+	}
+	return service
 }
 
 func (service *Service) Import(
@@ -101,6 +118,9 @@ func (service *Service) Import(
 			return media.Asset{}, false, ErrConflict
 		}
 		if err = service.importArtwork(ctx, actorID, target, provider, externalID, track); err != nil {
+			return media.Asset{}, false, err
+		}
+		if err = service.importArtistArtwork(ctx, actorID, target, provider, externalID); err != nil {
 			return media.Asset{}, false, err
 		}
 		return existing, false, nil
@@ -151,7 +171,44 @@ func (service *Service) Import(
 	if err = service.importArtwork(ctx, actorID, target, provider, externalID, track); err != nil {
 		return stored, true, err
 	}
+	if err = service.importArtistArtwork(ctx, actorID, target, provider, externalID); err != nil {
+		return stored, true, err
+	}
 	return stored, true, nil
+}
+
+func (service *Service) importArtistArtwork(
+	ctx context.Context,
+	actorID uuid.UUID,
+	target content.ImportTarget,
+	provider source.ProviderName,
+	externalID string,
+) error {
+	if service.artistImages == nil || target.CreatorID == uuid.Nil {
+		return nil
+	}
+	catalogArtistID := artistimage.CatalogArtistID(target.CreatorID)
+	if _, err := service.artistImages.Find(ctx, catalogArtistID); err == nil {
+		return nil
+	} else if !errors.Is(err, artistimage.ErrNotFound) {
+		return fmt.Errorf("%w: check existing artist image: %v", ErrArtistArtwork, err)
+	}
+	artwork, err := service.providers.OpenArtistArtwork(ctx, provider, externalID)
+	if errors.Is(err, source.ErrNotFound) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("%w: open provider artist artwork: %v", ErrArtistArtwork, err)
+	}
+	defer artwork.Body.Close()
+	_, _, err = service.artistImages.Import(
+		ctx, actorID, target.CreatorID, artwork.MIMEType,
+		artwork.SizeBytes, artwork.Body,
+	)
+	if err != nil {
+		return fmt.Errorf("%w: store provider artist artwork: %v", ErrArtistArtwork, err)
+	}
+	return nil
 }
 
 func (service *Service) importArtwork(

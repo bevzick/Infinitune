@@ -7,6 +7,7 @@ import (
 	"io"
 	"testing"
 
+	"github.com/bevzick/Infinitune/services/media-service/internal/artistimage"
 	"github.com/bevzick/Infinitune/services/media-service/internal/content"
 	"github.com/bevzick/Infinitune/services/media-service/internal/media"
 	"github.com/bevzick/Infinitune/services/media-service/internal/source"
@@ -152,6 +153,41 @@ func TestServiceDiscardsProviderArtworkWhenCreatorCoverWinsRace(t *testing.T) {
 	}
 }
 
+func TestServiceImportsProviderArtistArtworkWhenMissing(t *testing.T) {
+	creatorID := uuid.New()
+	providers := &providerStub{artistArtworkAvailable: true}
+	images := &artistImagesStub{findErr: artistimage.ErrNotFound}
+	_, _, err := NewService(
+		&authorizerStub{target: content.ImportTarget{
+			ReleaseID: uuid.New(), CreatorID: creatorID, HasCover: true,
+		}},
+		providers, &storeStub{findErr: media.ErrNotFound}, &objectStub{}, nil, images,
+	).Import(context.Background(), uuid.New(), uuid.New(), source.ProviderJamendo, "42")
+	if err != nil || providers.artistArtworkCalls != 1 || images.importCalls != 1 ||
+		images.creatorID != creatorID || string(images.data) != "artist-image" {
+		t.Fatalf("Import() error=%v; artist opens=%d image imports=%d creator=%s data=%q",
+			err, providers.artistArtworkCalls, images.importCalls, images.creatorID, images.data)
+	}
+}
+
+func TestServiceKeepsExistingArtistImage(t *testing.T) {
+	creatorID := uuid.New()
+	providers := &providerStub{artistArtworkAvailable: true}
+	images := &artistImagesStub{found: artistimage.Image{
+		CatalogArtistID: artistimage.CatalogArtistID(creatorID),
+	}}
+	_, _, err := NewService(
+		&authorizerStub{target: content.ImportTarget{
+			ReleaseID: uuid.New(), CreatorID: creatorID, HasCover: true,
+		}},
+		providers, &storeStub{findErr: media.ErrNotFound}, &objectStub{}, nil, images,
+	).Import(context.Background(), uuid.New(), uuid.New(), source.ProviderJamendo, "42")
+	if err != nil || providers.artistArtworkCalls != 0 || images.importCalls != 0 {
+		t.Fatalf("Import() error=%v; artist opens=%d image imports=%d",
+			err, providers.artistArtworkCalls, images.importCalls)
+	}
+}
+
 func newCoverStub(releaseID uuid.UUID) *coverStub {
 	return &coverStub{session: content.CoverSession{
 		ID: uuid.New(), ReleaseID: releaseID, RequestedByUserID: uuid.New(),
@@ -173,11 +209,13 @@ func (stub *authorizerStub) CanImport(context.Context, uuid.UUID, uuid.UUID) (co
 }
 
 type providerStub struct {
-	resolveCalls       int
-	openCalls          int
-	artworkCalls       int
-	artworkAvailable   bool
-	denyRedistribution bool
+	resolveCalls           int
+	openCalls              int
+	artworkCalls           int
+	artistArtworkCalls     int
+	artworkAvailable       bool
+	artistArtworkAvailable bool
+	denyRedistribution     bool
 }
 
 func (stub *providerStub) Resolve(
@@ -220,6 +258,47 @@ func (stub *providerStub) OpenArtwork(
 		Body: io.NopCloser(bytes.NewBufferString("image")), Filename: "cover.jpg",
 		MIMEType: "image/jpeg", SizeBytes: 5,
 	}, nil
+}
+
+func (stub *providerStub) OpenArtistArtwork(
+	context.Context, source.ProviderName, string,
+) (source.ArtworkStream, error) {
+	stub.artistArtworkCalls++
+	if !stub.artistArtworkAvailable {
+		return source.ArtworkStream{}, source.ErrNotFound
+	}
+	return source.ArtworkStream{
+		Body: io.NopCloser(bytes.NewBufferString("artist-image")), Filename: "artist.jpg",
+		MIMEType: "image/jpeg", SizeBytes: 12,
+	}, nil
+}
+
+type artistImagesStub struct {
+	found       artistimage.Image
+	findErr     error
+	creatorID   uuid.UUID
+	data        []byte
+	importCalls int
+}
+
+func (stub *artistImagesStub) Find(
+	context.Context, uuid.UUID,
+) (artistimage.Image, error) {
+	return stub.found, stub.findErr
+}
+
+func (stub *artistImagesStub) Import(
+	_ context.Context,
+	_ uuid.UUID,
+	creatorID uuid.UUID,
+	_ string,
+	_ int64,
+	body io.Reader,
+) (artistimage.Image, bool, error) {
+	stub.importCalls++
+	stub.creatorID = creatorID
+	stub.data, _ = io.ReadAll(body)
+	return artistimage.Image{}, true, nil
 }
 
 type coverStub struct {

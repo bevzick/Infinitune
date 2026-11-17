@@ -43,12 +43,13 @@ func TestClientMapsForbiddenUpload(t *testing.T) {
 }
 
 func TestClientChecksTrackImportAccess(t *testing.T) {
-	userID, trackID, releaseID := uuid.New(), uuid.New(), uuid.New()
+	userID, trackID, releaseID, creatorID := uuid.New(), uuid.New(), uuid.New(), uuid.New()
 	stub := &grpcClientStub{importResponse: &contentv1.CheckTrackImportResponse{
 		Allowed: true, ReleaseId: releaseID.String(), HasCover: true,
+		CreatorId: creatorID.String(),
 	}}
 	target, err := NewClient(stub).CanImport(context.Background(), userID, trackID)
-	if err != nil || target.ReleaseID != releaseID || !target.HasCover ||
+	if err != nil || target.ReleaseID != releaseID || target.CreatorID != creatorID || !target.HasCover ||
 		stub.importRequest.GetUserId() != userID.String() ||
 		stub.importRequest.GetReleaseTrackId() != trackID.String() {
 		t.Fatalf("CanImport() = %+v, %v; request = %+v", target, err, stub.importRequest)

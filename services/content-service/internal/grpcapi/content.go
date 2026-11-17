@@ -74,6 +74,7 @@ func (server *ContentServer) CheckTrackImport(
 	}
 	return &contentv1.CheckTrackImportResponse{
 		Allowed: true, ReleaseId: target.ReleaseID.String(), HasCover: target.HasCover,
+		CreatorId: target.CreatorID.String(),
 	}, nil
 }
 

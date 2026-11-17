@@ -42,7 +42,7 @@ func TestResolveMapsJamendoTrack(t *testing.T) {
 		!track.License.AllowsRedistribution {
 		t.Errorf("License = %+v", track.License)
 	}
-	if track.Metadata["artist_id"] != "artist-7" || track.Metadata["album_id"] != "album-9" ||
+	if track.Metadata["artist_id"] != "7" || track.Metadata["album_id"] != "album-9" ||
 		track.Metadata["album_name"] != "After Dark" ||
 		track.Metadata["duration_sec"] != "228" ||
 		track.Metadata["release_date"] != "2026-11-10" {
@@ -141,6 +141,41 @@ func TestOpenArtworkDownloadsProviderImage(t *testing.T) {
 	if string(data) != "image" || artwork.MIMEType != "image/jpeg" ||
 		artwork.SizeBytes != int64(len(data)) || artwork.Filename != "jamendo-42-cover.jpg" {
 		t.Fatalf("OpenArtwork() = %+v, data = %q", artwork, data)
+	}
+}
+
+func TestOpenArtistArtworkDownloadsArtistImage(t *testing.T) {
+	var server *httptest.Server
+	server = httptest.NewTLSServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+		switch request.URL.Path {
+		case "/v3.0/tracks/":
+			writeTrackResponse(t, response, validTrack("42", server.URL+"/audio/42.mp3"))
+		case "/v3.0/artists/":
+			if request.URL.Query().Get("id") != "7" || request.URL.Query().Get("limit") != "1" {
+				t.Errorf("artist query = %v", request.URL.Query())
+			}
+			_ = json.NewEncoder(response).Encode(artistsResponse{
+				Headers: responseHeaders{Status: "success", Code: 0},
+				Results: []artistResult{{ID: "7", Name: "Luna Veil", ImageURL: server.URL + "/artwork/artist-7.jpg"}},
+			})
+		case "/artwork/artist-7.jpg":
+			response.Header().Set("Content-Type", "image/jpeg")
+			_, _ = io.WriteString(response, "artist-image")
+		default:
+			http.NotFound(response, request)
+		}
+	}))
+	defer server.Close()
+	client := newTestClient(t, server)
+	artwork, err := client.OpenArtistArtwork(context.Background(), "42")
+	if err != nil {
+		t.Fatalf("OpenArtistArtwork() error = %v", err)
+	}
+	defer artwork.Body.Close()
+	data, _ := io.ReadAll(artwork.Body)
+	if string(data) != "artist-image" || artwork.MIMEType != "image/jpeg" ||
+		artwork.SizeBytes != int64(len(data)) || artwork.Filename != "jamendo-7-artist.jpg" {
+		t.Fatalf("OpenArtistArtwork() = %+v, data = %q", artwork, data)
 	}
 }
 
@@ -290,7 +325,7 @@ func writeTrackResponse(t *testing.T, response http.ResponseWriter, result track
 func validTrack(id, downloadURL string) trackResult {
 	return trackResult{
 		ID: id, Name: "Night Signal", Duration: 228,
-		ArtistID: "artist-7", ArtistName: "Luna Veil",
+		ArtistID: "7", ArtistName: "Luna Veil",
 		AlbumID: "album-9", AlbumName: "After Dark", ReleaseDate: "2026-11-10",
 		LicenseURL:    "http://creativecommons.org/licenses/by/4.0/",
 		ShareURL:      "https://www.jamendo.com/track/" + id,

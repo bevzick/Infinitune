@@ -142,6 +142,7 @@ func main() {
 	}
 	externalImportService := sourceimport.NewService(
 		contentClient, providers, mediaRepository, objectStorage, coverClient,
+		artistImageService,
 	)
 	processingWorker := processing.NewWorker(
 		mediaRepository,

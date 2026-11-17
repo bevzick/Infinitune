@@ -25,19 +25,26 @@ func TestArtistImagesSupportImportedAndCreatorManagedArtists(t *testing.T) {
 	})
 	repository := NewMediaRepository(pool)
 
-	previous, err := repository.Replace(ctx, artistimage.Image{
+	created, err := repository.Create(ctx, artistimage.Image{
 		CatalogArtistID: artistID, UpdatedByUserID: actorID,
 		ObjectKey: "catalog-content/artists/first.png", MIMEType: "image/png", SizeBytes: 10,
 	})
-	if err != nil || previous != nil {
-		t.Fatalf("Replace(imported) = %+v, %v", previous, err)
+	if err != nil || !created {
+		t.Fatalf("Create(imported) = %v, %v", created, err)
+	}
+	created, err = repository.Create(ctx, artistimage.Image{
+		CatalogArtistID: artistID, UpdatedByUserID: actorID,
+		ObjectKey: "catalog-content/artists/ignored.png", MIMEType: "image/png", SizeBytes: 11,
+	})
+	if err != nil || created {
+		t.Fatalf("Create(existing) = %v, %v", created, err)
 	}
 	loaded, err := repository.ByCatalogArtistID(ctx, artistID)
 	if err != nil || loaded.CreatorID != nil || loaded.ObjectKey != "catalog-content/artists/first.png" {
 		t.Fatalf("ByCatalogArtistID(imported) = %+v, %v", loaded, err)
 	}
 
-	previous, err = repository.Replace(ctx, artistimage.Image{
+	previous, err := repository.Replace(ctx, artistimage.Image{
 		CreatorID: &creatorID, CatalogArtistID: artistID, UpdatedByUserID: actorID,
 		ObjectKey: "creator-content/artists/second.png", MIMEType: "image/png", SizeBytes: 20,
 	})

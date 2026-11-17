@@ -269,6 +269,37 @@ func (client *Client) OpenArtwork(ctx context.Context, externalID string) (sourc
 	return source.ArtworkFromHTTP(response, "jamendo-"+result.ID+"-cover")
 }
 
+func (client *Client) OpenArtistArtwork(
+	ctx context.Context,
+	externalID string,
+) (source.ArtworkStream, error) {
+	track, err := client.track(ctx, externalID)
+	if err != nil {
+		return source.ArtworkStream{}, err
+	}
+	artist, err := client.artist(ctx, track.ArtistID)
+	if err != nil {
+		return source.ArtworkStream{}, err
+	}
+	artworkURL, err := client.normalizeArtworkURL(artist.ImageURL)
+	if err != nil {
+		return source.ArtworkStream{}, err
+	}
+	if artworkURL == "" {
+		return source.ArtworkStream{}, source.ErrNotFound
+	}
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, artworkURL, nil)
+	if err != nil {
+		return source.ArtworkStream{}, fmt.Errorf("create Jamendo artist artwork request: %w", err)
+	}
+	request.Header.Set("Accept", "image/jpeg,image/png,image/webp")
+	response, err := client.client.Do(request)
+	if err != nil {
+		return source.ArtworkStream{}, fmt.Errorf("%w: download artist artwork: %v", ErrUnavailable, err)
+	}
+	return source.ArtworkFromHTTP(response, "jamendo-"+artist.ID+"-artist")
+}
+
 func (client *Client) track(ctx context.Context, externalID string) (trackResult, error) {
 	if !validTrackID(externalID) {
 		return trackResult{}, fmt.Errorf("%w: Jamendo track ID must contain only digits", source.ErrInvalid)
@@ -326,6 +357,49 @@ func (client *Client) tracks(ctx context.Context, parameters url.Values) (tracks
 			ErrUnavailable, document.Headers.Code, document.Headers.ErrorMessage)
 	}
 	return document, nil
+}
+
+func (client *Client) artist(ctx context.Context, artistID string) (artistResult, error) {
+	if !validTrackID(artistID) {
+		return artistResult{}, fmt.Errorf("%w: Jamendo artist ID must contain only digits", source.ErrInvalid)
+	}
+	endpoint := *client.baseURL
+	endpoint.Path = strings.TrimRight(endpoint.Path, "/") + "/artists/"
+	query := endpoint.Query()
+	query.Set("client_id", client.clientID)
+	query.Set("format", "json")
+	query.Set("id", artistID)
+	query.Set("limit", "1")
+	endpoint.RawQuery = query.Encode()
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint.String(), nil)
+	if err != nil {
+		return artistResult{}, fmt.Errorf("create Jamendo artist request: %w", err)
+	}
+	request.Header.Set("Accept", "application/json")
+	response, err := client.client.Do(request)
+	if err != nil {
+		return artistResult{}, fmt.Errorf("%w: query artist: %v", ErrUnavailable, err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		return artistResult{}, fmt.Errorf("%w: artists endpoint returned %s", ErrUnavailable, response.Status)
+	}
+	var document artistsResponse
+	if err = json.NewDecoder(io.LimitReader(response.Body, maximumResponse)).Decode(&document); err != nil {
+		return artistResult{}, fmt.Errorf("%w: decode artists response: %v", ErrUnavailable, err)
+	}
+	if document.Headers.Status != "success" || document.Headers.Code != 0 {
+		return artistResult{}, fmt.Errorf("%w: API code %d: %s",
+			ErrUnavailable, document.Headers.Code, document.Headers.ErrorMessage)
+	}
+	if len(document.Results) == 0 {
+		return artistResult{}, source.ErrNotFound
+	}
+	if document.Results[0].ID != artistID {
+		return artistResult{}, fmt.Errorf("%w: API returned artist %q for %q",
+			ErrUnavailable, document.Results[0].ID, artistID)
+	}
+	return document.Results[0], nil
 }
 
 func (client *Client) validateDownloadURL(downloadURL *url.URL) error {
@@ -426,6 +500,17 @@ func extensionFor(mediaType string) string {
 type tracksResponse struct {
 	Headers responseHeaders `json:"headers"`
 	Results []trackResult   `json:"results"`
+}
+
+type artistsResponse struct {
+	Headers responseHeaders `json:"headers"`
+	Results []artistResult  `json:"results"`
+}
+
+type artistResult struct {
+	ID       string `json:"id"`
+	Name     string `json:"name"`
+	ImageURL string `json:"image"`
 }
 
 type responseHeaders struct {

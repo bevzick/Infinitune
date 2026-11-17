@@ -47,6 +47,7 @@ type Session struct {
 
 type ImportTarget struct {
 	ReleaseID uuid.UUID
+	CreatorID uuid.UUID
 	HasCover  bool
 }
 
@@ -107,7 +108,13 @@ func (client *Client) CanImport(
 	if err != nil || releaseID == uuid.Nil {
 		return ImportTarget{}, fmt.Errorf("%w: invalid release id", ErrUnavailable)
 	}
-	return ImportTarget{ReleaseID: releaseID, HasCover: response.GetHasCover()}, nil
+	creatorID, err := uuid.Parse(response.GetCreatorId())
+	if err != nil || creatorID == uuid.Nil {
+		return ImportTarget{}, fmt.Errorf("%w: invalid creator id", ErrUnavailable)
+	}
+	return ImportTarget{
+		ReleaseID: releaseID, CreatorID: creatorID, HasCover: response.GetHasCover(),
+	}, nil
 }
 
 func (client *Client) CanStream(

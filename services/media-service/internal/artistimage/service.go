@@ -22,6 +22,7 @@ type PermissionChecker interface {
 
 type Store interface {
 	Replace(context.Context, Image) (*Image, error)
+	Create(context.Context, Image) (bool, error)
 	ByCatalogArtistID(context.Context, uuid.UUID) (Image, error)
 }
 
@@ -60,9 +61,35 @@ func (service *Service) Upload(
 	if !allowed {
 		return Image{}, ErrForbidden
 	}
-	catalogArtistID := uuid.NewSHA1(artistNamespace, creatorID[:])
-	return service.storeImage(ctx, actorID, &creatorID, catalogArtistID,
-		"creator-content/"+creatorID.String(), contentType, length, body)
+	image, _, err := service.storeImage(ctx, actorID, &creatorID, CatalogArtistID(creatorID),
+		"creator-content/"+creatorID.String(), contentType, length, body, true)
+	return image, err
+}
+
+// Import stores provider artwork only while the creator does not already have
+// an image. A concurrent manual upload always wins.
+func (service *Service) Import(
+	ctx context.Context,
+	actorID, creatorID uuid.UUID,
+	contentType string,
+	length int64,
+	body io.Reader,
+) (Image, bool, error) {
+	if actorID == uuid.Nil || creatorID == uuid.Nil || body == nil {
+		return Image{}, false, ErrInvalid
+	}
+	allowed, err := service.permissions.CanUploadArtistImage(ctx, actorID, creatorID)
+	if err != nil {
+		if errors.Is(err, content.ErrForbidden) || errors.Is(err, content.ErrNotFound) {
+			return Image{}, false, ErrForbidden
+		}
+		return Image{}, false, fmt.Errorf("authorize artist image: %w: %v", ErrUnavailable, err)
+	}
+	if !allowed {
+		return Image{}, false, ErrForbidden
+	}
+	return service.storeImage(ctx, actorID, &creatorID, CatalogArtistID(creatorID),
+		"provider-content/"+creatorID.String(), contentType, length, body, false)
 }
 
 func (service *Service) UploadCatalog(
@@ -80,8 +107,9 @@ func (service *Service) UploadCatalog(
 	if !hasRole(roles, "admin") {
 		return Image{}, ErrForbidden
 	}
-	return service.storeImage(ctx, actorID, nil, catalogArtistID,
-		"catalog-content", contentType, length, body)
+	image, _, err := service.storeImage(ctx, actorID, nil, catalogArtistID,
+		"catalog-content", contentType, length, body, true)
+	return image, err
 }
 
 func (service *Service) storeImage(
@@ -92,23 +120,24 @@ func (service *Service) storeImage(
 	keyPrefix, contentType string,
 	length int64,
 	body io.Reader,
-) (Image, error) {
+	replace bool,
+) (Image, bool, error) {
 	if length < 1 || length > MaximumBytes {
-		return Image{}, ErrTooLarge
+		return Image{}, false, ErrTooLarge
 	}
 	mimeType, params, err := mime.ParseMediaType(strings.TrimSpace(contentType))
 	if err != nil || len(params) > 0 || !supportedMIME(mimeType) {
-		return Image{}, ErrInvalid
+		return Image{}, false, ErrInvalid
 	}
 	data, err := io.ReadAll(io.LimitReader(body, MaximumBytes+1))
 	if err != nil {
-		return Image{}, fmt.Errorf("read artist image: %w", err)
+		return Image{}, false, fmt.Errorf("read artist image: %w", err)
 	}
 	if int64(len(data)) > MaximumBytes {
-		return Image{}, ErrTooLarge
+		return Image{}, false, ErrTooLarge
 	}
 	if int64(len(data)) != length || coveringest.ValidateImage(data, mimeType) != nil {
-		return Image{}, ErrInvalid
+		return Image{}, false, ErrInvalid
 	}
 	imageID := uuid.New()
 	objectKey := fmt.Sprintf(
@@ -116,22 +145,36 @@ func (service *Service) storeImage(
 		keyPrefix, catalogArtistID, imageID, extension(mimeType),
 	)
 	if err = service.objects.PutIfAbsent(ctx, objectKey, bytes.NewReader(data), length, mimeType); err != nil {
-		return Image{}, fmt.Errorf("store artist image: %w: %v", ErrStorage, err)
+		return Image{}, false, fmt.Errorf("store artist image: %w: %v", ErrStorage, err)
 	}
 	image := Image{
 		CreatorID: creatorID, CatalogArtistID: catalogArtistID,
 		UpdatedByUserID: actorID, ObjectKey: objectKey,
 		MIMEType: mimeType, SizeBytes: length,
 	}
-	previous, err := service.store.Replace(ctx, image)
+	var previous *Image
+	created := true
+	if replace {
+		previous, err = service.store.Replace(ctx, image)
+	} else {
+		created, err = service.store.Create(ctx, image)
+	}
 	if err != nil {
 		_ = service.objects.Delete(context.WithoutCancel(ctx), objectKey)
-		return Image{}, fmt.Errorf("save artist image: %w", err)
+		return Image{}, false, fmt.Errorf("save artist image: %w", err)
+	}
+	if !created {
+		_ = service.objects.Delete(context.WithoutCancel(ctx), objectKey)
+		return Image{}, false, nil
 	}
 	if previous != nil && previous.ObjectKey != "" && previous.ObjectKey != objectKey {
 		_ = service.objects.Delete(context.WithoutCancel(ctx), previous.ObjectKey)
 	}
-	return image, nil
+	return image, true, nil
+}
+
+func CatalogArtistID(creatorID uuid.UUID) uuid.UUID {
+	return uuid.NewSHA1(artistNamespace, creatorID[:])
 }
 
 func hasRole(roles []string, expected string) bool {

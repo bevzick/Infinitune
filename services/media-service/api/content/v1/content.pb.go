@@ -490,6 +490,7 @@ type CheckTrackImportResponse struct {
 	Allowed       bool                   `protobuf:"varint,1,opt,name=allowed,proto3" json:"allowed,omitempty"`
 	ReleaseId     string                 `protobuf:"bytes,2,opt,name=release_id,json=releaseId,proto3" json:"release_id,omitempty"`
 	HasCover      bool                   `protobuf:"varint,3,opt,name=has_cover,json=hasCover,proto3" json:"has_cover,omitempty"`
+	CreatorId     string                 `protobuf:"bytes,4,opt,name=creator_id,json=creatorId,proto3" json:"creator_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -545,6 +546,13 @@ func (x *CheckTrackImportResponse) GetHasCover() bool {
 	return false
 }
 
+func (x *CheckTrackImportResponse) GetCreatorId() string {
+	if x != nil {
+		return x.CreatorId
+	}
+	return ""
+}
+
 var File_api_content_v1_content_proto protoreflect.FileDescriptor
 
 const file_api_content_v1_content_proto_rawDesc = "" +
@@ -585,12 +593,14 @@ const file_api_content_v1_content_proto_rawDesc = "" +
 	"\aallowed\x18\x01 \x01(\bR\aallowed\"\\\n" +
 	"\x17CheckTrackImportRequest\x12(\n" +
 	"\x10release_track_id\x18\x01 \x01(\tR\x0ereleaseTrackId\x12\x17\n" +
-	"\auser_id\x18\x02 \x01(\tR\x06userId\"p\n" +
+	"\auser_id\x18\x02 \x01(\tR\x06userId\"\x8f\x01\n" +
 	"\x18CheckTrackImportResponse\x12\x18\n" +
 	"\aallowed\x18\x01 \x01(\bR\aallowed\x12\x1d\n" +
 	"\n" +
 	"release_id\x18\x02 \x01(\tR\treleaseId\x12\x1b\n" +
-	"\thas_cover\x18\x03 \x01(\bR\bhasCover2\xc6\x04\n" +
+	"\thas_cover\x18\x03 \x01(\bR\bhasCover\x12\x1d\n" +
+	"\n" +
+	"creator_id\x18\x04 \x01(\tR\tcreatorId2\xc6\x04\n" +
 	"\x0eContentService\x12p\n" +
 	"\x0fCheckPermission\x12-.infinitune.content.v1.CheckPermissionRequest\x1a..infinitune.content.v1.CheckPermissionResponse\x12h\n" +
 	"\x10GetUploadSession\x12..infinitune.content.v1.GetUploadSessionRequest\x1a$.infinitune.content.v1.UploadSession\x12h\n" +

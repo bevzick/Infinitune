@@ -22,11 +22,16 @@ func (stub permissionStub) CanUploadArtistImage(context.Context, uuid.UUID, uuid
 type storeStub struct {
 	saved    Image
 	previous *Image
+	created  bool
 }
 
 func (stub *storeStub) Replace(_ context.Context, image Image) (*Image, error) {
 	stub.saved = image
 	return stub.previous, nil
+}
+func (stub *storeStub) Create(_ context.Context, image Image) (bool, error) {
+	stub.saved = image
+	return stub.created, nil
 }
 func (stub *storeStub) ByCatalogArtistID(context.Context, uuid.UUID) (Image, error) {
 	return stub.saved, nil
@@ -58,11 +63,39 @@ func TestUploadStoresAndReplacesArtistImage(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	wantArtistID := uuid.NewSHA1(artistNamespace, creatorID[:])
+	wantArtistID := CatalogArtistID(creatorID)
 	if result.CatalogArtistID != wantArtistID || store.saved.UpdatedByUserID != actorID ||
 		store.saved.CreatorID == nil || *store.saved.CreatorID != creatorID ||
 		objects.mime != "image/png" || !bytes.Equal(objects.data, data) || objects.deleted != "old/image.png" {
 		t.Fatalf("Upload() = %+v; saved = %+v; object = %+v", result, store.saved, objects)
+	}
+}
+
+func TestImportKeepsExistingArtistImage(t *testing.T) {
+	creatorID, actorID := uuid.New(), uuid.New()
+	data := testPNG(t)
+	store, objects := &storeStub{created: false}, &objectStub{}
+	_, created, err := NewService(permissionStub{allowed: true}, store, objects).Import(
+		context.Background(), actorID, creatorID, "image/png", int64(len(data)), bytes.NewReader(data),
+	)
+	if err != nil || created || objects.deleted != objects.key ||
+		!strings.HasPrefix(objects.key, "provider-content/") {
+		t.Fatalf("Import() created=%v, error=%v; saved=%+v object=%+v", created, err, store.saved, objects)
+	}
+}
+
+func TestImportStoresProviderArtistImageWhenMissing(t *testing.T) {
+	creatorID, actorID := uuid.New(), uuid.New()
+	data := testPNG(t)
+	store, objects := &storeStub{created: true}, &objectStub{}
+	image, created, err := NewService(permissionStub{allowed: true}, store, objects).Import(
+		context.Background(), actorID, creatorID, "image/png", int64(len(data)), bytes.NewReader(data),
+	)
+	if err != nil || !created || image.CatalogArtistID != CatalogArtistID(creatorID) ||
+		store.saved.CreatorID == nil || *store.saved.CreatorID != creatorID ||
+		objects.deleted != "" || !strings.HasPrefix(objects.key, "provider-content/") {
+		t.Fatalf("Import() image=%+v created=%v error=%v; saved=%+v object=%+v",
+			image, created, err, store.saved, objects)
 	}
 }
 
