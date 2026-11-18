@@ -29,6 +29,7 @@ import { useSession } from "../features/session/SessionContext";
 import { ApiError, publicAssetUrl } from "../shared/api/client";
 
 type Section = "users" | "content" | "artists" | "reports" | "activity";
+type Workspace = "administration" | "moderation";
 type LoadState = "loading" | "ready" | "error";
 type UserStatus = AdminUser["status"] | "all";
 type CreatorStatus = CreatorReviewItem["verification_status"];
@@ -43,8 +44,19 @@ type ReportStatus = CommentReport["report"]["status"];
 const pageSize = 10;
 
 export function AdminPage() {
+  return <OperationsWorkspace workspace="administration" />;
+}
+
+export function ModerationPage() {
+  return <OperationsWorkspace workspace="moderation" />;
+}
+
+function OperationsWorkspace({ workspace }: { workspace: Workspace }) {
   const { accessToken, identity } = useSession();
-  const [section, setSection] = useState<Section>("users");
+  const isModerationWorkspace = workspace === "moderation";
+  const [section, setSection] = useState<Section>(
+    isModerationWorkspace ? "content" : "users",
+  );
   const [users, setUsers] = useState<Page<AdminUser>>(emptyPage);
   const [creators, setCreators] = useState<Page<CreatorReviewItem>>(emptyPage);
   const [releases, setReleases] = useState<Page<ReleaseReviewItem>>(emptyPage);
@@ -77,20 +89,7 @@ export function AdminPage() {
       setState("loading");
       setError("");
       try {
-        const [
-          userPage,
-          creatorPage,
-          releasePage,
-          reportPage,
-          artistPage,
-          releaseAuditPage,
-          commentAuditPage,
-        ] = await Promise.all([
-          listUsers(
-            accessToken,
-            { status: userStatus, limit: pageSize, offset: userOffset },
-            signal,
-          ),
+        const [creatorPage, releasePage, reportPage] = await Promise.all([
           listCreatorsForModeration(
             accessToken,
             {
@@ -118,25 +117,38 @@ export function AdminPage() {
             },
             signal,
           ),
-          listCatalogArtists({ limit: pageSize, offset: artistOffset }, signal),
-          listReleaseAudit(
-            accessToken,
-            { limit: pageSize, offset: releaseAuditOffset },
-            signal,
-          ),
-          listCommentAudit(
-            accessToken,
-            { limit: pageSize, offset: commentAuditOffset },
-            signal,
-          ),
         ]);
-        setUsers(userPage);
         setCreators(creatorPage);
         setReleases(releasePage);
         setReports(reportPage);
-        setArtists({ items: artistPage.items, page: artistPage.pagination });
-        setReleaseAudit(releaseAuditPage);
-        setCommentAudit(commentAuditPage);
+        if (!isModerationWorkspace) {
+          const [userPage, artistPage, releaseAuditPage, commentAuditPage] =
+            await Promise.all([
+              listUsers(
+                accessToken,
+                { status: userStatus, limit: pageSize, offset: userOffset },
+                signal,
+              ),
+              listCatalogArtists(
+                { limit: pageSize, offset: artistOffset },
+                signal,
+              ),
+              listReleaseAudit(
+                accessToken,
+                { limit: pageSize, offset: releaseAuditOffset },
+                signal,
+              ),
+              listCommentAudit(
+                accessToken,
+                { limit: pageSize, offset: commentAuditOffset },
+                signal,
+              ),
+            ]);
+          setUsers(userPage);
+          setArtists({ items: artistPage.items, page: artistPage.pagination });
+          setReleaseAudit(releaseAuditPage);
+          setCommentAudit(commentAuditPage);
+        }
         setState("ready");
       } catch (reason) {
         if (signal?.aborted) return;
@@ -157,6 +169,7 @@ export function AdminPage() {
       reportStatus,
       userOffset,
       userStatus,
+      isModerationWorkspace,
     ],
   );
 
@@ -221,38 +234,54 @@ export function AdminPage() {
     <section className="admin-page">
       <header className="admin-hero">
         <div>
-          <span className="hero-kicker">Platform operations</span>
-          <h1>Administration</h1>
+          <span className="hero-kicker">
+            {isModerationWorkspace ? "Review workspace" : "Platform operations"}
+          </span>
+          <h1>{isModerationWorkspace ? "Moderation" : "Administration"}</h1>
           <p>
-            Manage access, review creator submissions, and resolve community
-            reports from one protected workspace.
+            {isModerationWorkspace
+              ? "Review creator submissions and resolve community reports without access to user administration."
+              : "Manage access, review creator submissions, and resolve community reports from one protected workspace."}
           </p>
         </div>
         <div className="admin-hero-mark" aria-hidden="true">
           <span>∞</span>
-          <small>ADMIN</small>
+          <small>{isModerationWorkspace ? "MOD" : "ADMIN"}</small>
         </div>
       </header>
 
       <section className="admin-summary" aria-label="Administration summary">
-        <SummaryCard label="Users in selected status" value={counts.users} />
+        {!isModerationWorkspace ? (
+          <SummaryCard label="Users in selected status" value={counts.users} />
+        ) : null}
         <SummaryCard label="Content results" value={counts.content} />
         <SummaryCard label="Report results" value={counts.reports} />
       </section>
 
-      <nav className="admin-tabs" aria-label="Administration sections">
-        <AdminTab
-          active={section === "users"}
-          label="Users & roles"
-          count={counts.users}
-          onClick={() => setSection("users")}
-        />
-        <AdminTab
-          active={section === "artists"}
-          label="Artist images"
-          count={counts.artists}
-          onClick={() => setSection("artists")}
-        />
+      <nav
+        className="admin-tabs"
+        aria-label={
+          isModerationWorkspace
+            ? "Moderation sections"
+            : "Administration sections"
+        }
+      >
+        {!isModerationWorkspace ? (
+          <>
+            <AdminTab
+              active={section === "users"}
+              label="Users & roles"
+              count={counts.users}
+              onClick={() => setSection("users")}
+            />
+            <AdminTab
+              active={section === "artists"}
+              label="Artist images"
+              count={counts.artists}
+              onClick={() => setSection("artists")}
+            />
+          </>
+        ) : null}
         <AdminTab
           active={section === "content"}
           label="Content review"
@@ -265,12 +294,14 @@ export function AdminPage() {
           count={counts.reports}
           onClick={() => setSection("reports")}
         />
-        <AdminTab
-          active={section === "activity"}
-          label="Activity log"
-          count={counts.activity}
-          onClick={() => setSection("activity")}
-        />
+        {!isModerationWorkspace ? (
+          <AdminTab
+            active={section === "activity"}
+            label="Activity log"
+            count={counts.activity}
+            onClick={() => setSection("activity")}
+          />
+        ) : null}
       </nav>
 
       {error ? (
@@ -477,7 +508,7 @@ function UsersSection({
                 className="admin-role-list"
                 aria-label={`Roles for ${user.email}`}
               >
-                {(["admin", "moderator", "creator"] as const).map((role) => {
+                {(["admin", "moderator"] as const).map((role) => {
                   const assigned = user.roles.includes(role);
                   const selfAdmin =
                     user.id === currentUserId && role === "admin";
@@ -511,6 +542,21 @@ function UsersSection({
                     </button>
                   );
                 })}
+                {user.roles.includes("creator") ? (
+                  <button
+                    className="admin-role admin-role-legacy"
+                    type="button"
+                    disabled={busyId === user.id || user.status === "deleted"}
+                    title="Legacy global role. Creator Studio access comes from membership in a creator account, not this role."
+                    onClick={() =>
+                      void mutate(user.id, () =>
+                        removeUserRole(accessToken, user.id, "creator"),
+                      )
+                    }
+                  >
+                    creator (legacy)
+                  </button>
+                ) : null}
                 {user.roles.includes("listener") ? (
                   <span className="admin-role admin-role-system">listener</span>
                 ) : null}

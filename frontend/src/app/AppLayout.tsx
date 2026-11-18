@@ -2,8 +2,15 @@ import { type FormEvent, useEffect, useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 
 import { PlayerControls } from "../features/player/PlayerControls";
+import {
+  getOwnProfile,
+  profileCreatedEvent,
+  profileUpdatedEvent,
+  type UserProfile,
+} from "../features/profile/profileApi";
 import { useSession } from "../features/session/SessionContext";
 import { ThemeToggle } from "../features/theme/ThemeToggle";
+import { publicAssetUrl } from "../shared/api/client";
 import { useDocumentTitle } from "../shared/hooks/useDocumentTitle";
 import { Icon, type IconName } from "../shared/ui/Icon";
 import { MobileNavigation } from "./MobileNavigation";
@@ -39,6 +46,7 @@ export function AppLayout() {
   const location = useLocation();
   const [logoutError, setLogoutError] = useState("");
   const [isOnline, setIsOnline] = useState(() => navigator.onLine);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
 
   useEffect(() => {
     const onOnline = () => setIsOnline(true);
@@ -51,6 +59,35 @@ export function AppLayout() {
     };
   }, []);
   const isAdmin = session.identity?.roles.includes("admin") ?? false;
+  const isModerator =
+    isAdmin || (session.identity?.roles.includes("moderator") ?? false);
+
+  useEffect(() => {
+    if (session.status !== "authenticated" || !session.accessToken) {
+      setProfile(null);
+      return;
+    }
+    const controller = new AbortController();
+    getOwnProfile(session.accessToken, controller.signal)
+      .then((nextProfile) => setProfile(nextProfile))
+      .catch(() => {
+        if (!controller.signal.aborted) setProfile(null);
+      });
+    return () => controller.abort();
+  }, [session.accessToken, session.status]);
+
+  useEffect(() => {
+    const synchronizeProfile = (event: Event) => {
+      const nextProfile = (event as CustomEvent<UserProfile>).detail;
+      if (nextProfile) setProfile(nextProfile);
+    };
+    window.addEventListener(profileCreatedEvent, synchronizeProfile);
+    window.addEventListener(profileUpdatedEvent, synchronizeProfile);
+    return () => {
+      window.removeEventListener(profileCreatedEvent, synchronizeProfile);
+      window.removeEventListener(profileUpdatedEvent, synchronizeProfile);
+    };
+  }, []);
   useDocumentTitle(pageTitle(location.pathname));
 
   async function signOut() {
@@ -95,11 +132,22 @@ export function AppLayout() {
             <Navigation items={creatorNavigation} />
           </div>
         ) : null}
-        {isAdmin ? (
+        {isModerator ? (
           <div className="sidebar-section">
             <span className="sidebar-label">Operations</span>
             <Navigation
-              items={[{ to: "/admin", label: "Administration", icon: "admin" }]}
+              items={[
+                { to: "/moderation", label: "Moderation", icon: "admin" },
+                ...(isAdmin
+                  ? [
+                      {
+                        to: "/admin",
+                        label: "Administration",
+                        icon: "admin" as const,
+                      },
+                    ]
+                  : []),
+              ]}
             />
           </div>
         ) : null}
@@ -153,9 +201,10 @@ export function AppLayout() {
               <>
                 <NavLink className="profile-link" to="/profile">
                   <span className="profile-label">Profile</span>
-                  <span className="profile-avatar-small" aria-hidden="true">
-                    {session.identity?.userId.slice(0, 1) || "I"}
-                  </span>
+                  <TopbarProfileAvatar
+                    profile={profile}
+                    fallback={session.identity?.userId || "Infinitune"}
+                  />
                 </NavLink>
                 <button
                   className="sign-in-link session-button"
@@ -192,6 +241,7 @@ export function AppLayout() {
       <MobileNavigation
         authenticated={session.status === "authenticated"}
         isAdmin={isAdmin}
+        isModerator={isModerator}
       />
     </div>
   );
@@ -213,7 +263,60 @@ export function pageTitle(pathname: string) {
   if (pathname === "/creator/releases") return "Creator releases";
   if (pathname === "/creator/accounts") return "Creator accounts";
   if (pathname === "/admin") return "Administration";
+  if (pathname === "/moderation") return "Moderation";
   return "Infinitune";
+}
+
+function TopbarProfileAvatar({
+  profile,
+  fallback,
+}: {
+  profile: UserProfile | null;
+  fallback: string;
+}) {
+  const avatarUrl = profile?.avatar_url?.trim();
+  const name = profile?.display_name || profile?.username || fallback;
+
+  return (
+    <TopbarProfileAvatarContent
+      key={avatarUrl || "fallback"}
+      avatarUrl={avatarUrl}
+      name={name}
+    />
+  );
+}
+
+function TopbarProfileAvatarContent({
+  avatarUrl,
+  name,
+}: {
+  avatarUrl: string | undefined;
+  name: string;
+}) {
+  const [imageFailed, setImageFailed] = useState(false);
+  return (
+    <span className="profile-avatar-small" aria-hidden="true">
+      {avatarUrl && !imageFailed ? (
+        <img
+          src={publicAssetUrl(avatarUrl)}
+          alt=""
+          onError={() => setImageFailed(true)}
+        />
+      ) : (
+        avatarInitials(name)
+      )}
+    </span>
+  );
+}
+
+function avatarInitials(value: string) {
+  return value
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((part) => part.slice(0, 1))
+    .join("")
+    .toUpperCase();
 }
 
 function Brand() {

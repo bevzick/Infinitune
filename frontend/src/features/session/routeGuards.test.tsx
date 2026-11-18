@@ -13,6 +13,7 @@ import { ApiError } from "../../shared/api/client";
 import {
   AdminRoute,
   GuestRoute,
+  ModeratorRoute,
   ProfileOnboardingRoute,
   ProtectedRoute,
 } from "./routeGuards";
@@ -179,6 +180,46 @@ describe("AdminRoute", () => {
 
     expect(screen.getByText("Administration")).toBeInTheDocument();
   });
+});
+
+describe("ModeratorRoute", () => {
+  beforeEach(() => {
+    session.status = "authenticated";
+    session.identity = { roles: ["listener"] };
+  });
+
+  it("redirects a listener without a moderation role", () => {
+    render(
+      <MemoryRouter initialEntries={["/moderation"]}>
+        <Routes>
+          <Route path="/" element={<LocationProbe />} />
+          <Route element={<ModeratorRoute />}>
+            <Route path="/moderation" element={<div>Moderation</div>} />
+          </Route>
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText("/|")).toBeInTheDocument();
+  });
+
+  it.each([["moderator"], ["admin"]])(
+    "allows a %s to access moderation",
+    (role) => {
+      session.identity = { roles: ["listener", role] };
+      render(
+        <MemoryRouter initialEntries={["/moderation"]}>
+          <Routes>
+            <Route element={<ModeratorRoute />}>
+              <Route path="/moderation" element={<div>Moderation</div>} />
+            </Route>
+          </Routes>
+        </MemoryRouter>,
+      );
+
+      expect(screen.getByText("Moderation")).toBeInTheDocument();
+    },
+  );
 });
 
 function LocationProbe() {

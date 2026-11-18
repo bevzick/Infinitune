@@ -115,6 +115,29 @@ export function AdminRoute() {
   return <Outlet />;
 }
 
+export function ModeratorRoute() {
+  const session = useSession();
+  const location = useLocation();
+  if (session.status === "loading") return <SessionLoading />;
+  if (session.status === "error") {
+    return <SessionUnavailable onRetry={session.retry} />;
+  }
+  if (session.status === "anonymous") {
+    return (
+      <Navigate
+        to="/login"
+        replace
+        state={{ from: location.pathname + location.search }}
+      />
+    );
+  }
+  const roles = session.identity?.roles ?? [];
+  if (!roles.includes("moderator") && !roles.includes("admin")) {
+    return <Navigate to="/" replace />;
+  }
+  return <Outlet />;
+}
+
 function guestDestination(state: unknown) {
   if (!state || typeof state !== "object" || !("from" in state)) return "/";
   const from = state.from;

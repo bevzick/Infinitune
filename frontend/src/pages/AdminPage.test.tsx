@@ -2,7 +2,7 @@ import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { AdminPage } from "./AdminPage";
+import { AdminPage, ModerationPage } from "./AdminPage";
 
 const adminApi = vi.hoisted(() => ({
   assignUserRole: vi.fn(),
@@ -116,6 +116,27 @@ describe("AdminPage", () => {
     await user.click(screen.getByRole("button", { name: /Comment reports/ }));
     expect(
       screen.getByText("There are no pending comment reports."),
+    ).toBeInTheDocument();
+  });
+
+  it("keeps a moderator workspace limited to content review and reports", async () => {
+    render(<ModerationPage />);
+
+    expect(
+      await screen.findByRole("heading", { name: "Moderation" }),
+    ).toBeInTheDocument();
+    expect(adminApi.listUsers).not.toHaveBeenCalled();
+    expect(
+      screen.queryByRole("button", { name: /Users & roles/ }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /Artist images/ }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /Content review/ }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /Comment reports/ }),
     ).toBeInTheDocument();
   });
 

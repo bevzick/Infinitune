@@ -14,7 +14,7 @@ import {
 } from "../features/profile/profileApi";
 import { useSession } from "../features/session/SessionContext";
 import { useTheme } from "../features/theme/ThemeContext";
-import { ApiError } from "../shared/api/client";
+import { ApiError, publicAssetUrl } from "../shared/api/client";
 import { LibraryError, LibraryLoading } from "./LibraryPage";
 
 export function ProfilePage() {
@@ -188,7 +188,9 @@ function ProfileHero({ profile }: { profile: UserProfile }) {
     <header className="profile-hero">
       <span className="profile-avatar" aria-hidden="true">
         {initials(profile.display_name || profile.username)}
-        {profile.avatar_url ? <img src={profile.avatar_url} alt="" /> : null}
+        {profile.avatar_url ? (
+          <img src={publicAssetUrl(profile.avatar_url)} alt="" />
+        ) : null}
       </span>
       <div>
         <span className="hero-kicker">Listener profile</span>
