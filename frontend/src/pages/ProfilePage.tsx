@@ -1,4 +1,5 @@
 import { type FormEvent, useCallback, useEffect, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 
 import {
   createProfile,
@@ -19,6 +20,9 @@ import { LibraryError, LibraryLoading } from "./LibraryPage";
 export function ProfilePage() {
   const { accessToken } = useSession();
   const { setTheme } = useTheme();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const returnTo = onboardingDestination(location.state);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [settings, setSettings] = useState<UserSettings | null>(null);
   const [status, setStatus] = useState<
@@ -67,6 +71,10 @@ export function ProfilePage() {
     return (
       <ProfileOnboarding
         onCreated={async () => {
+          if (returnTo) {
+            navigate(returnTo, { replace: true });
+            return;
+          }
           await load();
         }}
       />
@@ -83,6 +91,20 @@ export function ProfilePage() {
       </div>
     </section>
   );
+}
+
+function onboardingDestination(state: unknown) {
+  if (!state || typeof state !== "object" || !("from" in state)) return null;
+  const from = state.from;
+  if (
+    typeof from !== "string" ||
+    !from.startsWith("/") ||
+    from.startsWith("//") ||
+    from === "/profile"
+  ) {
+    return null;
+  }
+  return from;
 }
 
 function ProfileOnboarding({ onCreated }: { onCreated(): Promise<void> }) {

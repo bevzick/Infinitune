@@ -107,6 +107,7 @@ func TestTrackDetailReturnsPublicMetadataWithoutInternalIDs(t *testing.T) {
 	artistID := uuid.New()
 	stub := &catalogStub{track: metadata.Track{
 		ID: trackID, Title: "Public Track", DurationMS: 180000, TrackNumber: 1, DiscNumber: 1,
+		CoverURL:     "/v1/media/covers/00000000-0000-4000-8000-000000000101",
 		ReleaseDate:  time.Date(2026, time.November, 8, 0, 0, 0, 0, time.UTC),
 		MediaAssetID: uuid.New(), ContentID: uuid.New(),
 		Artists: []metadata.TrackArtist{{
@@ -141,6 +142,9 @@ func TestTrackDetailReturnsPublicMetadataWithoutInternalIDs(t *testing.T) {
 	wantPlaybackURL := "/v1/media/assets/" + stub.track.MediaAssetID.String() + "/playback"
 	if body["playback_url"] != wantPlaybackURL {
 		t.Errorf("playback_url = %v, want %q", body["playback_url"], wantPlaybackURL)
+	}
+	if body["cover_url"] != stub.track.CoverURL {
+		t.Errorf("cover_url = %v, want %q", body["cover_url"], stub.track.CoverURL)
 	}
 	if !strings.Contains(response.Body.String(), `"role":"primary"`) {
 		t.Errorf("body does not contain artist role: %s", response.Body.String())

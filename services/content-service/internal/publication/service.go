@@ -79,6 +79,9 @@ func (service *Service) Publish(
 		Type: candidate.Release.Type, ReleaseDate: candidate.Release.ReleaseDate,
 		Tracks: make([]contentcatalog.TrackInput, 0, len(candidate.Tracks)),
 	}
+	if candidate.Release.CoverObjectKey != nil {
+		input.CoverURL = "/v1/media/covers/" + candidate.Release.ID.String()
+	}
 	if candidate.Release.Type != release.TypeSingle {
 		albumID := stableID(albumNamespace, candidate.Release.ID)
 		input.AlbumID = &albumID
@@ -165,6 +168,7 @@ func (service *Service) publicationTrack(
 		Title: track.Title, DurationMS: asset.DurationMS,
 		TrackNumber: track.TrackNumber, DiscNumber: track.DiscNumber,
 		Explicit: track.Explicit, MediaAssetID: asset.ID,
+		GenreSlugs: asset.Genres, MoodSlugs: asset.Moods,
 	}, nil
 }
 

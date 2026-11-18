@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/bevzick/Infinitune/services/catalog-service/internal/events"
 	"github.com/bevzick/Infinitune/services/catalog-service/internal/metadata"
@@ -98,6 +99,24 @@ func (repository *MetadataRepository) PublishRelease(
 		`, track.ID, input.Artist.ID); err != nil {
 			return metadata.Publication{}, publicationWriteError("insert publication track artist", err)
 		}
+		for _, slug := range track.GenreSlugs {
+			genreID, taxonomyErr := publicationTaxonomy(ctx, tx, "genres", slug)
+			if taxonomyErr != nil {
+				return metadata.Publication{}, taxonomyErr
+			}
+			if _, err = tx.Exec(ctx, `INSERT INTO catalog.track_genres (track_id, genre_id) VALUES ($1,$2)`, track.ID, genreID); err != nil {
+				return metadata.Publication{}, publicationWriteError("insert publication track genre", err)
+			}
+		}
+		for _, slug := range track.MoodSlugs {
+			moodID, taxonomyErr := publicationTaxonomy(ctx, tx, "moods", slug)
+			if taxonomyErr != nil {
+				return metadata.Publication{}, taxonomyErr
+			}
+			if _, err = tx.Exec(ctx, `INSERT INTO catalog.track_moods (track_id, mood_id, weight) VALUES ($1,$2,0.75)`, track.ID, moodID); err != nil {
+				return metadata.Publication{}, publicationWriteError("insert publication track mood", err)
+			}
+		}
 	}
 	var result metadata.Publication
 	result.SourceReleaseID = input.SourceReleaseID
@@ -141,6 +160,30 @@ func (repository *MetadataRepository) PublishRelease(
 		return metadata.Publication{}, publicationWriteError("commit catalog publication", err)
 	}
 	return result, nil
+}
+
+func publicationTaxonomy(ctx context.Context, tx pgx.Tx, table, slug string) (uuid.UUID, error) {
+	var id uuid.UUID
+	err := tx.QueryRow(ctx, `SELECT id FROM catalog.`+table+` WHERE lower(slug)=lower($1)`, slug).Scan(&id)
+	if err == nil {
+		return id, nil
+	}
+	if !errors.Is(err, pgx.ErrNoRows) {
+		return uuid.Nil, fmt.Errorf("query publication %s: %w", table, err)
+	}
+	words := strings.Split(slug, "-")
+	for index, word := range words {
+		words[index] = strings.ToUpper(word[:1]) + word[1:]
+	}
+	name := strings.Join(words, " ")
+	id = uuid.NewSHA1(uuid.MustParse("a2e9a2ce-0c76-49d9-a4a2-8c6805dc42d8"), []byte(table+":"+slug))
+	if _, err = tx.Exec(ctx, `INSERT INTO catalog.`+table+` (id,name,slug) VALUES ($1,$2,$3) ON CONFLICT DO NOTHING`, id, name, slug); err != nil {
+		return uuid.Nil, publicationWriteError("insert publication taxonomy", err)
+	}
+	if err = tx.QueryRow(ctx, `SELECT id FROM catalog.`+table+` WHERE lower(slug)=lower($1)`, slug).Scan(&id); err != nil {
+		return uuid.Nil, fmt.Errorf("read publication taxonomy: %w", err)
+	}
+	return id, nil
 }
 
 func (repository *MetadataRepository) ArchiveRelease(

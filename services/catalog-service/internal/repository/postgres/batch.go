@@ -70,8 +70,9 @@ func (repository *MetadataRepository) TracksByIDs(
 	rows, err := repository.database.Query(ctx, `
 		SELECT
 			id, album_id, title, duration_ms, track_number, disc_number, explicit,
-			release_date, media_asset_id, content_id, created_at, updated_at
-		FROM catalog.tracks
+			release_date, media_asset_id, content_id, created_at, updated_at,
+			`+trackCoverURLSQL+`
+		FROM catalog.tracks AS t
 		WHERE id = ANY($1::uuid[])
 	`, ids)
 	if err != nil {

@@ -15,6 +15,7 @@ import (
 
 	contentv1 "github.com/bevzick/Infinitune/services/media-service/api/content/v1"
 	mediav1 "github.com/bevzick/Infinitune/services/media-service/api/media/v1"
+	"github.com/bevzick/Infinitune/services/media-service/internal/artistimage"
 	"github.com/bevzick/Infinitune/services/media-service/internal/config"
 	content_client "github.com/bevzick/Infinitune/services/media-service/internal/content"
 	"github.com/bevzick/Infinitune/services/media-service/internal/correlation"
@@ -109,7 +110,9 @@ func main() {
 		contentClient,
 		mediaRepository, objectStorage,
 	)
-	coverService := coveringest.NewService(content_client.NewCoverClient(contentConnection), objectStorage)
+	coverClient := content_client.NewCoverClient(contentConnection)
+	coverService := coveringest.NewService(coverClient, objectStorage)
+	artistImageService := artistimage.NewService(contentClient, mediaRepository, objectStorage)
 	archiveProvider, err := internet_archive.New(internet_archive.Config{
 		MetadataURL: cfg.InternetArchive.MetadataURL,
 		DownloadURL: cfg.InternetArchive.DownloadURL,
@@ -138,7 +141,8 @@ func main() {
 		os.Exit(1)
 	}
 	externalImportService := sourceimport.NewService(
-		contentClient, providers, mediaRepository, objectStorage,
+		contentClient, providers, mediaRepository, objectStorage, coverClient,
+		artistImageService,
 	)
 	processingWorker := processing.NewWorker(
 		mediaRepository,
@@ -165,17 +169,19 @@ func main() {
 	server := &http.Server{
 		Addr: cfg.HTTPAddress,
 		Handler: eventMetrics.Wrap(httpapi.NewRouter(httpapi.Dependencies{
-			Database: databasePool,
-			Storage:  objectStorage,
-			Objects:  objectStorage,
-			Media:    metadataService,
-			Ingest:   ingestService,
-			Covers:   coverService,
-			Imports:  externalImportService,
-			Sources:  providers,
-			Tokens:   tokenVerifier,
-			Origins:  cfg.Origins,
-			Logger:   logger,
+			Database:        databasePool,
+			Storage:         objectStorage,
+			Objects:         objectStorage,
+			Media:           metadataService,
+			Ingest:          ingestService,
+			Covers:          coverService,
+			PublishedCovers: coverClient,
+			ArtistImages:    artistImageService,
+			Imports:         externalImportService,
+			Sources:         providers,
+			Tokens:          tokenVerifier,
+			Origins:         cfg.Origins,
+			Logger:          logger,
 		})),
 		ReadHeaderTimeout: readHeaderTimeout,
 	}

@@ -102,6 +102,11 @@ dashboard is created automatically and contains:
 - correlated structured logs filtered by `request_id`;
 - a table of the most frequent error messages.
 
+Loki protects its write-ahead log by rejecting writes when the filesystem
+reaches `LOKI_WAL_DISK_FULL_THRESHOLD` (default `0.98` for this local stack).
+Keep free disk space available; use a lower threshold on a dedicated production
+WAL volume rather than disabling this protection.
+
 The dashboard defaults to the last hour and refreshes every 30 seconds. Use
 the Compose project and service variables to restrict the displayed streams.
 Set the request ID field to the exact ID returned in the `X-Request-ID`

@@ -5,6 +5,12 @@ export type CreatorAccount = {
   type: "artist" | "label" | "distributor";
   display_name: string;
   verification_status: "unverified" | "pending" | "verified" | "rejected";
+  image_url: string;
+};
+
+export type ArtistImageUpload = {
+  artist_id: string;
+  image_url: string;
 };
 
 export type CreateCreatorAccountInput = Pick<
@@ -134,6 +140,17 @@ export function submitCreatorVerification(
   return apiRequest<CreatorAccount>(
     `/v1/creators/${creatorId}/verification-submissions`,
     { method: "POST", accessToken },
+  );
+}
+
+export function uploadArtistImage(
+  accessToken: string,
+  creatorId: string,
+  file: File,
+) {
+  return apiRequest<ArtistImageUpload>(
+    `/v1/media/creator-artists/${encodeURIComponent(creatorId)}/image`,
+    { method: "PUT", accessToken, body: file },
   );
 }
 

@@ -48,7 +48,7 @@ names and defaults is [`.env.example`](../.env.example). In particular:
 | Signing | `AUTH_JWT_PRIVATE_KEY_BASE64`, `AUTH_JWT_PUBLIC_KEY_BASE64`, `AUTH_JWT_ISSUER`, `AUTH_JWT_AUDIENCE` |
 | Media | `MINIO_ROOT_USER`, `MINIO_ROOT_PASSWORD`, `MINIO_MEDIA_BUCKET`, `MINIO_ENDPOINT` |
 | Frontend | `FRONTEND_PORT` (default `8088`), `VITE_GATEWAY_URL=/` for same-origin proxy |
-| Observability | `GRAFANA_ADMIN_USER`, `GRAFANA_ADMIN_PASSWORD`, `PROMETHEUS_PORT`, `GRAFANA_PORT`, `LOKI_PORT`, `ALLOY_PORT` |
+| Observability | `GRAFANA_ADMIN_USER`, `GRAFANA_ADMIN_PASSWORD`, `PROMETHEUS_PORT`, `GRAFANA_PORT`, `LOKI_PORT`, `ALLOY_PORT`, `LOKI_WAL_DISK_FULL_THRESHOLD` |
 | Optional imports | `MEDIA_JAMENDO_CLIENT_ID` (Internet Archive does not require a read API key) |
 
 The repository's `.env.example` contains **development placeholders**, not
@@ -122,6 +122,16 @@ creator and release review.
 
 ## 4. Verification before acceptance
 
+The complete local acceptance suite is available as one command:
+
+```bash
+make product-check
+```
+
+It runs Compose validation, all backend unit suites, all frontend static/unit/
+build/browser checks, and finally the isolated real-service journey described
+below. It stops at the first failed gate and does not reuse development data.
+
 Run frontend checks from `frontend/`:
 
 ```bash
@@ -137,6 +147,8 @@ cd ..
 
 The Playwright Chromium override is only needed when the browser is installed
 at `/usr/bin/chromium`; otherwise use the project's default Playwright setup.
+Playwright uses loopback port `4173` by default and accepts a different free
+port through `PLAYWRIGHT_PORT`.
 
 Each Go service is a separate module. For a changed service, for example:
 

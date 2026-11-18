@@ -7,6 +7,7 @@ import { SearchPage } from "./SearchPage";
 
 const track = {
   id: "track-id",
+  cover_url: "/v1/media/covers/release-id",
   playback_url: "/playback",
   title: "Night City",
   duration_ms: 228000,
@@ -69,6 +70,11 @@ describe("SearchPage", () => {
       "href",
       "/tracks/track-id",
     );
+    expect(
+      document.querySelectorAll(
+        'img[src="http://localhost:8000/v1/media/covers/release-id"]',
+      ),
+    ).toHaveLength(2);
 
     await user.type(
       screen.getByRole("searchbox", { name: "Track title" }),

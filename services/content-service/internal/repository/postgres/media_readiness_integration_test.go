@@ -68,7 +68,9 @@ func TestMediaReadinessRepositoryLoadsExternalAssetByTrack(t *testing.T) {
 	}
 	asset, err := repository.AssetByTrack(ctx, trackID)
 	if err != nil || asset.ID != assetID || asset.SourceUploadID != uuid.Nil ||
-		asset.ContentTrackID != trackID || asset.Status != contentmedia.StatusReady {
+		asset.ContentTrackID != trackID || asset.Status != contentmedia.StatusReady ||
+		asset.Genres == nil || len(asset.Genres) != 0 ||
+		asset.Moods == nil || len(asset.Moods) != 0 {
 		t.Fatalf("AssetByTrack() = %+v, %v", asset, err)
 	}
 	if _, err = repository.AssetByTrack(ctx, uuid.New()); !errors.Is(err, contentmedia.ErrNotFound) {

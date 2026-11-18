@@ -4,6 +4,7 @@ services:
     restart: unless-stopped
     command:
       - -config.file=/etc/loki/config.yml
+      - -ingester.wal-disk-full-threshold=${LOKI_WAL_DISK_FULL_THRESHOLD:-0.98}
     volumes:
       - ./infra/loki/config.yml:/etc/loki/config.yml:ro
       - loki_data:/loki

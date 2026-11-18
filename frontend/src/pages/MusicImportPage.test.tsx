@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MusicImportPage } from "./MusicImportPage";
 
 const musicSourceApi = vi.hoisted(() => ({
+  backfillSourceArtwork: vi.fn(),
   listMusicSourceProviders: vi.fn(),
   listDraftReleaseTracks: vi.fn(),
   discoverSourceTracks: vi.fn(),
@@ -38,6 +39,7 @@ describe("MusicImportPage", () => {
           title: "Night Signal",
           artist: "Luna Veil",
           page_url: "https://example.com/tracks/42",
+          artwork_url: "https://example.com/artwork/42.jpg",
           license: {
             name: "CC BY 4.0",
             url: "https://creativecommons.org/licenses/by/4.0/",
@@ -56,6 +58,15 @@ describe("MusicImportPage", () => {
       media_asset_id: "asset-1",
       content_track_id: "release-track-1",
       status: "uploaded",
+    });
+    musicSourceApi.backfillSourceArtwork.mockResolvedValue({
+      scanned: 1,
+      repaired: 1,
+      unchanged: 0,
+      skipped: 0,
+      failed: 0,
+      next_offset: 1,
+      has_more: false,
     });
   });
 
@@ -81,6 +92,10 @@ describe("MusicImportPage", () => {
     await user.click(screen.getByRole("button", { name: "Search source" }));
 
     expect(await screen.findByText("Luna Veil")).toBeInTheDocument();
+    expect(document.querySelector(".music-source-art img")).toHaveAttribute(
+      "src",
+      "https://example.com/artwork/42.jpg",
+    );
     expect(musicSourceApi.discoverSourceTracks).toHaveBeenCalledWith(
       "access-token",
       "jamendo",
@@ -104,5 +119,24 @@ describe("MusicImportPage", () => {
     expect(
       await screen.findByText("Create a draft release first"),
     ).toBeInTheDocument();
+  });
+
+  it("repairs artwork for existing editable imports", async () => {
+    const user = userEvent.setup();
+    render(<MusicImportPage />);
+    await screen.findByRole("heading", {
+      name: "Import music from a licensed source.",
+    });
+
+    await user.click(screen.getByRole("button", { name: "Repair artwork" }));
+
+    expect(await screen.findByRole("status")).toHaveTextContent(
+      "1 updated, 0 already complete",
+    );
+    expect(musicSourceApi.backfillSourceArtwork).toHaveBeenCalledWith(
+      "access-token",
+      50,
+      0,
+    );
   });
 });

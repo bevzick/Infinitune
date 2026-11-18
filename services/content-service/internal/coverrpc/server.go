@@ -16,15 +16,21 @@ import (
 const ServiceName = "infinitune.content.cover.v1.CoverUploadService"
 
 const (
-	GetSessionMethod = "/" + ServiceName + "/GetSession"
-	TransitionMethod = "/" + ServiceName + "/Transition"
-	CompleteMethod   = "/" + ServiceName + "/Complete"
+	GetSessionMethod        = "/" + ServiceName + "/GetSession"
+	TransitionMethod        = "/" + ServiceName + "/Transition"
+	CompleteMethod          = "/" + ServiceName + "/Complete"
+	CreateImportedMethod    = "/" + ServiceName + "/CreateImported"
+	CompleteIfMissingMethod = "/" + ServiceName + "/CompleteIfMissing"
+	GetPublishedMethod      = "/" + ServiceName + "/GetPublished"
 )
 
 type Sessions interface {
+	CreateSession(context.Context, uuid.UUID, coverupload.CreateInput) (coverupload.Session, error)
 	SessionForUser(context.Context, uuid.UUID, uuid.UUID) (coverupload.Session, error)
 	Transition(context.Context, uuid.UUID, coverupload.Status) (coverupload.Session, error)
 	Complete(context.Context, uuid.UUID) (coverupload.Session, error)
+	CompleteIfMissing(context.Context, uuid.UUID) (coverupload.Session, error)
+	Published(context.Context, uuid.UUID) (coverupload.Session, error)
 }
 
 type Server struct{ sessions Sessions }
@@ -34,18 +40,42 @@ func Register(registrar grpc.ServiceRegistrar, sessions Sessions) {
 		ServiceName: ServiceName,
 		HandlerType: (*api)(nil),
 		Methods: []grpc.MethodDesc{
+			{MethodName: "CreateImported", Handler: serveCreateImported},
 			{MethodName: "GetSession", Handler: serveGetSession},
 			{MethodName: "Transition", Handler: serveTransition},
 			{MethodName: "Complete", Handler: serveComplete},
+			{MethodName: "CompleteIfMissing", Handler: serveCompleteIfMissing},
+			{MethodName: "GetPublished", Handler: serveGetPublished},
 		},
 		Metadata: "api/cover/v1/cover.proto",
 	}, &Server{sessions: sessions})
 }
 
 type api interface {
+	CreateImported(context.Context, *structpb.Struct) (*structpb.Struct, error)
 	GetSession(context.Context, *structpb.Struct) (*structpb.Struct, error)
 	Transition(context.Context, *structpb.Struct) (*structpb.Struct, error)
 	Complete(context.Context, *structpb.Struct) (*structpb.Struct, error)
+	CompleteIfMissing(context.Context, *structpb.Struct) (*structpb.Struct, error)
+	GetPublished(context.Context, *structpb.Struct) (*structpb.Struct, error)
+}
+
+func serveCreateImported(srv any, ctx context.Context, dec func(any) error, interceptor grpc.UnaryServerInterceptor) (any, error) {
+	return dispatch(srv, ctx, dec, interceptor, CreateImportedMethod, func(ctx context.Context, req *structpb.Struct) (*structpb.Struct, error) {
+		return srv.(api).CreateImported(ctx, req)
+	})
+}
+
+func serveCompleteIfMissing(srv any, ctx context.Context, dec func(any) error, interceptor grpc.UnaryServerInterceptor) (any, error) {
+	return dispatch(srv, ctx, dec, interceptor, CompleteIfMissingMethod, func(ctx context.Context, req *structpb.Struct) (*structpb.Struct, error) {
+		return srv.(api).CompleteIfMissing(ctx, req)
+	})
+}
+
+func serveGetPublished(srv any, ctx context.Context, dec func(any) error, interceptor grpc.UnaryServerInterceptor) (any, error) {
+	return dispatch(srv, ctx, dec, interceptor, GetPublishedMethod, func(ctx context.Context, req *structpb.Struct) (*structpb.Struct, error) {
+		return srv.(api).GetPublished(ctx, req)
+	})
 }
 
 func serveGetSession(srv any, ctx context.Context, dec func(any) error, interceptor grpc.UnaryServerInterceptor) (any, error) {
@@ -109,13 +139,41 @@ func (s *Server) GetSession(ctx context.Context, request *structpb.Struct) (*str
 	}
 	return encode(session)
 }
+
+func (s *Server) CreateImported(ctx context.Context, request *structpb.Struct) (*structpb.Struct, error) {
+	userID, err := uuidField(request, "user_id")
+	if err != nil {
+		return nil, err
+	}
+	releaseID, err := uuidField(request, "release_id")
+	if err != nil {
+		return nil, err
+	}
+	idempotencyKey, err := uuidField(request, "idempotency_key")
+	if err != nil {
+		return nil, err
+	}
+	size := request.GetFields()["size_bytes"].GetNumberValue()
+	if size < 1 || float64(int64(size)) != size {
+		return nil, status.Error(codes.InvalidArgument, "size_bytes must be a positive integer")
+	}
+	session, err := s.sessions.CreateSession(ctx, userID, coverupload.CreateInput{
+		ReleaseID: releaseID, IdempotencyKey: idempotencyKey,
+		OriginalName: field(request, "original_name"), MIMEType: field(request, "mime_type"),
+		SizeBytes: int64(size),
+	})
+	if err != nil {
+		return nil, mapError(err)
+	}
+	return encode(session)
+}
 func (s *Server) Transition(ctx context.Context, request *structpb.Struct) (*structpb.Struct, error) {
 	uploadID, err := uuidField(request, "upload_id")
 	if err != nil {
 		return nil, err
 	}
 	next := coverupload.Status(field(request, "target_status"))
-	if next != coverupload.StatusUploading && next != coverupload.StatusFailed {
+	if next != coverupload.StatusPending && next != coverupload.StatusUploading && next != coverupload.StatusFailed {
 		return nil, status.Error(codes.InvalidArgument, "invalid target_status")
 	}
 	session, err := s.sessions.Transition(ctx, uploadID, next)
@@ -130,6 +188,29 @@ func (s *Server) Complete(ctx context.Context, request *structpb.Struct) (*struc
 		return nil, err
 	}
 	session, err := s.sessions.Complete(ctx, uploadID)
+	if err != nil {
+		return nil, mapError(err)
+	}
+	return encode(session)
+}
+
+func (s *Server) CompleteIfMissing(ctx context.Context, request *structpb.Struct) (*structpb.Struct, error) {
+	uploadID, err := uuidField(request, "upload_id")
+	if err != nil {
+		return nil, err
+	}
+	session, err := s.sessions.CompleteIfMissing(ctx, uploadID)
+	if err != nil {
+		return nil, mapError(err)
+	}
+	return encode(session)
+}
+func (s *Server) GetPublished(ctx context.Context, request *structpb.Struct) (*structpb.Struct, error) {
+	releaseID, err := uuidField(request, "release_id")
+	if err != nil {
+		return nil, err
+	}
+	session, err := s.sessions.Published(ctx, releaseID)
 	if err != nil {
 		return nil, mapError(err)
 	}

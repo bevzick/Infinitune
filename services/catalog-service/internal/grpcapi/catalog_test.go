@@ -61,12 +61,14 @@ func TestPublishReleaseMapsApprovedMetadata(t *testing.T) {
 			Album: &catalogv1.PublishAlbum{
 				Id: albumID.String(), Title: "Release", AlbumType: "album",
 				ReleaseDate: &catalogv1.Date{Year: 2027, Month: 2, Day: 3},
+				CoverUrl:    "/v1/media/covers/" + sourceID.String(),
 			},
 			Tracks: []*catalogv1.PublishTrack{{
 				Id: catalogTrackID.String(), ContentTrackId: contentTrackID.String(),
 				Title: "Track", DurationMs: 180000, TrackNumber: 1, DiscNumber: 1,
 				ReleaseDate:  &catalogv1.Date{Year: 2027, Month: 2, Day: 3},
 				MediaAssetId: mediaID.String(),
+				GenreSlugs:   []string{"electronic"}, MoodSlugs: []string{"focused"},
 			}},
 		},
 	)
@@ -78,7 +80,8 @@ func TestPublishReleaseMapsApprovedMetadata(t *testing.T) {
 	input := stub.publicationInput
 	if input.SourceReleaseID != sourceID || input.Artist.ID != artistID ||
 		input.Album == nil || input.Album.ID != albumID || len(input.Tracks) != 1 ||
-		input.Tracks[0].ContentID != contentTrackID || input.Tracks[0].MediaAssetID != mediaID {
+		input.Tracks[0].ContentID != contentTrackID || input.Tracks[0].MediaAssetID != mediaID ||
+		input.Album.CoverURL == "" || len(input.Tracks[0].GenreSlugs) != 1 || len(input.Tracks[0].MoodSlugs) != 1 {
 		t.Fatalf("publication input = %+v", input)
 	}
 }

@@ -238,7 +238,8 @@ func (repository *MetadataRepository) TrackByID(
 	err := repository.database.QueryRow(ctx, `
 		SELECT
 			id, album_id, title, duration_ms, track_number, disc_number, explicit,
-			release_date, media_asset_id, content_id, created_at, updated_at
+			release_date, media_asset_id, content_id, created_at, updated_at,
+			`+trackCoverURLSQL+`
 		FROM catalog.tracks AS t
 		WHERE id = $1 AND `+activeTrackPredicate+`
 	`, id).Scan(
@@ -254,6 +255,7 @@ func (repository *MetadataRepository) TrackByID(
 		&result.ContentID,
 		&result.CreatedAt,
 		&result.UpdatedAt,
+		&result.CoverURL,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return metadata.Track{}, metadata.ErrNotFound

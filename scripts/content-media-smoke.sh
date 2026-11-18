@@ -287,9 +287,31 @@ request 200 GET "/v1/releases/$release_id" "" "$creator_token"
 catalog_track_id=$(jq --exit-status --raw-output '.tracks[0].catalog_track_id' "$response_file")
 request 200 GET "/v1/catalog/tracks/$catalog_track_id"
 jq --exit-status --arg title "$track_title" --arg asset_id "$media_asset_id" \
-    '.title == $title and .playback_url == ("/v1/media/assets/" + $asset_id + "/playback")' \
+    --arg cover_url "/v1/media/covers/$release_id" \
+    '.title == $title and .cover_url == $cover_url and
+     .playback_url == ("/v1/media/assets/" + $asset_id + "/playback")' \
     "$response_file" >/dev/null
 playback_url=$(jq --exit-status --raw-output '.playback_url' "$response_file")
+published_cover_url=$(jq --exit-status --raw-output '.cover_url' "$response_file")
+
+echo "Downloading the published cover through the public gateway route..."
+cover_status=$(curl --silent --show-error --connect-timeout 5 --max-time 30 \
+    --dump-header "$headers_file" --output "$response_file" --write-out '%{http_code}' \
+    "$gateway_url$published_cover_url")
+if [[ "$cover_status" != "200" ]] || [[ ! -s "$response_file" ]]; then
+    echo "Published cover returned HTTP $cover_status or an empty body" >&2
+    cat "$headers_file" >&2
+    exit 1
+fi
+grep -qi '^Content-Type: image/png' "$headers_file"
+grep -qi '^Cache-Control: public, max-age=86400, immutable' "$headers_file"
+python3 - "$response_file" <<'PYCOVER'
+import pathlib
+import sys
+
+if not pathlib.Path(sys.argv[1]).read_bytes().startswith(b"\x89PNG\r\n\x1a\n"):
+    raise SystemExit("published cover is not a PNG")
+PYCOVER
 
 echo "Streaming a byte range from the published media asset..."
 playback_status=$(curl --silent --show-error --connect-timeout 5 --max-time 30 \

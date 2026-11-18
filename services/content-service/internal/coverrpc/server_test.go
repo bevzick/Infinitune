@@ -21,6 +21,13 @@ type fakeSessions struct {
 	err     error
 }
 
+func (f fakeSessions) CreateSession(_ context.Context, actor uuid.UUID, input coverupload.CreateInput) (coverupload.Session, error) {
+	s := f.session
+	s.RequestedByUserID = actor
+	s.ReleaseID = input.ReleaseID
+	return s, f.err
+}
+
 func (f fakeSessions) SessionForUser(_ context.Context, actor, upload uuid.UUID) (coverupload.Session, error) {
 	if f.err != nil {
 		return coverupload.Session{}, f.err
@@ -45,6 +52,13 @@ func (f fakeSessions) Complete(_ context.Context, id uuid.UUID) (coverupload.Ses
 	s := f.session
 	s.Status = coverupload.StatusCompleted
 	return s, nil
+}
+func (f fakeSessions) CompleteIfMissing(ctx context.Context, id uuid.UUID) (coverupload.Session, error) {
+	return f.Complete(ctx, id)
+}
+
+func (f fakeSessions) Published(_ context.Context, _ uuid.UUID) (coverupload.Session, error) {
+	return f.session, f.err
 }
 func TestCoverRPCResponsesAndPermissions(t *testing.T) {
 	s := coverupload.Session{ID: uuid.New(), ReleaseID: uuid.New(), RequestedByUserID: uuid.New(), MIMEType: "image/png", ObjectKey: "private/cover.png", SizeBytes: 345, Status: coverupload.StatusPending}
@@ -101,5 +115,27 @@ func TestCoverRPCDispatchThroughGRPC(t *testing.T) {
 	}
 	if resp.GetFields()["id"].GetStringValue() != session.ID.String() {
 		t.Fatalf("bad response: %v", resp.String())
+	}
+	actorID, releaseID := uuid.New(), uuid.New()
+	create, _ := structpb.NewStruct(map[string]any{
+		"user_id": actorID.String(), "release_id": releaseID.String(),
+		"idempotency_key": uuid.NewString(), "original_name": "provider.jpg",
+		"mime_type": "image/jpeg", "size_bytes": 512,
+	})
+	resp.Reset()
+	if err := connection.Invoke(context.Background(), CreateImportedMethod, create, &resp); err != nil {
+		t.Fatalf("CreateImported RPC: %v", err)
+	}
+	if resp.GetFields()["release_id"].GetStringValue() != releaseID.String() ||
+		resp.GetFields()["requested_by_user_id"].GetStringValue() != actorID.String() {
+		t.Fatalf("CreateImported response: %v", resp.String())
+	}
+	complete, _ := structpb.NewStruct(map[string]any{"upload_id": session.ID.String()})
+	resp.Reset()
+	if err := connection.Invoke(context.Background(), CompleteIfMissingMethod, complete, &resp); err != nil {
+		t.Fatalf("CompleteIfMissing RPC: %v", err)
+	}
+	if resp.GetFields()["status"].GetStringValue() != string(coverupload.StatusCompleted) {
+		t.Fatalf("CompleteIfMissing response: %v", resp.String())
 	}
 }

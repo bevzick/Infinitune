@@ -2,6 +2,46 @@
 
 set -euo pipefail
 
+cd "$(dirname "${BASH_SOURCE[0]}")/.."
+
+dotenv_value() {
+    local key="$1"
+    local line value
+
+    while IFS= read -r line || [[ -n "$line" ]]; do
+        line="${line%$'\r'}"
+        if [[ "$line" != "$key="* ]]; then
+            continue
+        fi
+
+        value="${line#*=}"
+        value="$(sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' <<<"$value")"
+        if [[ ${#value} -ge 2 ]]; then
+            if [[ "$value" == \"*\" ]] || [[ "$value" == \'*\' ]]; then
+                value="${value:1:${#value}-2}"
+            fi
+        fi
+        printf '%s' "$value"
+        return 0
+    done < .env
+
+    return 1
+}
+
+# Docker Compose reads .env automatically, while a directly executed shell
+# script does not. Import only the values this check consumes and preserve
+# explicitly exported variables because they take precedence over .env in
+# Compose as well.
+if [[ -f .env ]]; then
+    for key in COMPOSE_PROJECT_NAME PROMETHEUS_PORT LOKI_PORT ALLOY_PORT GRAFANA_PORT GRAFANA_ADMIN_USER GRAFANA_ADMIN_PASSWORD; do
+        if [[ ! -v "$key" ]] && value="$(dotenv_value "$key")"; then
+            printf -v "$key" '%s' "$value"
+            export "$key"
+        fi
+    done
+fi
+
+prometheus_url="${PROMETHEUS_URL:-http://127.0.0.1:${PROMETHEUS_PORT:-9091}}"
 loki_url="${LOKI_URL:-http://127.0.0.1:${LOKI_PORT:-3100}}"
 alloy_url="${ALLOY_URL:-http://127.0.0.1:${ALLOY_PORT:-12345}}"
 grafana_url="${GRAFANA_URL:-http://127.0.0.1:${GRAFANA_PORT:-3000}}"
@@ -9,10 +49,12 @@ grafana_user="${GRAFANA_ADMIN_USER:-admin}"
 grafana_password="${GRAFANA_ADMIN_PASSWORD:-admin}"
 compose_project="${COMPOSE_PROJECT_NAME:-infinitune}"
 
-if ! command -v curl >/dev/null 2>&1; then
-    echo "curl is required for logging smoke checks" >&2
-    exit 1
-fi
+for command in curl docker; do
+    if ! command -v "$command" >/dev/null 2>&1; then
+        echo "$command is required for logging smoke checks" >&2
+        exit 1
+    fi
+done
 
 wait_for_endpoint() {
     local name="$1"
@@ -66,13 +108,31 @@ for alert_uid in infinitune-http-5xx-burst infinitune-service-panic infinitune-g
 done
 
 echo "Checking centralized Docker logs..."
-query_response="$(curl --fail --silent --show-error --get \
-    "$loki_url/loki/api/v1/query_range" \
-    --data-urlencode "query={compose_project=\"$compose_project\"}" \
-    --data-urlencode "limit=1")"
-if ! grep --quiet '"result"[[:space:]]*:[[:space:]]*\[{' <<<"$query_response"; then
-    echo "Loki has no logs for Compose project $compose_project" >&2
+mapfile -t prometheus_containers < <(docker ps \
+    --filter "label=com.docker.compose.project=$compose_project" \
+    --filter "label=com.docker.compose.service=prometheus" \
+    --format '{{.ID}}')
+if [[ ${#prometheus_containers[@]} -ne 1 ]]; then
+    echo "Expected one running Prometheus container for Compose project $compose_project" >&2
     exit 1
 fi
 
-echo "Centralized logging smoke checks passed!"
+# Produce a fresh Docker log so this check does not depend on retained Loki data
+# or on whether `docker compose up` had to start an existing container.
+docker restart "${prometheus_containers[0]}" >/dev/null
+wait_for_endpoint "Prometheus" "$prometheus_url/-/ready"
+
+for _ in $(seq 1 30); do
+    query_response="$(curl --fail --silent --show-error --get \
+        "$loki_url/loki/api/v1/query_range" \
+        --data-urlencode "query={compose_project=\"$compose_project\", service=\"prometheus\"}" \
+        --data-urlencode "limit=1")"
+    if grep --quiet '"result"[[:space:]]*:[[:space:]]*\[{' <<<"$query_response"; then
+        echo "Centralized logging smoke checks passed!"
+        exit 0
+    fi
+    sleep 1
+done
+
+echo "Prometheus Docker logs did not reach Loki through Alloy" >&2
+exit 1

@@ -17,7 +17,11 @@ type accountResponse struct {
 	VerificationStatus creator.VerificationStatus `json:"verification_status"`
 	CreatedAt          time.Time                  `json:"created_at"`
 	UpdatedAt          time.Time                  `json:"updated_at"`
+	ImageURL           string                     `json:"image_url"`
 }
+
+var catalogArtistNamespace = uuid.MustParse("bb6b7b23-c244-49ad-8747-09c37f47bdec")
+
 type memberResponse struct {
 	UserID    string             `json:"user_id"`
 	Role      creator.MemberRole `json:"role"`
@@ -229,7 +233,12 @@ func pathID(c *gin.Context, name string) (uuid.UUID, bool) {
 	return id, true
 }
 func presentAccount(value creator.Account) accountResponse {
-	return accountResponse{ID: value.ID.String(), Type: value.Type, DisplayName: value.DisplayName, VerificationStatus: value.VerificationStatus, CreatedAt: value.CreatedAt, UpdatedAt: value.UpdatedAt}
+	response := accountResponse{ID: value.ID.String(), Type: value.Type, DisplayName: value.DisplayName, VerificationStatus: value.VerificationStatus, CreatedAt: value.CreatedAt, UpdatedAt: value.UpdatedAt}
+	if value.Type == creator.TypeArtist {
+		artistID := uuid.NewSHA1(catalogArtistNamespace, value.ID[:])
+		response.ImageURL = "/v1/media/artists/" + artistID.String() + "/image"
+	}
+	return response
 }
 func presentMember(value creator.Member) memberResponse {
 	return memberResponse{UserID: value.UserID.String(), Role: value.Role, CreatedAt: value.CreatedAt}

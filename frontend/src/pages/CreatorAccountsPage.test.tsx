@@ -8,6 +8,7 @@ const creatorApi = vi.hoisted(() => ({
   listCreatorAccounts: vi.fn(),
   createCreatorAccount: vi.fn(),
   submitCreatorVerification: vi.fn(),
+  uploadArtistImage: vi.fn(),
 }));
 
 vi.mock("../features/creator/creatorReleaseApi", () => creatorApi);
@@ -30,6 +31,7 @@ const account = {
   type: "label",
   display_name: "Northern Lights",
   verification_status: "unverified",
+  image_url: "",
 };
 
 describe("CreatorAccountsPage", () => {
@@ -46,6 +48,10 @@ describe("CreatorAccountsPage", () => {
     creatorApi.submitCreatorVerification.mockResolvedValue({
       ...account,
       verification_status: "pending",
+    });
+    creatorApi.uploadArtistImage.mockResolvedValue({
+      artist_id: "artist-1",
+      image_url: "/v1/media/artists/artist-1/image",
     });
   });
 
@@ -101,5 +107,26 @@ describe("CreatorAccountsPage", () => {
     expect(
       screen.queryByRole("heading", { name: "Team members" }),
     ).not.toBeInTheDocument();
+  });
+
+  it("uploads an image for an artist account", async () => {
+    const user = userEvent.setup();
+    creatorApi.listCreatorAccounts.mockResolvedValue([
+      { ...account, type: "artist", display_name: "Luna Veil" },
+    ]);
+    render(<CreatorAccountsPage />);
+    const input = await screen.findByLabelText("Upload artist image");
+    const file = new File([new Uint8Array([1, 2, 3])], "artist.png", {
+      type: "image/png",
+    });
+
+    await user.upload(input, file);
+
+    expect(creatorApi.uploadArtistImage).toHaveBeenCalledWith(
+      "access-token",
+      "creator-1",
+      file,
+    );
+    expect(await screen.findByText(/Image for/)).toBeInTheDocument();
   });
 });

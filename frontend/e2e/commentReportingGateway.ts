@@ -1,6 +1,7 @@
 import type { Page, Request, Route } from "@playwright/test";
 
 import { mockGateway } from "./gatewayMock";
+import { appURL } from "./testConfig";
 
 type Actor = "author" | "reporter" | "moderator";
 type CommentStatus = "published" | "hidden" | "deleted";
@@ -17,7 +18,7 @@ export const communityIds = {
 
 const now = "2026-11-14T01:00:00Z";
 const corsHeaders = {
-  "access-control-allow-origin": "http://127.0.0.1:5173",
+  "access-control-allow-origin": appURL,
   "access-control-allow-credentials": "true",
   "access-control-allow-methods": "GET, POST, PATCH, PUT, DELETE, OPTIONS",
   "access-control-allow-headers":

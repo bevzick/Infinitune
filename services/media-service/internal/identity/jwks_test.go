@@ -46,7 +46,7 @@ func TestVerifierValidatesAndCachesAuthJWKS(t *testing.T) {
 	token := signToken(t, privateKey, userID, now, now.Add(15*time.Minute))
 	for range 2 {
 		verified, verifyErr := verifier.Verify(context.Background(), token, now.Add(time.Minute))
-		if verifyErr != nil || verified.UserID != userID {
+		if verifyErr != nil || verified.UserID != userID || len(verified.Roles) != 1 || verified.Roles[0] != "admin" {
 			t.Fatalf("Verify() = %+v, %v", verified, verifyErr)
 		}
 	}
@@ -110,7 +110,7 @@ func signToken(
 	}
 	claimsJSON, err := json.Marshal(tokenClaims{
 		Subject: userID.String(), Issuer: "infinitune-auth", Audience: "infinitune-api",
-		IssuedAt: issuedAt.Unix(), ExpiresAt: expiresAt.Unix(),
+		IssuedAt: issuedAt.Unix(), ExpiresAt: expiresAt.Unix(), Roles: []string{"admin", "admin"},
 	})
 	if err != nil {
 		t.Fatalf("marshal claims: %v", err)

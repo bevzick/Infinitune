@@ -10,10 +10,65 @@ import (
 	"testing"
 	"time"
 
+	"github.com/bevzick/Infinitune/services/media-service/internal/artistimage"
 	"github.com/bevzick/Infinitune/services/media-service/internal/media"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
+
+func TestArtistImagesSupportImportedAndCreatorManagedArtists(t *testing.T) {
+	pool := openIntegrationDatabase(t)
+	ctx := context.Background()
+	artistID, actorID, creatorID := uuid.New(), uuid.New(), uuid.New()
+	t.Cleanup(func() {
+		_, _ = pool.Exec(ctx, `DELETE FROM media.artist_images WHERE catalog_artist_id = $1`, artistID)
+	})
+	repository := NewMediaRepository(pool)
+
+	created, err := repository.Create(ctx, artistimage.Image{
+		CatalogArtistID: artistID, UpdatedByUserID: actorID,
+		ObjectKey: "catalog-content/artists/first.png", MIMEType: "image/png", SizeBytes: 10,
+	})
+	if err != nil || !created {
+		t.Fatalf("Create(imported) = %v, %v", created, err)
+	}
+	created, err = repository.Create(ctx, artistimage.Image{
+		CatalogArtistID: artistID, UpdatedByUserID: actorID,
+		ObjectKey: "catalog-content/artists/ignored.png", MIMEType: "image/png", SizeBytes: 11,
+	})
+	if err != nil || created {
+		t.Fatalf("Create(existing) = %v, %v", created, err)
+	}
+	loaded, err := repository.ByCatalogArtistID(ctx, artistID)
+	if err != nil || loaded.CreatorID != nil || loaded.ObjectKey != "catalog-content/artists/first.png" {
+		t.Fatalf("ByCatalogArtistID(imported) = %+v, %v", loaded, err)
+	}
+
+	previous, err := repository.Replace(ctx, artistimage.Image{
+		CreatorID: &creatorID, CatalogArtistID: artistID, UpdatedByUserID: actorID,
+		ObjectKey: "creator-content/artists/second.png", MIMEType: "image/png", SizeBytes: 20,
+	})
+	if err != nil || previous == nil || previous.ObjectKey != "catalog-content/artists/first.png" {
+		t.Fatalf("Replace(creator) = %+v, %v", previous, err)
+	}
+	loaded, err = repository.ByCatalogArtistID(ctx, artistID)
+	if err != nil || loaded.CreatorID == nil || *loaded.CreatorID != creatorID {
+		t.Fatalf("ByCatalogArtistID(creator) = %+v, %v", loaded, err)
+	}
+
+	previous, err = repository.Replace(ctx, artistimage.Image{
+		CatalogArtistID: artistID, UpdatedByUserID: actorID,
+		ObjectKey: "catalog-content/artists/third.png", MIMEType: "image/png", SizeBytes: 30,
+	})
+	if err != nil || previous == nil || previous.ObjectKey != "creator-content/artists/second.png" {
+		t.Fatalf("Replace(admin override) = %+v, %v", previous, err)
+	}
+	loaded, err = repository.ByCatalogArtistID(ctx, artistID)
+	if err != nil || loaded.CreatorID == nil || *loaded.CreatorID != creatorID ||
+		loaded.ObjectKey != "catalog-content/artists/third.png" {
+		t.Fatalf("ByCatalogArtistID(admin override) = %+v, %v", loaded, err)
+	}
+}
 
 func TestMediaRepositoryReturnsAssetWithOrderedVariants(t *testing.T) {
 	pool := openIntegrationDatabase(t)

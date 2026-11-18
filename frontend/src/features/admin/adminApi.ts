@@ -89,6 +89,18 @@ export type CommentAuditEvent = {
 
 export type Page<T> = { items: T[]; page: PageMetadata };
 
+export type AdminCatalogArtist = {
+  id: string;
+  name: string;
+  description: string;
+  image_url: string;
+};
+
+export type CatalogArtistPage = {
+  items: AdminCatalogArtist[];
+  pagination: PageMetadata;
+};
+
 export type PageRequest = {
   limit: number;
   offset: number;
@@ -113,6 +125,24 @@ export function listUsers(
     accessToken,
     signal,
   });
+}
+
+export function listCatalogArtists(request: PageRequest, signal?: AbortSignal) {
+  return apiRequest<CatalogArtistPage>(
+    `/v1/catalog/artists?${pageQuery(request)}`,
+    { signal },
+  );
+}
+
+export function uploadCatalogArtistImage(
+  accessToken: string,
+  artistId: string,
+  file: File,
+) {
+  return apiRequest<{ artist_id: string; image_url: string }>(
+    `/v1/media/admin/artists/${encodeURIComponent(artistId)}/image`,
+    { method: "PUT", accessToken, body: file },
+  );
 }
 
 export function updateUserStatus(

@@ -12,9 +12,11 @@ import (
 	"testing"
 	"time"
 
+	contentclient "github.com/bevzick/Infinitune/services/media-service/internal/content"
 	"github.com/bevzick/Infinitune/services/media-service/internal/identity"
 	"github.com/bevzick/Infinitune/services/media-service/internal/media"
 	"github.com/bevzick/Infinitune/services/media-service/internal/source"
+	"github.com/bevzick/Infinitune/services/media-service/internal/sourceimport"
 	"github.com/bevzick/Infinitune/services/media-service/internal/storage"
 	"github.com/google/uuid"
 )
@@ -89,6 +91,19 @@ type externalImportStub struct {
 	contentTrackID uuid.UUID
 	provider       source.ProviderName
 	externalID     string
+	backfill       sourceimport.BackfillReport
+	limit          int
+	offset         int
+}
+
+func (stub *externalImportStub) BackfillArtwork(
+	_ context.Context,
+	actorID uuid.UUID,
+	limit int,
+	offset int,
+) (sourceimport.BackfillReport, error) {
+	stub.actorID, stub.limit, stub.offset = actorID, limit, offset
+	return stub.backfill, stub.err
 }
 
 type sourceDiscoveryStub struct {
@@ -167,6 +182,36 @@ type objectStorageStub struct {
 	object storage.Object
 	err    error
 	key    string
+}
+
+type publishedCoverStub struct {
+	session contentclient.CoverSession
+	err     error
+}
+
+func (stub publishedCoverStub) Published(context.Context, uuid.UUID) (contentclient.CoverSession, error) {
+	return stub.session, stub.err
+}
+
+func TestPublishedCoverIsPublicAndCacheable(t *testing.T) {
+	releaseID := uuid.New()
+	objects := &objectStorageStub{object: storage.Object{
+		Body: newReadSeekCloser("image"), Size: 5, ContentType: "image/webp",
+	}}
+	dependencies := Dependencies{
+		Database: databaseStub{}, Storage: storageStub{}, Objects: objects,
+		PublishedCovers: publishedCoverStub{session: contentclient.CoverSession{
+			ReleaseID: releaseID, ObjectKey: "creator-content/cover.webp", MIMEType: "image/webp",
+		}}, Logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
+	}
+	request := httptest.NewRequest(http.MethodGet, "/v1/media/covers/"+releaseID.String(), nil)
+	response := httptest.NewRecorder()
+	NewRouter(dependencies).ServeHTTP(response, request)
+	if response.Code != http.StatusOK || response.Body.String() != "image" ||
+		response.Header().Get("Content-Type") != "image/webp" ||
+		!strings.Contains(response.Header().Get("Cache-Control"), "public") {
+		t.Fatalf("cover response = %d %q %#v", response.Code, response.Body.String(), response.Header())
+	}
 }
 
 type readSeekCloser struct {
@@ -278,6 +323,28 @@ func TestExternalImportRejectsUnknownProvider(t *testing.T) {
 	}
 }
 
+func TestAuthenticatedUserBackfillsExternalArtwork(t *testing.T) {
+	actorID := uuid.New()
+	service := &externalImportStub{backfill: sourceimport.BackfillReport{
+		Scanned: 2, Repaired: 1, Unchanged: 1, NextOffset: 7, HasMore: true,
+	}}
+	dependencies := playbackDependencies()
+	dependencies.Tokens = identityVerifierStub{identity: identity.Identity{UserID: actorID}}
+	dependencies.Imports = service
+	request := httptest.NewRequest(http.MethodPost,
+		"/v1/media/imports/artwork/backfill?limit=2&offset=5", nil)
+	request.Header.Set("Authorization", "Bearer valid")
+	response := httptest.NewRecorder()
+	NewRouter(dependencies).ServeHTTP(response, request)
+	if response.Code != http.StatusOK || service.actorID != actorID ||
+		service.limit != 2 || service.offset != 5 ||
+		!strings.Contains(response.Body.String(), `"repaired":1`) ||
+		!strings.Contains(response.Body.String(), `"has_more":true`) {
+		t.Fatalf("status = %d, service = %+v, body = %s",
+			response.Code, service, response.Body.String())
+	}
+}
+
 func TestListsConfiguredSourceProviders(t *testing.T) {
 	dependencies := playbackDependencies()
 	dependencies.Sources = &sourceDiscoveryStub{providers: []source.ProviderName{
@@ -296,7 +363,8 @@ func TestDiscoversLicensedSourceTracks(t *testing.T) {
 	service := &sourceDiscoveryStub{page: source.DiscoveryPage{
 		Tracks: []source.Track{{
 			ExternalID: "42", Title: "Focus", Artist: "Artist",
-			PageURL: "https://example.com/tracks/42",
+			PageURL:    "https://example.com/tracks/42",
+			ArtworkURL: "https://example.com/artwork/42.jpg",
 			License: source.License{Name: "CC BY", URL: "https://example.com/license",
 				AllowsStreaming: true, AllowsRedistribution: true},
 		}}, Limit: 5, Offset: 10, Total: 12,
@@ -310,7 +378,8 @@ func TestDiscoversLicensedSourceTracks(t *testing.T) {
 	NewRouter(dependencies).ServeHTTP(response, request)
 	if response.Code != http.StatusOK || service.provider != source.ProviderJamendo ||
 		service.query.Query != "focus" || service.query.Limit != 5 || service.query.Offset != 10 ||
-		!strings.Contains(response.Body.String(), `"allows_redistribution":true`) {
+		!strings.Contains(response.Body.String(), `"allows_redistribution":true`) ||
+		!strings.Contains(response.Body.String(), `"artwork_url":"https://example.com/artwork/42.jpg"`) {
 		t.Fatalf("status = %d, query = %+v, body = %s", response.Code, service.query, response.Body.String())
 	}
 }

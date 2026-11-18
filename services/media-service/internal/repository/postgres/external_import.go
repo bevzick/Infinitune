@@ -10,9 +10,44 @@ import (
 	"github.com/bevzick/Infinitune/services/media-service/internal/media"
 	"github.com/bevzick/Infinitune/services/media-service/internal/processing"
 	"github.com/bevzick/Infinitune/services/media-service/internal/source"
+	"github.com/bevzick/Infinitune/services/media-service/internal/sourceimport"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 )
+
+func (repository *MediaRepository) ExternalImports(
+	ctx context.Context,
+	limit int,
+	offset int,
+) ([]sourceimport.BackfillCandidate, error) {
+	rows, err := repository.database.Query(ctx, `
+		SELECT asset.content_track_id, source.provider, source.external_id
+		FROM media.asset_sources AS source
+		JOIN media.media_assets AS asset ON asset.id = source.media_asset_id
+		WHERE source.source_kind = 'external_provider'
+		  AND asset.content_track_id IS NOT NULL
+		ORDER BY source.created_at, source.media_asset_id
+		LIMIT $1 OFFSET $2
+	`, limit, offset)
+	if err != nil {
+		return nil, fmt.Errorf("list external media imports: %w", err)
+	}
+	defer rows.Close()
+	candidates := make([]sourceimport.BackfillCandidate, 0, limit)
+	for rows.Next() {
+		var candidate sourceimport.BackfillCandidate
+		if err = rows.Scan(
+			&candidate.ContentTrackID, &candidate.Provider, &candidate.ExternalID,
+		); err != nil {
+			return nil, fmt.Errorf("scan external media import: %w", err)
+		}
+		candidates = append(candidates, candidate)
+	}
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate external media imports: %w", err)
+	}
+	return candidates, nil
+}
 
 func (repository *MediaRepository) ExternalByContentTrack(
 	ctx context.Context,

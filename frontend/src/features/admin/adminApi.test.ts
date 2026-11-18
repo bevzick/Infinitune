@@ -2,10 +2,12 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   assignUserRole,
+  listCatalogArtists,
   listCommentAudit,
   listReleaseAudit,
   listUsers,
   updateUserStatus,
+  uploadCatalogArtistImage,
 } from "./adminApi";
 
 afterEach(() => {
@@ -13,6 +15,32 @@ afterEach(() => {
 });
 
 describe("adminApi", () => {
+  it("lists catalog artists and uploads image bytes", async () => {
+    const fetchMock = vi.fn().mockImplementation(() =>
+      Promise.resolve(
+        jsonResponse({
+          items: [],
+          pagination: { limit: 10, offset: 0, total: 0 },
+        }),
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await listCatalogArtists({ limit: 10, offset: 20 });
+    const file = new File([new Uint8Array([1, 2, 3])], "artist.webp", {
+      type: "image/webp",
+    });
+    await uploadCatalogArtistImage("admin-token", "artist-id", file);
+
+    expect(fetchMock.mock.calls[0][0]).toContain(
+      "/v1/catalog/artists?limit=10&offset=20",
+    );
+    expect(fetchMock.mock.calls[1][0]).toBe(
+      "http://localhost:8000/v1/media/admin/artists/artist-id/image",
+    );
+    expect(fetchMock.mock.calls[1][1].body).toBe(file);
+  });
+
   it("loads a filtered user page with admin authentication", async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       jsonResponse({

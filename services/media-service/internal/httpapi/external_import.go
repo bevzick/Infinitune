@@ -30,6 +30,16 @@ type externalImportResponse struct {
 	Status         media.Status `json:"status"`
 }
 
+type artworkBackfillResponse struct {
+	Scanned    int  `json:"scanned"`
+	Repaired   int  `json:"repaired"`
+	Unchanged  int  `json:"unchanged"`
+	Skipped    int  `json:"skipped"`
+	Failed     int  `json:"failed"`
+	NextOffset int  `json:"next_offset"`
+	HasMore    bool `json:"has_more"`
+}
+
 func importExternal(service ExternalImport, logger *slog.Logger) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if service == nil {
@@ -76,6 +86,43 @@ func importExternal(service ExternalImport, logger *slog.Logger) gin.HandlerFunc
 	}
 }
 
+func backfillExternalArtwork(service ExternalImport, logger *slog.Logger) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if service == nil {
+			writeError(c, http.StatusServiceUnavailable, "import_unavailable", "External import is unavailable")
+			return
+		}
+		verified, ok := requestIdentity(c)
+		if !ok {
+			writeUnauthorized(c)
+			return
+		}
+		limit, err := optionalInteger(c.Query("limit"), sourceimport.DefaultBackfillLimit)
+		if err != nil {
+			writeError(c, http.StatusBadRequest, "invalid_pagination", "Pagination parameters must be integers")
+			return
+		}
+		offset, err := optionalInteger(c.Query("offset"), 0)
+		if err != nil {
+			writeError(c, http.StatusBadRequest, "invalid_pagination", "Pagination parameters must be integers")
+			return
+		}
+		report, err := service.BackfillArtwork(
+			c.Request.Context(), verified.UserID, limit, offset,
+		)
+		if err != nil {
+			writeExternalImportError(c, logger, err)
+			return
+		}
+		c.JSON(http.StatusOK, artworkBackfillResponse{
+			Scanned: report.Scanned, Repaired: report.Repaired,
+			Unchanged: report.Unchanged, Skipped: report.Skipped,
+			Failed: report.Failed, NextOffset: report.NextOffset,
+			HasMore: report.HasMore,
+		})
+	}
+}
+
 func writeExternalImportError(c *gin.Context, logger *slog.Logger, err error) {
 	switch {
 	case errors.Is(err, sourceimport.ErrInvalid), errors.Is(err, source.ErrInvalid),
@@ -91,6 +138,8 @@ func writeExternalImportError(c *gin.Context, logger *slog.Logger, err error) {
 	case errors.Is(err, content.ErrInvalidTransition), errors.Is(err, content.ErrConflict):
 		writeError(c, http.StatusConflict, "import_not_allowed", "Release track does not accept imports")
 	case errors.Is(err, source.ErrProviderUnavailable), errors.Is(err, sourceimport.ErrStorage),
+		errors.Is(err, sourceimport.ErrArtwork),
+		errors.Is(err, sourceimport.ErrArtistArtwork),
 		errors.Is(err, content.ErrUnavailable):
 		writeError(c, http.StatusServiceUnavailable, "import_unavailable", "External import is temporarily unavailable")
 	default:

@@ -34,12 +34,13 @@ func (repository *UploadRepository) TrackTarget(
 	var target upload.TrackTarget
 	var status string
 	err := repository.database.QueryRow(ctx, `
-		SELECT track.id, track.release_id, release.creator_id, release.status
+		SELECT track.id, track.release_id, release.creator_id, release.status,
+		       release.cover_object_key IS NOT NULL
 		FROM content.release_tracks AS track
 		JOIN content.releases AS release ON release.id = track.release_id
 		WHERE track.id = $1
 	`, trackID).Scan(
-		&target.TrackID, &target.ReleaseID, &target.CreatorID, &status,
+		&target.TrackID, &target.ReleaseID, &target.CreatorID, &status, &target.HasCover,
 	)
 	if err != nil {
 		return upload.TrackTarget{}, fmt.Errorf("find upload track target: %w", mapUploadError(err))

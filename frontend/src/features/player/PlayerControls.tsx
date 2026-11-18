@@ -1,5 +1,6 @@
 import { useState } from "react";
 
+import { publicAssetUrl } from "../../shared/api/client";
 import { Icon } from "../../shared/ui/Icon";
 import { InteractionButton } from "../interactions/InteractionButton";
 import { LyricsPanel } from "./LyricsPanel";
@@ -15,7 +16,13 @@ export function PlayerControls() {
     <>
       <section className="player-shell" aria-label="Audio player">
         <div className="player-art" aria-hidden="true">
-          {track ? track.title.slice(0, 1).toUpperCase() : "∞"}
+          {track?.cover_url ? (
+            <img src={publicAssetUrl(track.cover_url)} alt="" />
+          ) : track ? (
+            track.title.slice(0, 1).toUpperCase()
+          ) : (
+            "∞"
+          )}
         </div>
         <div className="player-copy">
           <strong>{track?.title ?? "Nothing playing yet"}</strong>

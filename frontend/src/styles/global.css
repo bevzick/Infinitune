@@ -1035,6 +1035,7 @@ a:focus-visible {
 }
 .track-play {
   border: 0;
+  padding: 0;
   cursor: pointer;
 }
 .track-play:hover,

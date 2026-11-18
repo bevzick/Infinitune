@@ -4,8 +4,9 @@ The smoke suite starts Vite automatically and intercepts gateway requests in
 the browser, so a running backend is not required.
 
 The suite covers anonymous catalog browsing, authentication with protected
-navigation, library loading, and the creator workflow for discovering licensed
-provider audio and starting an external import for a draft release track.
+navigation, registration and mandatory listener-profile onboarding, library
+loading, and the creator workflow for discovering licensed provider audio and
+starting an external import for a draft release track.
 
 Install the Playwright browser once and run the suite:
 
@@ -22,6 +23,10 @@ PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium npm run test:e2e
 
 Use `npm run test:e2e:ui` for interactive debugging. Failed tests retain a
 trace and screenshot in the ignored `test-results` directory.
+
+Browser tests use the dedicated loopback port `4173`, so they can run while the
+normal Vite development server is open on `5173`. Set `PLAYWRIGHT_PORT` to a
+different free port when needed.
 
 Pull requests that change the frontend run linting, type checking, unit tests,
 the production build, and this smoke suite through the `Frontend checks`

@@ -129,6 +129,53 @@ func TestPublicationRepositoryPublishesAtomicallyAndIdempotently(t *testing.T) {
 	}
 }
 
+func TestPublishedSingleExposesItsReleaseCoverOnTheTrack(t *testing.T) {
+	pool := openIntegrationDatabase(t)
+	ctx := context.Background()
+	sourceID, artistID, trackID, contentID := uuid.New(), uuid.New(), uuid.New(), uuid.New()
+	t.Cleanup(func() {
+		cleanupPublication(t, pool, sourceID, []uuid.UUID{trackID}, nil, artistID)
+	})
+	if err := NewContentApprovalRepository(pool).UpsertContentApproval(ctx, events.ContentReleaseApproval{
+		ReleaseID: sourceID, CreatorID: uuid.New(), ReviewerUserID: uuid.New(),
+		ReviewedSubmissionAt: time.Now().Add(-time.Minute), EventID: uuid.New(),
+		ApprovedAt: time.Now(),
+	}); err != nil {
+		t.Fatalf("project content approval: %v", err)
+	}
+	input := metadata.PublicationInput{
+		SourceReleaseID: sourceID,
+		Artist:          metadata.ArtistInput{ID: artistID, Name: "Single Artist"},
+		Tracks: []metadata.TrackInput{{
+			ID: trackID, Title: "Published Single", DurationMS: 180000,
+			TrackNumber: 1, DiscNumber: 1, ReleaseDate: time.Now(),
+			MediaAssetID: uuid.New(), ContentID: contentID,
+			Artists: []metadata.TrackArtistInput{{
+				ArtistID: artistID, Role: metadata.ArtistRolePrimary, Position: 1,
+			}},
+		}},
+	}
+	service := metadata.NewService(NewMetadataRepository(pool))
+	if _, err := service.PublishApprovedRelease(ctx, input); err != nil {
+		t.Fatalf("PublishApprovedRelease() error = %v", err)
+	}
+	track, err := service.Track(ctx, trackID)
+	wantCover := "/v1/media/covers/" + sourceID.String()
+	if err != nil || track.CoverURL != wantCover {
+		t.Fatalf("Track() cover URL = %q, %v; want %q", track.CoverURL, err, wantCover)
+	}
+	page, err := service.Tracks(ctx, metadata.TrackQuery{
+		Title: "Published Single", Page: metadata.PageRequest{Limit: 10},
+	})
+	if err != nil || len(page.Items) != 1 || page.Items[0].CoverURL != wantCover {
+		t.Fatalf("SearchTracks() = %+v, %v; want cover %q", page, err, wantCover)
+	}
+	batch, err := service.BatchTracks(ctx, []uuid.UUID{trackID})
+	if err != nil || len(batch) != 1 || batch[0].CoverURL != wantCover {
+		t.Fatalf("BatchTracks() = %+v, %v; want cover %q", batch, err, wantCover)
+	}
+}
+
 func publicationTrack(
 	id, contentID, albumID, artistID uuid.UUID,
 	releaseDate time.Time,

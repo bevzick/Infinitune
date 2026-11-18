@@ -4,6 +4,12 @@ export const gatewayUrl = (
   import.meta.env.VITE_GATEWAY_URL || defaultGatewayUrl
 ).replace(/\/$/, "");
 
+export function publicAssetUrl(value: string) {
+  const url = value.trim();
+  if (!url?.startsWith("/") || url.startsWith("//")) return url;
+  return `${gatewayUrl}${url}`;
+}
+
 type ApiErrorPayload = {
   error?: {
     code?: string;
@@ -61,6 +67,8 @@ async function sendRequest(path: string, options: ApiRequestOptions) {
   if (
     init.body &&
     !(init.body instanceof FormData) &&
+    !(init.body instanceof Blob) &&
+    !(init.body instanceof URLSearchParams) &&
     !headers.has("Content-Type")
   ) {
     headers.set("Content-Type", "application/json");

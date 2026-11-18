@@ -42,6 +42,8 @@ message PublishTrack {
   bool explicit = 7;
   Date release_date = 8;
   string media_asset_id = 9;
+  repeated string genre_slugs = 10;
+  repeated string mood_slugs = 11;
 }
 
 message PublishReleaseResponse {
