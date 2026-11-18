@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   createProfile,
   profileCreatedEvent,
+  profileUpdatedEvent,
   settingsUpdatedEvent,
   updateProfile,
   updateSettings,
@@ -32,8 +33,11 @@ describe("profile API", () => {
   });
 
   it("can explicitly clear the private birth date", async () => {
-    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({}));
+    const profile = { avatar_url: "/v1/media/avatars/user-id/image" };
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(profile));
     vi.stubGlobal("fetch", fetchMock);
+    const listener = vi.fn();
+    window.addEventListener(profileUpdatedEvent, listener);
 
     await updateProfile("access-token", {
       username: "night_listener",
@@ -49,6 +53,9 @@ describe("profile API", () => {
     expect(url).toBe("http://localhost:8000/v1/users/me/profile");
     expect(options.method).toBe("PATCH");
     expect(JSON.parse(options.body).birth_date).toBeNull();
+    expect(listener).toHaveBeenCalledOnce();
+    expect((listener.mock.calls[0][0] as CustomEvent).detail).toEqual(profile);
+    window.removeEventListener(profileUpdatedEvent, listener);
   });
 
   it("preserves explicit false setting values", async () => {

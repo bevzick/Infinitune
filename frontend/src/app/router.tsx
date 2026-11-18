@@ -4,6 +4,7 @@ import { createBrowserRouter } from "react-router-dom";
 import {
   AdminRoute,
   GuestRoute,
+  ModeratorRoute,
   ProfileOnboardingRoute,
   ProtectedRoute,
 } from "../features/session/routeGuards";
@@ -60,6 +61,9 @@ const CreatorAccountsPage = lazy(async () => ({
 }));
 const AdminPage = lazy(async () => ({
   default: (await import("../pages/AdminPage")).AdminPage,
+}));
+const ModerationPage = lazy(async () => ({
+  default: (await import("../pages/AdminPage")).ModerationPage,
 }));
 const NotFoundPage = lazy(async () => ({
   default: (await import("../pages/NotFoundPage")).NotFoundPage,
@@ -128,6 +132,15 @@ export const router = createBrowserRouter([
             element: <AdminRoute />,
             children: [
               { path: "admin", element: deferred(AdminPage, "admin") },
+            ],
+          },
+          {
+            element: <ModeratorRoute />,
+            children: [
+              {
+                path: "moderation",
+                element: deferred(ModerationPage, "moderation"),
+              },
             ],
           },
           { path: "*", element: deferred(NotFoundPage, "page") },
