@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/url"
 	"path"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -114,6 +115,7 @@ func (client *Client) Discover(
 ) (source.DiscoveryPage, error) {
 	parameters := url.Values{
 		"namesearch": []string{query.Query},
+		"fullcount":  []string{"true"},
 		"limit":      []string{strconv.Itoa(query.Limit)},
 		"offset":     []string{strconv.Itoa(query.Offset)},
 	}
@@ -128,10 +130,37 @@ func (client *Client) Discover(
 			tracks = append(tracks, track)
 		}
 	}
+	// Preserve Jamendo's relevance order among equally matching titles.
+	// Exact titles come before prefixes and other fuzzy matches on this page.
+	sort.SliceStable(tracks, func(left, right int) bool {
+		return titleMatchRank(tracks[left].Title, query.Query) < titleMatchRank(tracks[right].Title, query.Query)
+	})
+	// results_count is only the number of rows in the response; pagination
+	// requires results_fullcount (requested explicitly above).
+	total := document.Headers.ResultsFullCount
+	if minimum := query.Offset + len(document.Results); total < minimum {
+		total = minimum
+	}
 	return source.DiscoveryPage{
-		Tracks: tracks, Limit: query.Limit, Offset: query.Offset,
-		Total: document.Headers.ResultsCount,
+		Tracks: tracks, Limit: query.Limit, Offset: query.Offset, Total: total,
 	}, nil
+}
+
+func titleMatchRank(title, query string) int {
+	normalize := func(value string) string {
+		return strings.ToLower(strings.Join(strings.Fields(value), " "))
+	}
+	title, query = normalize(title), normalize(query)
+	switch {
+	case title == query:
+		return 0
+	case strings.HasPrefix(title, query):
+		return 1
+	case strings.Contains(title, query):
+		return 2
+	default:
+		return 3
+	}
 }
 
 func (client *Client) normalizedTrack(result trackResult) (source.Track, error) {
@@ -328,6 +357,9 @@ func (client *Client) tracks(ctx context.Context, parameters url.Values) (tracks
 			query.Add(key, value)
 		}
 	}
+	// Include singles both during discovery and when resolving a track by ID.
+	// Otherwise discovered singles cannot be imported.
+	query.Set("type", "single albumtrack")
 	query.Set("client_id", client.clientID)
 	query.Set("format", "json")
 	query.Set("include", "licenses+musicinfo")
@@ -514,10 +546,11 @@ type artistResult struct {
 }
 
 type responseHeaders struct {
-	Status       string `json:"status"`
-	Code         int    `json:"code"`
-	ErrorMessage string `json:"error_message"`
-	ResultsCount int    `json:"results_count"`
+	Status           string `json:"status"`
+	Code             int    `json:"code"`
+	ErrorMessage     string `json:"error_message"`
+	ResultsCount     int    `json:"results_count"`
+	ResultsFullCount int    `json:"results_fullcount"`
 }
 
 type trackResult struct {

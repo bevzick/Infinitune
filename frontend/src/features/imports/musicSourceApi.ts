@@ -79,9 +79,14 @@ export async function discoverSourceTracks(
   accessToken: string,
   provider: MusicSourceProvider,
   query: string,
+  offset = 0,
   signal?: AbortSignal,
 ) {
-  const parameters = new URLSearchParams({ query, limit: "20", offset: "0" });
+  const parameters = new URLSearchParams({
+    query,
+    limit: "20",
+    offset: String(offset),
+  });
   return apiRequest<SourceTrackPage>(
     `/v1/media/sources/${provider}/tracks?${parameters}`,
     { accessToken, signal },

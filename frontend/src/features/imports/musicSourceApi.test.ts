@@ -30,6 +30,19 @@ describe("music source API", () => {
     );
   });
 
+  it("passes the selected provider offset to the discovery endpoint", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        jsonResponse({ items: [], limit: 20, offset: 40, total: 70 }),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+    await discoverSourceTracks("token", "jamendo", "After Us", 40);
+    expect(fetchMock.mock.calls[0][0]).toBe(
+      "http://localhost:8000/v1/media/sources/jamendo/tracks?query=After+Us&limit=20&offset=40",
+    );
+  });
+
   it("collects tracks from the user's draft releases", async () => {
     const fetchMock = vi
       .fn()

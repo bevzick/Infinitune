@@ -3,6 +3,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 
@@ -16,6 +17,7 @@ import {
   type MusicSourceProvider,
   type ReleaseTrackOption,
   type SourceTrack,
+  type SourceTrackPage,
 } from "../features/imports/musicSourceApi";
 import { useSession } from "../features/session/SessionContext";
 import { ApiError } from "../shared/api/client";
@@ -33,7 +35,8 @@ export function MusicImportPage() {
   const [provider, setProvider] = useState<MusicSourceProvider | "">("");
   const [contentTrackId, setContentTrackId] = useState("");
   const [query, setQuery] = useState("");
-  const [results, setResults] = useState<SourceTrack[]>([]);
+  const [searchPage, setSearchPage] = useState<SourceTrackPage | null>(null);
+  const searchController = useRef<AbortController | null>(null);
   const [status, setStatus] = useState<
     "loading" | "ready" | "searching" | "error"
   >("loading");
@@ -74,32 +77,53 @@ export function MusicImportPage() {
     return () => controller.abort();
   }, [load]);
 
+  useEffect(() => () => searchController.current?.abort(), []);
+
   const selectedReleaseTrack = useMemo(
     () => releaseTracks.find(({ id }) => id === contentTrackId),
     [contentTrackId, releaseTracks],
   );
 
-  async function search(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  function resetSearch() {
+    searchController.current?.abort();
+    setSearchPage(null);
+    setHasSearched(false);
+    setStatus("ready");
+    setError("");
+  }
+
+  async function searchTracks(offset: number) {
     if (!accessToken || !provider || !query.trim()) return;
+    searchController.current?.abort();
+    const controller = new AbortController();
+    searchController.current = controller;
     setStatus("searching");
     setError("");
     setImported(null);
+    setSearchPage(null);
     setHasSearched(true);
     try {
       const page = await discoverSourceTracks(
         accessToken,
         provider,
         query.trim(),
+        offset,
+        controller.signal,
       );
-      setResults(page.items);
+      if (controller.signal.aborted) return;
+      setSearchPage(page);
       setStatus("ready");
     } catch (reason) {
-      setResults([]);
+      if (controller.signal.aborted) return;
       setHasSearched(false);
       setError(errorMessage(reason, "Could not search this music source"));
       setStatus("ready");
     }
+  }
+
+  function search(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    void searchTracks(0);
   }
 
   async function startImport(track: SourceTrack) {
@@ -270,9 +294,8 @@ export function MusicImportPage() {
                     checked={provider === item}
                     onChange={() => {
                       setProvider(item);
-                      setResults([]);
+                      resetSearch();
                       setImported(null);
-                      setHasSearched(false);
                     }}
                   />
                   <span>{providerLabels[item]}</span>
@@ -294,7 +317,10 @@ export function MusicImportPage() {
                       ? "e.g. live-concert-2026"
                       : "Search Jamendo tracks…"
                   }
-                  onChange={(event) => setQuery(event.currentTarget.value)}
+                  onChange={(event) => {
+                    setQuery(event.currentTarget.value);
+                    resetSearch();
+                  }}
                   required
                 />
                 <button type="submit" disabled={status === "searching"}>
@@ -318,11 +344,13 @@ export function MusicImportPage() {
           ) : null}
 
           <SourceResults
-            tracks={results}
+            page={searchPage}
             searched={hasSearched && status !== "searching"}
+            searching={status === "searching"}
             importing={importing}
             disabled={!contentTrackId}
             onImport={startImport}
+            onPageChange={(offset) => void searchTracks(offset)}
           />
         </>
       ) : null}
@@ -331,19 +359,27 @@ export function MusicImportPage() {
 }
 
 function SourceResults({
-  tracks,
+  page,
   searched,
+  searching,
   importing,
   disabled,
   onImport,
+  onPageChange,
 }: {
-  tracks: SourceTrack[];
+  page: SourceTrackPage | null;
   searched: boolean;
+  searching: boolean;
   importing: string;
   disabled: boolean;
   onImport(track: SourceTrack): void;
+  onPageChange(offset: number): void;
 }) {
-  if (!tracks.length) {
+  if (!page) return null;
+  const { items: tracks, limit, offset, total } = page;
+  const hasPrevious = offset > 0;
+  const hasNext = offset + limit < total;
+  if (!tracks.length && !hasPrevious && !hasNext) {
     return searched ? (
       <ImportNotice title="No importable tracks found">
         Try another query or verify the Internet Archive item identifier.
@@ -360,8 +396,14 @@ function SourceResults({
           <span className="eyebrow">Licensed audio</span>
           <h2 id="source-results-title">Search results</h2>
         </div>
-        <span>{tracks.length} available</span>
+        <span>{tracks.length} importable on this page</span>
       </div>
+      {!tracks.length ? (
+        <p className="music-source-empty-page">
+          No importable tracks on this page. Some provider results may be
+          unavailable for download or have unsupported licenses.
+        </p>
+      ) : null}
       <div className="music-source-list">
         {tracks.map((track) => (
           <article
@@ -396,6 +438,30 @@ function SourceResults({
           </article>
         ))}
       </div>
+      {hasPrevious || hasNext ? (
+        <nav
+          className="music-source-pagination"
+          aria-label="Search result pages"
+        >
+          <button
+            type="button"
+            disabled={!hasPrevious || searching}
+            onClick={() => onPageChange(Math.max(0, offset - limit))}
+          >
+            Previous page
+          </button>
+          <span>
+            Page {Math.floor(offset / limit) + 1} of {Math.ceil(total / limit)}
+          </span>
+          <button
+            type="button"
+            disabled={!hasNext || searching}
+            onClick={() => onPageChange(offset + limit)}
+          >
+            Next page
+          </button>
+        </nav>
+      ) : null}
     </section>
   );
 }

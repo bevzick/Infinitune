@@ -56,14 +56,15 @@ func TestResolveMapsJamendoTrack(t *testing.T) {
 func TestDiscoverSearchesLicensedDownloadableTracks(t *testing.T) {
 	server := httptest.NewTLSServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
 		query := request.URL.Query()
-		if query.Get("namesearch") != "night" || query.Get("limit") != "5" || query.Get("offset") != "10" {
+		if query.Get("namesearch") != "night" || query.Get("limit") != "5" || query.Get("offset") != "10" ||
+			query.Get("type") != "single albumtrack" || query.Get("fullcount") != "true" {
 			t.Errorf("query = %v", query)
 		}
 		licensed := validTrack("42", "https://storage.jamendo.com/42.mp3")
 		forbidden := validTrack("43", "")
 		forbidden.DownloadAllowed = false
 		_ = json.NewEncoder(response).Encode(tracksResponse{
-			Headers: responseHeaders{Status: "success", ResultsCount: 12},
+			Headers: responseHeaders{Status: "success", ResultsCount: 2, ResultsFullCount: 12},
 			Results: []trackResult{licensed, forbidden},
 		})
 	}))
@@ -76,6 +77,40 @@ func TestDiscoverSearchesLicensedDownloadableTracks(t *testing.T) {
 		t.Fatalf("Discover() error = %v", err)
 	}
 	if page.Total != 12 || len(page.Tracks) != 1 || page.Tracks[0].ExternalID != "42" {
+		t.Fatalf("Discover() = %+v", page)
+	}
+}
+
+func TestDiscoverPrioritizesExactTitleAndKeepsProviderPagination(t *testing.T) {
+	server := httptest.NewTLSServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+		if request.URL.Query().Get("namesearch") != "After Us" {
+			t.Errorf("namesearch = %q", request.URL.Query().Get("namesearch"))
+		}
+		partial := validTrack("1", "https://storage.jamendo.com/1.mp3")
+		partial.Name = "After Us Again"
+		exact := validTrack("2", "https://storage.jamendo.com/2.mp3")
+		exact.Name = "  AFTER   US "
+		other := validTrack("3", "https://storage.jamendo.com/3.mp3")
+		other.Name = "The Day After Us"
+		forbidden := validTrack("4", "")
+		forbidden.Name = "After Us"
+		forbidden.DownloadAllowed = false
+		_ = json.NewEncoder(response).Encode(tracksResponse{
+			Headers: responseHeaders{Status: "success", ResultsCount: 4, ResultsFullCount: 37},
+			Results: []trackResult{partial, other, forbidden, exact},
+		})
+	}))
+	defer server.Close()
+	client := newTestClient(t, server)
+	page, err := client.Discover(context.Background(), source.DiscoveryQuery{
+		Query: "After Us", Limit: 4, Offset: 0,
+	})
+	if err != nil {
+		t.Fatalf("Discover() error = %v", err)
+	}
+	if page.Total != 37 || len(page.Tracks) != 3 ||
+		page.Tracks[0].ExternalID != "2" || page.Tracks[1].ExternalID != "1" ||
+		page.Tracks[2].ExternalID != "3" {
 		t.Fatalf("Discover() = %+v", page)
 	}
 }
@@ -304,6 +339,7 @@ func assertTrackRequest(t *testing.T, request *http.Request, trackID string) {
 	want := map[string]string{
 		"client_id": "client-id", "format": "json", "limit": "1", "id": trackID,
 		"include": "licenses+musicinfo", "audioformat": "mp32", "audiodlformat": "mp32",
+		"type": "single albumtrack",
 	}
 	for key, expected := range want {
 		if actual := query.Get(key); actual != expected {
