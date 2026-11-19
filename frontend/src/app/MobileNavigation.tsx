@@ -15,9 +15,11 @@ const quickLinks: MobileItem[] = [
 export function MobileNavigation({
   authenticated,
   isAdmin,
+  isModerator,
 }: {
   authenticated: boolean;
   isAdmin: boolean;
+  isModerator: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const location = useLocation();
@@ -29,6 +31,11 @@ export function MobileNavigation({
         { to: "/creator/accounts", label: "Creator accounts", icon: "artist" },
         { to: "/creator/releases", label: "Creator releases", icon: "album" },
         { to: "/creator/import", label: "Import music", icon: "album" },
+        ...(isModerator
+          ? ([
+              { to: "/moderation", label: "Moderation", icon: "admin" },
+            ] satisfies MobileItem[])
+          : []),
         ...(isAdmin
           ? ([
               { to: "/admin", label: "Administration", icon: "admin" },

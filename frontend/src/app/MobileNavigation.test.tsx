@@ -7,10 +7,18 @@ import { MobileNavigation } from "./MobileNavigation";
 
 afterEach(cleanup);
 
-function renderMobileNavigation(authenticated = false, isAdmin = false) {
+function renderMobileNavigation(
+  authenticated = false,
+  isAdmin = false,
+  isModerator = false,
+) {
   return render(
     <MemoryRouter initialEntries={["/search"]}>
-      <MobileNavigation authenticated={authenticated} isAdmin={isAdmin} />
+      <MobileNavigation
+        authenticated={authenticated}
+        isAdmin={isAdmin}
+        isModerator={isModerator}
+      />
     </MemoryRouter>,
   );
 }
@@ -56,7 +64,7 @@ describe("MobileNavigation", () => {
 
   it("opens creator and admin destinations only for eligible sessions and closes on navigation", async () => {
     const user = userEvent.setup();
-    renderMobileNavigation(true, true);
+    renderMobileNavigation(true, true, true);
     const toggle = screen.getByRole("button", { name: "More navigation" });
     await user.click(toggle);
     const group = document.getElementById("mobile-more-panel") as HTMLElement;
@@ -67,6 +75,21 @@ describe("MobileNavigation", () => {
       within(group).getByRole("link", { name: "Creator releases" }),
     );
     expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(
+      screen.queryByRole("link", { name: "Administration" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("opens the limited moderation workspace for a moderator", async () => {
+    const user = userEvent.setup();
+    renderMobileNavigation(true, false, true);
+
+    await user.click(screen.getByRole("button", { name: "More navigation" }));
+
+    expect(screen.getByRole("link", { name: "Moderation" })).toHaveAttribute(
+      "href",
+      "/moderation",
+    );
     expect(
       screen.queryByRole("link", { name: "Administration" }),
     ).not.toBeInTheDocument();

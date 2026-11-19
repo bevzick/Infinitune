@@ -49,6 +49,7 @@ export type SettingsUpdateInput = Omit<
 
 export const settingsUpdatedEvent = "infinitune:settings-updated";
 export const profileCreatedEvent = "infinitune:profile-created";
+export const profileUpdatedEvent = "infinitune:profile-updated";
 
 export function getOwnProfile(accessToken: string, signal?: AbortSignal) {
   return apiRequest<UserProfile>("/v1/users/me/profile", {
@@ -72,12 +73,19 @@ export async function createProfile(
   return profile;
 }
 
-export function updateProfile(accessToken: string, input: ProfileUpdateInput) {
-  return apiRequest<UserProfile>("/v1/users/me/profile", {
+export async function updateProfile(
+  accessToken: string,
+  input: ProfileUpdateInput,
+) {
+  const profile = await apiRequest<UserProfile>("/v1/users/me/profile", {
     method: "PATCH",
     accessToken,
     body: JSON.stringify(input),
   });
+  window.dispatchEvent(
+    new CustomEvent<UserProfile>(profileUpdatedEvent, { detail: profile }),
+  );
+  return profile;
 }
 
 export function getSettings(accessToken: string, signal?: AbortSignal) {
