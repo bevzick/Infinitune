@@ -278,6 +278,35 @@
   gap: 0.65rem;
 }
 
+.music-source-empty-page {
+  color: var(--app-muted);
+}
+
+.music-source-pagination {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  margin-top: 1.25rem;
+  color: var(--app-muted);
+  font-size: 0.85rem;
+
+  button {
+    border: 1px solid var(--app-line);
+    border-radius: 0.6rem;
+    padding: 0.5rem 0.9rem;
+    color: var(--app-text);
+    background: var(--app-bg-elevated);
+    cursor: pointer;
+
+    &:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+  }
+}
+
 .music-source-card {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;

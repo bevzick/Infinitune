@@ -100,6 +100,8 @@ describe("MusicImportPage", () => {
       "access-token",
       "jamendo",
       "night city",
+      0,
+      expect.any(AbortSignal),
     );
 
     await user.click(screen.getByRole("button", { name: "Import track" }));
@@ -111,6 +113,65 @@ describe("MusicImportPage", () => {
       "release-track-1",
       expect.objectContaining({ external_id: "42" }),
     );
+  });
+
+  it("navigates search pages without including unsupported tracks", async () => {
+    const user = userEvent.setup();
+    musicSourceApi.discoverSourceTracks
+      .mockResolvedValueOnce({
+        items: [],
+        limit: 20,
+        offset: 0,
+        total: 42,
+      })
+      .mockResolvedValueOnce({
+        items: [
+          {
+            provider: "jamendo",
+            external_id: "99",
+            title: "After Us",
+            artist: "Example Artist",
+            page_url: "https://example.com/99",
+            artwork_url: "",
+            license: {
+              name: "CC BY",
+              url: "https://creativecommons.org/licenses/by/4.0/",
+              attribution: "Example Artist",
+              allows_streaming: true,
+              allows_redistribution: true,
+            },
+            metadata: {},
+          },
+        ],
+        limit: 20,
+        offset: 20,
+        total: 42,
+      });
+    render(<MusicImportPage />);
+    await screen.findByRole("heading", {
+      name: "Import music from a licensed source.",
+    });
+    await user.type(screen.getByLabelText("Track name"), "After Us");
+    await user.click(screen.getByRole("button", { name: "Search source" }));
+    expect(
+      await screen.findByText(/No importable tracks on this page/),
+    ).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Next page" }));
+    expect(await screen.findByText("Example Artist")).toBeInTheDocument();
+    expect(screen.getByText("Page 2 of 3")).toBeInTheDocument();
+    expect(musicSourceApi.discoverSourceTracks).toHaveBeenLastCalledWith(
+      "access-token",
+      "jamendo",
+      "After Us",
+      20,
+      expect.any(AbortSignal),
+    );
+
+    await user.clear(screen.getByLabelText("Track name"));
+    expect(screen.queryByText("Example Artist")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Next page" }),
+    ).not.toBeInTheDocument();
   });
 
   it("explains when no draft tracks are available", async () => {
