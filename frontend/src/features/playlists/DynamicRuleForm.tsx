@@ -28,10 +28,10 @@ type RuleDraft = {
 
 const fields: Array<{ value: RuleField; label: string }> = [
   { value: "title", label: "Track title" },
-  { value: "artist_id", label: "Artist ID" },
-  { value: "album_id", label: "Album ID" },
-  { value: "genre_id", label: "Genre ID" },
-  { value: "mood_id", label: "Mood ID" },
+  { value: "artist", label: "Artist name" },
+  { value: "album", label: "Album title" },
+  { value: "genre", label: "Genre name" },
+  { value: "mood", label: "Mood name" },
   { value: "release_year", label: "Release year" },
   { value: "duration_ms", label: "Duration (milliseconds)" },
   { value: "explicit", label: "Explicit content" },
@@ -236,6 +236,11 @@ function RuleFields({
                     {field.label}
                   </option>
                 ))}
+                {isLegacyIDField(condition.field) ? (
+                  <option value={condition.field}>
+                    {legacyFieldLabel(condition.field)} (existing rule)
+                  </option>
+                ) : null}
               </select>
             </label>
             <label>
@@ -376,7 +381,7 @@ function conditionInputFromDraft(
 }
 
 function ruleValueFromDraft(condition: DraftCondition): RuleValue {
-  if (condition.field === "title") {
+  if (isNameField(condition.field)) {
     return { kind: "text", text: condition.value.trim() };
   }
   if (condition.field === "explicit") {
@@ -489,7 +494,7 @@ function defaultOperator(field: RuleField): RuleOperator {
 }
 
 function operatorsFor(field: RuleField) {
-  if (field === "title") {
+  if (isNameField(field)) {
     return [
       { value: "contains" as const, label: "contains" },
       { value: "equals" as const, label: "equals" },
@@ -507,9 +512,37 @@ function operatorsFor(field: RuleField) {
   ];
 }
 
+function isNameField(field: RuleField): boolean {
+  return ["title", "artist", "album", "genre", "mood"].includes(field);
+}
+
+function isLegacyIDField(field: RuleField): boolean {
+  return ["artist_id", "album_id", "genre_id", "mood_id"].includes(field);
+}
+
+function legacyFieldLabel(field: RuleField): string {
+  return `${field.slice(0, -3)} ID`;
+}
+
 function valuePlaceholder(condition: DraftCondition) {
-  if (condition.field === "title") return "e.g. live";
-  if (condition.field === "release_year") return "e.g. 2020";
-  if (condition.field === "duration_ms") return "e.g. 180000";
-  return condition.operator === "in" ? "Comma-separated UUIDs" : "Catalog UUID";
+  switch (condition.field) {
+    case "title":
+      return "e.g. live";
+    case "artist":
+      return "e.g. Lauryn Hill";
+    case "album":
+      return "e.g. The Miseducation of Lauryn Hill";
+    case "genre":
+      return "e.g. Hip Hop";
+    case "mood":
+      return "e.g. Energetic";
+    case "release_year":
+      return "e.g. 2020";
+    case "duration_ms":
+      return "e.g. 180000";
+    default:
+      return condition.operator === "in"
+        ? "Comma-separated UUIDs"
+        : "Catalog UUID";
+  }
 }

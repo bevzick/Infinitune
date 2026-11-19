@@ -34,6 +34,11 @@ export type PlaylistTrackPage = { items: PlaylistTrack[]; page: Page };
 export type RuleLogic = "AND" | "OR";
 export type RuleField =
   | "title"
+  | "artist"
+  | "album"
+  | "genre"
+  | "mood"
+  // Existing UUID-based criteria remain readable and editable.
   | "artist_id"
   | "album_id"
   | "genre_id"

@@ -55,19 +55,25 @@ func trackFilterPredicate(filter metadata.TrackFilter, arguments *[]any) (string
 	case metadata.TrackFilterTitle:
 		return titleFilterPredicate(filter, arguments)
 	case metadata.TrackFilterArtistID:
-		return relationFilterPredicate(
-			filter, arguments, "catalog.track_artists", "ta", "artist_id",
-		)
+		if filter.Value.Kind == metadata.TrackFilterValueText {
+			return namedRelationFilterPredicate(filter, arguments, "catalog.track_artists", "ta", "artist_id", "catalog.artists", "a", "name")
+		}
+		return relationFilterPredicate(filter, arguments, "catalog.track_artists", "ta", "artist_id")
 	case metadata.TrackFilterAlbumID:
+		if filter.Value.Kind == metadata.TrackFilterValueText {
+			return namedAlbumFilterPredicate(filter, arguments)
+		}
 		return directUUIDFilterPredicate(filter, arguments, "t.album_id")
 	case metadata.TrackFilterGenreID:
-		return relationFilterPredicate(
-			filter, arguments, "catalog.track_genres", "tg", "genre_id",
-		)
+		if filter.Value.Kind == metadata.TrackFilterValueText {
+			return namedRelationFilterPredicate(filter, arguments, "catalog.track_genres", "tg", "genre_id", "catalog.genres", "g", "name")
+		}
+		return relationFilterPredicate(filter, arguments, "catalog.track_genres", "tg", "genre_id")
 	case metadata.TrackFilterMoodID:
-		return relationFilterPredicate(
-			filter, arguments, "catalog.track_moods", "tm", "mood_id",
-		)
+		if filter.Value.Kind == metadata.TrackFilterValueText {
+			return namedRelationFilterPredicate(filter, arguments, "catalog.track_moods", "tm", "mood_id", "catalog.moods", "m", "name")
+		}
+		return relationFilterPredicate(filter, arguments, "catalog.track_moods", "tm", "mood_id")
 	case metadata.TrackFilterReleaseYear:
 		return integerFilterPredicate(
 			filter, arguments, "EXTRACT(YEAR FROM t.release_date)::integer",
@@ -136,6 +142,55 @@ func relationFilterPredicate(
 	}
 	return "EXISTS (SELECT 1 FROM " + table + " AS " + alias +
 		" WHERE " + alias + ".track_id = t.id AND " + relationPredicate + ")", nil
+}
+
+// The relation and column identifiers below are constants selected by the field
+// switch above, never supplied by the client.
+func namedRelationFilterPredicate(
+	filter metadata.TrackFilter,
+	arguments *[]any,
+	relationTable, relationAlias, foreignKey, namedTable, namedAlias, nameColumn string,
+) (string, error) {
+	namePredicate, err := nameFilterPredicate(filter, arguments, namedAlias+"."+nameColumn)
+	if err != nil {
+		return "", err
+	}
+	// Taxonomy slugs often use dashes (e.g. hip-hop), while users type
+	// spaces (hip hop). Accept either the display name or its slug.
+	if filter.Operator == metadata.TrackFilterEquals &&
+		(namedTable == "catalog.genres" || namedTable == "catalog.moods") {
+		namePredicate = "(" + namePredicate + " OR " + namedAlias +
+			".slug = regexp_replace(lower($" + fmt.Sprint(len(*arguments)) +
+			"::text), '[[:space:]]+', '-', 'g'))"
+	}
+	return "EXISTS (SELECT 1 FROM " + relationTable + " AS " + relationAlias +
+		" JOIN " + namedTable + " AS " + namedAlias +
+		" ON " + namedAlias + ".id = " + relationAlias + "." + foreignKey +
+		" WHERE " + relationAlias + ".track_id = t.id AND " + namePredicate + ")", nil
+}
+
+func namedAlbumFilterPredicate(filter metadata.TrackFilter, arguments *[]any) (string, error) {
+	namePredicate, err := nameFilterPredicate(filter, arguments, "a.title")
+	if err != nil {
+		return "", err
+	}
+	return "EXISTS (SELECT 1 FROM catalog.albums AS a WHERE a.id = t.album_id AND " + namePredicate + ")", nil
+}
+
+func nameFilterPredicate(filter metadata.TrackFilter, arguments *[]any, column string) (string, error) {
+	if filter.Value.Kind != metadata.TrackFilterValueText {
+		return "", unsupportedTrackFilter(filter)
+	}
+	switch filter.Operator {
+	case metadata.TrackFilterEquals:
+		placeholder := appendFilterArgument(arguments, filter.Value.Text)
+		return "lower(" + column + ") = lower(" + placeholder + "::text)", nil
+	case metadata.TrackFilterContains:
+		placeholder := appendFilterArgument(arguments, escapeLike(filter.Value.Text))
+		return column + " ILIKE ('%' || " + placeholder + "::text || '%') ESCAPE '\\'", nil
+	default:
+		return "", unsupportedTrackFilter(filter)
+	}
 }
 
 func integerFilterPredicate(

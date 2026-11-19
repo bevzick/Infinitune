@@ -64,6 +64,33 @@ func TestDynamicResolverMapsRulesAndTrackPage(t *testing.T) {
 	}
 }
 
+func TestDynamicResolverMapsNameRulesToCatalogTextFilters(t *testing.T) {
+	client := &filterClientStub{response: &catalogv1.EvaluateTrackFiltersResponse{
+		Tracks: []*catalogv1.Track{}, Page: &catalogv1.Page{Limit: 20},
+	}}
+	ruleSet := rules.RuleSet{Logic: rules.LogicAnd, Conditions: []rules.Condition{
+		{Field: rules.FieldArtist, Operator: rules.OperatorEquals, Value: rules.TextValue("Lauryn Hill")},
+		{Field: rules.FieldAlbum, Operator: rules.OperatorContains, Value: rules.TextValue("Miseducation")},
+		{Field: rules.FieldGenre, Operator: rules.OperatorEquals, Value: rules.TextValue("Hip Hop")},
+		{Field: rules.FieldMood, Operator: rules.OperatorContains, Value: rules.TextValue("energetic")},
+	}}
+	if _, err := NewDynamicResolver(client).Resolve(context.Background(), ruleSet, playlist.PageRequest{Limit: 20}); err != nil {
+		t.Fatalf("Resolve() error = %v", err)
+	}
+	wantFields := []catalogv1.TrackFilterField{
+		catalogv1.TrackFilterField_TRACK_FILTER_FIELD_ARTIST_ID,
+		catalogv1.TrackFilterField_TRACK_FILTER_FIELD_ALBUM_ID,
+		catalogv1.TrackFilterField_TRACK_FILTER_FIELD_GENRE_ID,
+		catalogv1.TrackFilterField_TRACK_FILTER_FIELD_MOOD_ID,
+	}
+	wantValues := []string{"Lauryn Hill", "Miseducation", "Hip Hop", "energetic"}
+	for index, filter := range client.request.GetFilters() {
+		if filter.GetField() != wantFields[index] || filter.GetValue().GetText() != wantValues[index] {
+			t.Fatalf("filter[%d] = %+v", index, filter)
+		}
+	}
+}
+
 func TestDynamicResolverReturnsNonNilEmptyPage(t *testing.T) {
 	client := &filterClientStub{response: &catalogv1.EvaluateTrackFiltersResponse{
 		Tracks: []*catalogv1.Track{}, Page: &catalogv1.Page{Limit: 20},

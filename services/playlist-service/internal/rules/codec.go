@@ -110,7 +110,7 @@ func DecodeValue(field Field, operator Operator, document []byte) (Value, error)
 
 func expectedValueKind(field Field, operator Operator) (ValueKind, error) {
 	switch field {
-	case FieldTitle:
+	case FieldTitle, FieldArtist, FieldAlbum, FieldGenre, FieldMood:
 		return ValueText, nil
 	case FieldArtistID, FieldAlbumID, FieldGenreID, FieldMoodID:
 		if operator == OperatorIn {
