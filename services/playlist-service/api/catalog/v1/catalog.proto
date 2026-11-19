@@ -33,6 +33,9 @@ enum FilterLogic {
   FILTER_LOGIC_OR = 2;
 }
 
+// Relation *_ID fields accept UUID/UUIDList values for legacy filtering,
+// or a text value (equals/contains) to match names in related catalog tables.
+// Album text values match the album title. This preserves the wire enum.
 enum TrackFilterField {
   TRACK_FILTER_FIELD_UNSPECIFIED = 0;
   TRACK_FILTER_FIELD_TITLE = 1;

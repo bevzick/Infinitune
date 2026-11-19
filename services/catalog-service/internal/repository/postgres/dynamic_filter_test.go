@@ -35,6 +35,39 @@ func TestDynamicTrackPredicateParameterizesValues(t *testing.T) {
 	}
 }
 
+func TestNameFiltersUseParameterizedCatalogRelations(t *testing.T) {
+	t.Parallel()
+	filters := []struct {
+		field    metadata.TrackFilterField
+		fragment string
+	}{
+		{metadata.TrackFilterArtistID, "JOIN catalog.artists AS a"},
+		{metadata.TrackFilterAlbumID, "FROM catalog.albums AS a"},
+		{metadata.TrackFilterGenreID, "JOIN catalog.genres AS g"},
+		{metadata.TrackFilterMoodID, "JOIN catalog.moods AS m"},
+	}
+	maliciousName := `Hip%_\' OR TRUE --`
+	for _, test := range filters {
+		for _, operator := range []metadata.TrackFilterOperator{metadata.TrackFilterEquals, metadata.TrackFilterContains} {
+			arguments := []any{}
+			predicate, err := trackFilterPredicate(metadata.TrackFilter{
+				Field: test.field, Operator: operator, Value: metadata.TextFilterValue(maliciousName),
+			}, &arguments)
+			if err != nil || !strings.Contains(predicate, test.fragment) || !strings.Contains(predicate, "$1") ||
+				strings.Contains(predicate, maliciousName) || len(arguments) != 1 {
+				t.Fatalf("filter %s/%s: SQL = %q, args = %#v, err = %v", test.field, operator, predicate, arguments, err)
+			}
+			want := maliciousName
+			if operator == metadata.TrackFilterContains {
+				want = escapeLike(maliciousName)
+			}
+			if arguments[0] != want {
+				t.Fatalf("arguments = %#v, want %q", arguments, want)
+			}
+		}
+	}
+}
+
 func TestTrackFilterPredicateUsesAllowlistedFragments(t *testing.T) {
 	t.Parallel()
 

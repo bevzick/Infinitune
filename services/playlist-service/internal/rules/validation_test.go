@@ -94,6 +94,15 @@ func TestNewRejectsUnsupportedFieldOperatorAndValueCombinations(t *testing.T) {
 		{name: "blank title", condition: ConditionInput{
 			Field: FieldTitle, Operator: OperatorContains, Value: TextValue("  "),
 		}},
+		{name: "name field with UUID", condition: ConditionInput{
+			Field: FieldGenre, Operator: OperatorEquals, Value: UUIDValue(uuid.New()),
+		}},
+		{name: "name field with in operator", condition: ConditionInput{
+			Field: FieldArtist, Operator: OperatorIn, Value: TextValue("Lauryn Hill"),
+		}},
+		{name: "name field blank", condition: ConditionInput{
+			Field: FieldMood, Operator: OperatorContains, Value: TextValue("   "),
+		}},
 		{name: "UUID with text value", condition: ConditionInput{
 			Field: FieldArtistID, Operator: OperatorEquals, Value: TextValue(uuid.NewString()),
 		}},
