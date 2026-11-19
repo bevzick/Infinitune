@@ -40,6 +40,8 @@ curl --fail --silent --show-error "${base_url}/library" |
 
 headers=$(curl --fail --silent --show-error --head "${base_url}/")
 printf '%s\n' "$headers" | grep --ignore-case --quiet '^Content-Security-Policy:'
+# Selected cover previews use URL.createObjectURL(), so img-src must allow blob:.
+printf '%s\n' "$headers" | grep --ignore-case '^Content-Security-Policy:' | grep --quiet 'img-src[^;]*blob:'
 printf '%s\n' "$headers" | grep --ignore-case --quiet '^X-Content-Type-Options: nosniff'
 printf '%s\n' "$headers" | grep --ignore-case --quiet '^X-Frame-Options: DENY'
 
