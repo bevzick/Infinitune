@@ -59,6 +59,24 @@ The same isolated journey runs in GitHub Actions when one of the participating
 services, Kong routes, or Compose definitions changes. Failed runs print only
 the relevant service logs before removing all containers and volumes.
 
+## Dynamic playlist criteria
+
+In the playlist rule builder, use **Artist name**, **Album title**, **Genre name**,
+**Mood name**, or **Track title** with `equals` (case-insensitive) or
+`contains` (case-insensitive substring). For example, a genre rule can be:
+
+```json
+{"field":"genre","operator":"equals","value":{"kind":"text","text":"hip hop"}}
+```
+
+Taxonomy filters also accept a genre/mood slug (such as `hip-hop`) for an exact
+match. Rule sets still have UUID identifiers internally, but the user does not
+need to enter a catalog UUID for new rules. Older persisted `*_id` rules using
+`uuid` / `uuid_list` remain supported and are shown as existing rules when
+editing. No database migration is required: rule field names and values are
+stored as text and JSON, respectively. Update the playlist-service and
+catalog-service together so the catalog understands name filters.
+
 ## Creator content publishing
 
 The creator workflow covers account verification, release drafts, track

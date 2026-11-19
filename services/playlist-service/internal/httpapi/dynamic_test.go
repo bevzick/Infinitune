@@ -82,6 +82,29 @@ func TestCreateDynamicPlaylistUsesExplicitTypedCriteria(t *testing.T) {
 	}
 }
 
+func TestCreateDynamicPlaylistAcceptsReadableNames(t *testing.T) {
+	actorID := uuid.New()
+	service := &dynamicPlaylistsStub{result: playlist.DynamicPlaylist{Playlist: playlist.Playlist{
+		ID: uuid.New(), OwnerID: actorID, Name: "Hip Hop", Type: playlist.TypeDynamic,
+	}, RuleSet: rules.RuleSet{ID: uuid.New(), OwnerID: actorID, Name: "Names", Logic: rules.LogicAnd}}}
+	dependencies := testDependencies(databaseStub{})
+	dependencies.Tokens = identityVerifierStub{identity: identity.Identity{UserID: actorID}}
+	dependencies.DynamicPlaylists = service
+	request := httptest.NewRequest(http.MethodPost, "/v1/playlists/dynamic", strings.NewReader(`{
+		"name":"Hip Hop", "criteria":{"name":"Names", "logic":"AND", "conditions":[
+			{"field":"genre", "operator":"equals", "value":{"kind":"text", "text":"Hip Hop"}},
+			{"field":"artist", "operator":"contains", "value":{"kind":"text", "text":"Hill"}}
+		]}}`))
+	request.Header.Set("Authorization", "Bearer valid")
+	response := httptest.NewRecorder()
+	NewRouter(dependencies).ServeHTTP(response, request)
+	if response.Code != http.StatusCreated || len(service.createInput.Criteria.Conditions) != 2 ||
+		service.createInput.Criteria.Conditions[0].Value.Text != "Hip Hop" ||
+		service.createInput.Criteria.Conditions[1].Value.Text != "Hill" {
+		t.Fatalf("status = %d, criteria = %+v, body = %s", response.Code, service.createInput.Criteria, response.Body.String())
+	}
+}
+
 func TestDynamicCriteriaRoutesRequireOwnerAndPreserveTypedValue(t *testing.T) {
 	actorID := uuid.New()
 	playlistID := uuid.New()

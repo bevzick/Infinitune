@@ -76,10 +76,10 @@ func build(ruleSetID uuid.UUID, ownerID uuid.UUID, input CreateInput) (RuleSet, 
 func validateCondition(input ConditionInput, index int) (ConditionInput, error) {
 	fieldPath := fmt.Sprintf("conditions[%d]", index)
 	switch input.Field {
-	case FieldTitle:
+	case FieldTitle, FieldArtist, FieldAlbum, FieldGenre, FieldMood:
 		if input.Operator != OperatorContains && input.Operator != OperatorEquals {
 			return ConditionInput{}, validationError(fieldPath+".operator",
-				"title supports contains or equals")
+				"text fields support contains or equals")
 		}
 		if input.Value.Kind != ValueText {
 			return ConditionInput{}, valueKindError(fieldPath, ValueText)

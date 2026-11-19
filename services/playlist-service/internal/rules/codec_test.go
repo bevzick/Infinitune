@@ -18,6 +18,10 @@ func TestRuleValueCodecRoundTrip(t *testing.T) {
 		value    Value
 	}{
 		{name: "text", field: FieldTitle, operator: OperatorContains, value: TextValue("ambient")},
+		{name: "artist name", field: FieldArtist, operator: OperatorEquals, value: TextValue("Lauryn Hill")},
+		{name: "album title", field: FieldAlbum, operator: OperatorContains, value: TextValue("Miseducation")},
+		{name: "genre name", field: FieldGenre, operator: OperatorEquals, value: TextValue("Hip Hop")},
+		{name: "mood name", field: FieldMood, operator: OperatorContains, value: TextValue("Energy")},
 		{name: "UUID", field: FieldArtistID, operator: OperatorEquals, value: UUIDValue(idOne)},
 		{name: "UUID list", field: FieldGenreID, operator: OperatorIn, value: UUIDListValue(idOne, idTwo)},
 		{name: "integer", field: FieldReleaseYear, operator: OperatorGreaterThanOrEqual, value: IntegerValue(2020)},

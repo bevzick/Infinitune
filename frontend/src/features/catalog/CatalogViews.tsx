@@ -54,6 +54,16 @@ export function TrackList({
             {track.genres.slice(0, 2).map((genre) => (
               <span key={genre.id}>{genre.name}</span>
             ))}
+            {track.genres.length > 2 ? (
+              <span
+                title={track.genres
+                  .slice(2)
+                  .map((genre) => genre.name)
+                  .join(", ")}
+              >
+                +{track.genres.length - 2}
+              </span>
+            ) : null}
           </div>
           {track.explicit ? <span className="explicit-mark">E</span> : null}
           <InteractionButton kind="track" id={track.id} label={track.title} />

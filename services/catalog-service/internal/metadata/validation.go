@@ -204,7 +204,18 @@ func validateTrackFilter(filter TrackFilter, index int) (TrackFilter, error) {
 			return TrackFilter{}, validationError(path+".value", "must contain at most 200 characters")
 		}
 	case TrackFilterArtistID, TrackFilterAlbumID, TrackFilterGenreID, TrackFilterMoodID:
-		if err := validateUUIDTrackFilter(filter, path); err != nil {
+		// Text queries match human-readable names; UUID queries are retained for
+		// existing playlists stored before name-based criteria were introduced.
+		if filter.Value.Kind == TrackFilterValueText {
+			if filter.Operator != TrackFilterEquals && filter.Operator != TrackFilterContains {
+				return TrackFilter{}, validationError(path+".operator", "name supports equals or contains")
+			}
+			filter.Value.Text = strings.TrimSpace(filter.Value.Text)
+			if filter.Value.Text == "" || !utf8.ValidString(filter.Value.Text) ||
+				utf8.RuneCountInString(filter.Value.Text) > 200 {
+				return TrackFilter{}, validationError(path+".value", "name must contain from 1 to 200 characters")
+			}
+		} else if err := validateUUIDTrackFilter(filter, path); err != nil {
 			return TrackFilter{}, err
 		}
 	case TrackFilterReleaseYear:

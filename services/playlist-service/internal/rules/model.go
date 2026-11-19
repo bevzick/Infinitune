@@ -23,6 +23,10 @@ type Field string
 
 const (
 	FieldTitle       Field = "title"
+	FieldArtist      Field = "artist"
+	FieldAlbum       Field = "album"
+	FieldGenre       Field = "genre"
+	FieldMood        Field = "mood"
 	FieldArtistID    Field = "artist_id"
 	FieldAlbumID     Field = "album_id"
 	FieldGenreID     Field = "genre_id"

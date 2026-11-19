@@ -124,13 +124,15 @@ func filterField(value rules.Field) (catalogv1.TrackFilterField, error) {
 	switch value {
 	case rules.FieldTitle:
 		return catalogv1.TrackFilterField_TRACK_FILTER_FIELD_TITLE, nil
-	case rules.FieldArtistID:
+	// Name-based rules share the catalog's relation field, but use a text value.
+	// Legacy UUID rules continue to use the same field with UUID values.
+	case rules.FieldArtist, rules.FieldArtistID:
 		return catalogv1.TrackFilterField_TRACK_FILTER_FIELD_ARTIST_ID, nil
-	case rules.FieldAlbumID:
+	case rules.FieldAlbum, rules.FieldAlbumID:
 		return catalogv1.TrackFilterField_TRACK_FILTER_FIELD_ALBUM_ID, nil
-	case rules.FieldGenreID:
+	case rules.FieldGenre, rules.FieldGenreID:
 		return catalogv1.TrackFilterField_TRACK_FILTER_FIELD_GENRE_ID, nil
-	case rules.FieldMoodID:
+	case rules.FieldMood, rules.FieldMoodID:
 		return catalogv1.TrackFilterField_TRACK_FILTER_FIELD_MOOD_ID, nil
 	case rules.FieldReleaseYear:
 		return catalogv1.TrackFilterField_TRACK_FILTER_FIELD_RELEASE_YEAR, nil
